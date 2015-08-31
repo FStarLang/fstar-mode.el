@@ -73,7 +73,7 @@
                                 ("'d" . ?δ) ("'e" . ?η))
   "Fstar symbols.")
 
-;;; font-lock
+;;; Font-Lock
 
 ;; Loosely derived from https://github.com/FStarLang/atom-fstar/blob/master/grammars/fstar.cson
 
@@ -153,8 +153,8 @@ sexp to span at most that many extra lines."
   (goto-char (match-end rewind-to))
   (match-end (or bound-to 0)))
 
-(defconst fstar-syntax-id (rx (? (or "#" "'"))
-                              symbol-start
+(defconst fstar-syntax-id (rx symbol-start
+                              (? (or "#" "'"))
                               letter (* (or wordchar (syntax symbol)))
                               (? "." (* (or wordchar (syntax symbol))))
                               symbol-end))
@@ -186,7 +186,9 @@ sexp to span at most that many extra lines."
             (up-list)
             (point))))
       (save-excursion
-        (forward-sexp)
+        (condition-case nil
+            (forward-sexp)
+          (error nil (forward-char)))
         (point))))
 
 (defun fstar-find-fun-and-args (bound)
@@ -210,7 +212,8 @@ sexp to span at most that many extra lines."
 
 (defconst fstar-syntax-additional
   (let ((id fstar-syntax-id))
-    `((fstar-find-subtype-annotation
+    `(
+      (fstar-find-subtype-annotation
        ("\\({\\)\\(\\(?:.\\|\n\\)+\\)\\(}\\)"
         (fstar-group-pre-matcher 2 2) nil
         (1 'font-lock-type-face append)
@@ -228,15 +231,18 @@ sexp to span at most that many extra lines."
        (2 'font-lock-function-name-face)
        (,id (fstar-subexpr-pre-matcher 2) nil
             (0 'font-lock-variable-name-face)))
+      (fstar-find-id-with-type
+       (1 'font-lock-variable-name-face)
+       (,id (fstar-id-with-type-pre-matcher) nil
+            (0 'font-lock-type-face)))
+      (,(concat "\\_<\\(type\\|kind\\)\\( +" id "\\)\\s-*$")
+       (1 'fstar-structure-face)
+       (2 'font-lock-function-name-face))
       (,(concat "\\_<\\(type\\|kind\\)\\( +" id "\\)[^=]+=")
        (1 'fstar-structure-face)
        (2 'font-lock-function-name-face)
        (,id (fstar-subexpr-pre-matcher 2) nil
             (0 'font-lock-variable-name-face)))
-      (fstar-find-id-with-type
-       (1 'font-lock-variable-name-face)
-       (,id (fstar-id-with-type-pre-matcher) nil
-            (0 'font-lock-type-face prepend)))
       ("\\(forall\\|exists\\) [^.]+\."
        (0 'font-lock-keyword-face)
        (,id (fstar-subexpr-pre-matcher 1) nil
@@ -295,7 +301,7 @@ sexp to span at most that many extra lines."
         (save-excursion (indent-line-to target))
       (indent-line-to target))))
 
-;;; fstar-mode
+;;; Main mode
 
 (defun fstar-setup-prettify ()
   "Setup prettify-symbols for use with F*."
@@ -321,6 +327,7 @@ sexp to span at most that many extra lines."
   (electric-indent-mode -1))
 
 (define-derived-mode fstar-mode prog-mode "F✪"
+  :syntax-table fstar-syntax-table
   (fstar-setup-fontlock)
   (fstar-setup-prettify)
   (fstar-setup-indentation)
@@ -328,7 +335,7 @@ sexp to span at most that many extra lines."
 
 (add-to-list 'auto-mode-alist '("\\.fst\\'" . fstar-mode))
 
-;;; footer
+;;; Footer
 
 (provide 'fstar-mode)
 ;;; fstar-mode.el ends here
