@@ -22,7 +22,7 @@ Copy the following into an empty buffer, and run <kbd>M-x eval-buffer</kbd>.
     (package-install-from-buffer)))
 ```
 
-Alternatively, use <kbd>M-:</kbd> to open the `eval-expression` buffer mini-buffer, and paste the snippet above.
+Alternatively, use <kbd>M-:</kbd> to open the `eval-expression` mini-buffer, and paste the snippet above.
 
 If `fstar` is not already in your path, set the `flycheck-fstar-executable` variable:
 
