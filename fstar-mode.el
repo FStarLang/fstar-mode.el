@@ -1,4 +1,4 @@
-;;; fstar-mode.el -- support for the F* language in Emacs -*- lexical-binding: t -*-
+;;; fstar-mode.el --- support for the F* language in Emacs -*- lexical-binding: t -*-
 
 ;; Copyright (C) 2015 Clément Pit--Claudel
 ;; Author: Clément Pit--Claudel <clement.pitclaudel@live.com>
@@ -326,6 +326,7 @@ sexp to span at most that many extra lines."
   (setq-local indent-line-function #'fstar-indent)
   (electric-indent-mode -1))
 
+;;;###autoload
 (define-derived-mode fstar-mode prog-mode "F✪"
   :syntax-table fstar-syntax-table
   (fstar-setup-fontlock)
@@ -333,7 +334,8 @@ sexp to span at most that many extra lines."
   (fstar-setup-indentation)
   (flycheck-mode))
 
-(add-to-list 'auto-mode-alist '("\\.fst\\'" . fstar-mode))
+;;;###autoload
+(add-to-list 'auto-mode-alist '("\\.fs[ity]\\'" . fstar-mode))
 
 ;;; Footer
 
