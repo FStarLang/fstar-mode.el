@@ -43,11 +43,11 @@
 
 ;;; Flycheck
 
-(flycheck-def-executable-var fstar "fstar")
+(flycheck-def-executable-var fstar "fstar.exe")
 
 (flycheck-define-command-checker 'fstar
   "Flycheck checker for F*."
-  :command '("fstar" source-inplace)
+  :command '("fstar.exe" source-inplace)
   :error-patterns
   `((error "ERROR: " (message) "near line " line ", character " column " in file " (file-name))
     (error (file-name) "(" line "," column "-" (+ (any digit)) "," (+ (any digit)) ")"
