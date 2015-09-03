@@ -250,8 +250,8 @@ sexp to span at most that many extra lines."
              (2 'font-lock-function-name-face append)
              (3 'fstar-attribute-face append)))
       ("%\\[" ("%\\[\\([^]]+\\)\\]"
-               (fstar-group-pre-matcher 1 0) nil
-               (1 'fstar-decreases-face append)))
+              (fstar-group-pre-matcher 1 0) nil
+              (1 'fstar-decreases-face append)))
       (,(concat "\\_<\\(let\\(?: +rec\\)?\\)\\(\\(?: +" id "\\)?\\) +[^=]+=")
        (1 'fstar-structure-face)
        (2 'font-lock-function-name-face)
@@ -343,9 +343,105 @@ sexp to span at most that many extra lines."
   (setq-local indent-line-function #'fstar-indent)
   (electric-indent-local-mode -1))
 
+;;; Interaction with the server
+
+(defconst fstar-subp--success "ok")
+(defconst fstar-subp--failure "nok")
+(defconst fstar-subp--done "\n#done-")
+
+(defconst fstar-subp--header "#push\n")
+(defconst fstar-subp--footer "\n#end #done-ok #done-nok\n")
+
+(defvar-local fstar-subp--process nil
+  "Interactive F* process running in the background.")
+
+(defmacro fstar-subp-log (format &rest args)
+  "Log a query or response.
+
+FORMAT and ARGS are as in `message'."
+  (declare (debug t))
+  `(message ,format ,@args))
+
+(defun fstar-subp-live-p (&optional proc)
+  "Return t if the PROC is a live F* subprocess.
+
+If PROC is nil, use the current buffer's `fstar-subp--process'."
+  (setq proc (or proc fstar-subp--process))
+  (and proc (process-live-p proc)))
+
+(defun fstar-subp-killed (proc)
+  (-when-let* ((procp proc)
+               (buf   (process-buffer proc))
+               (bufp  (buffer-live-p buf)))
+    (kill-buffer buf)))
+
+(defun fstar-subp-kill ()
+  (interactive)
+  (when (fstar-subp-live-p)
+    (kill-process fstar-subp--process)))
+
+(defun fstar-subp-sentinel (proc _signal)
+  "Hamdle signals from PROC."
+  (when (not (process-live-p proc))
+    (fstar-subp-killed proc)))
+
+(defmacro fstar-subp-with-dest-buffer (proc &rest body)
+  (declare (indent defun))
+  `(-when-let* ((livep    (fstar-subp-live-p ,proc))
+                (buf      (process-buffer ,proc))
+                (buflivep (buffer-live-p buf)))
+     (with-current-buffer buf
+       ,@body)))
+
+(defun fstar-subp-find-response (proc)
+  (goto-char (point-min))
+  (when (search-forward fstar-subp--done nil t)
+    (let* ((status        (cond
+                           ((looking-at fstar-subp--success) t)
+                           ((looking-at fstar-subp--failure) nil)))
+           (resp-beg      (point-min))
+           (resp-end      (point-at-bol))
+           (resp-real-end (point-at-eol))
+           (response      (buffer-substring resp-beg resp-end)))
+      (delete-region resp-beg resp-real-end)
+      (fstar-subp-log "RESPONSE [%s] [%s]" status response))))
+
+(defun fstar-subp-filter (proc string)
+  (fstar-subp-log "OUTPUT [%s]" string)
+  (fstar-subp-with-dest-buffer proc
+    (goto-char (point-max))
+    (insert string)
+    (fstar-subp-find-response proc)))
+
+(defun fstar-subp-make-buffer ()
+  (with-current-buffer (generate-new-buffer
+                        (format " *F* interactive for %s" (buffer-name)))
+    (buffer-disable-undo)
+    (current-buffer)))
+
+(defun fstar-subp-start ()
+  (unless (fstar-subp-started-p)
+    (let* ((buf (fstar-subp-make-buffer))
+           (proc (start-process "F* interactive" buf
+                                flycheck-fstar-executable "--in")))
+      (set-process-filter proc #'fstar-subp-filter)
+      (set-process-sentinel proc #'fstar-subp-sentinel)
+      (setq fstar-subp--process proc)))
+  t)
+
+(defun fstar-subp-send-region (beg end)
+  "Send the region between BEG and END to the inferior F* process."
+  (interactive "r")
+  (fstar-subp-start)
+  (let ((msg (concat fstar-subp--header
+                     (buffer-substring-no-properties beg end)
+                     fstar-subp--footer)))
+    (fstar-subp-log "QUERY [%s]" msg)
+    (process-send-string fstar-subp--process msg)))
+
 ;;; Comment syntax
 
-(defun fstar-syntactic-face-function-aux (_ _ _ in-string comment-depth _ _ _ comment-start-pos _)
+(defun fstar-syntactic-face-function-aux (_ _b _c in-string comment-depth _d _e _f comment-start-pos _)
   (cond (in-string font-lock-string-face)
         ((and comment-depth
               comment-start-pos
