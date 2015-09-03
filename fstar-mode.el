@@ -94,6 +94,13 @@
                                 ("'d" . ?δ) ("'e" . ?η))
   "Fstar symbols.")
 
+
+(defun fstar-setup-prettify ()
+  "Setup prettify-symbols for use with F*."
+  (setq-local prettify-symbols-alist (append fstar-symbols-alist
+                                             prettify-symbols-alist))
+  (prettify-symbols-mode))
+
 ;;; Font-Lock
 
 ;; Loosely derived from https://github.com/FStarLang/atom-fstar/blob/master/grammars/fstar.cson
@@ -154,8 +161,6 @@
   '((t :italic t))
   "Face used to highlight decreases clauses."
   :group 'fstar)
-
-(defvar-local should-cancel-match nil)
 
 (defun fstar-group-pre-matcher (prefix-len allowed-newlines)
   "Prepare for highlighting.
@@ -245,8 +250,8 @@ sexp to span at most that many extra lines."
              (2 'font-lock-function-name-face append)
              (3 'fstar-attribute-face append)))
       ("%\\[" ("%\\[\\([^]]+\\)\\]"
-              (fstar-group-pre-matcher 1 0) nil
-              (1 'fstar-decreases-face append)))
+               (fstar-group-pre-matcher 1 0) nil
+               (1 'fstar-decreases-face append)))
       (,(concat "\\_<\\(let\\(?: +rec\\)?\\)\\(\\(?: +" id "\\)?\\) +[^=]+=")
        (1 'fstar-structure-face)
        (2 'font-lock-function-name-face)
@@ -279,14 +284,15 @@ sexp to span at most that many extra lines."
 
 (defun fstar-setup-font-lock ()
   "Setup font-lock for use with F*."
-  (setq font-lock-defaults
-        `(((,fstar-syntax-constants    . 'font-lock-constant-face)
-           (,fstar-syntax-keywords     . 'font-lock-keyword-face)
-           (,fstar-syntax-builtins     . 'font-lock-builtin-face)
-           (,fstar-syntax-preprocessor . 'font-lock-preprocessor-face)
-           (,fstar-syntax-structure    . 'fstar-structure-face)
-           ,@fstar-syntax-additional)
-          nil nil))
+  (setq-local
+   font-lock-defaults
+   `(((,fstar-syntax-constants    . 'font-lock-constant-face)
+      (,fstar-syntax-keywords     . 'font-lock-keyword-face)
+      (,fstar-syntax-builtins     . 'font-lock-builtin-face)
+      (,fstar-syntax-preprocessor . 'font-lock-preprocessor-face)
+      (,fstar-syntax-structure    . 'fstar-structure-face)
+      ,@fstar-syntax-additional)
+     nil nil))
   (font-lock-set-defaults))
 
 ;;; Syntax table
