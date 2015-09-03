@@ -85,6 +85,10 @@
                 "open" "module")
               'symbols))
 
+(defconst fstar-syntax-preprocessor
+  (regexp-opt '("#set-options")
+              'symbols))
+
 (defconst fstar-syntax-keywords
   (regexp-opt '("and"
                 "forall" "exists"
@@ -189,21 +193,6 @@ sexp to span at most that many extra lines."
 (defun fstar-find-id (bound)
   (fstar-find-id-maybe-type bound nil))
 
-
-;; (defun fstar-id-with-type-pre-matcher ()
-;;   (or (save-excursion
-;;         (ignore-errors
-;;           (goto-char (match-beginning 0))
-;;           (skip-syntax-backward "-")
-;;           (when (eq (char-before) ?\()
-;;             (up-list)
-;;             (point))))
-;;       (save-excursion
-;;         (condition-case nil
-;;             (forward-sexp)
-;;           (error nil (forward-char)))
-;;         (point))))
-
 (defun fstar-find-fun-and-args (bound)
   (let ((found))
     (while (and (not found) (re-search-forward "\\_<fun\\_>" bound t))
@@ -229,13 +218,7 @@ sexp to span at most that many extra lines."
       (fstar-find-subtype-annotation
        ("{\\(\\(?:.\\|\n\\)+\\)}"
         (fstar-group-pre-matcher 2 5) nil
-        (1 'fstar-subtype-face append))
-       ;; ("\\({\\)\\(\\(?:.\\|\n\\)+\\)\\(}\\)"
-       ;; (fstar-group-pre-matcher 2 5) nil
-       ;; (1 'font-lock-type-face append)
-       ;; (2 'fstar-subtype-face append)
-       ;; (3 'font-lock-type-face append))
-       )
+        (1 'fstar-subtype-face append)))
       ("{:" (,(concat "\\({\\)\\(:" id "\\)\\(\\(?: +.+\\)?\\)\\(}\\)")
              (fstar-group-pre-matcher 2 2) nil
              (2 'font-lock-function-name-face append)
@@ -249,9 +232,7 @@ sexp to span at most that many extra lines."
        (fstar-find-id (fstar-subexpr-pre-matcher 2) nil
                       (1 'font-lock-variable-name-face)))
       (fstar-find-id-with-type
-       (1 'font-lock-variable-name-face)
-       ;; (,id (fstar-id-with-type-pre-matcher) nil (0 'font-lock-type-face))
-       )
+       (1 'font-lock-variable-name-face))
       (,(concat "\\_<\\(type\\|kind\\)\\( +" id "\\)\\s-*$")
        (1 'fstar-structure-face)
        (2 'font-lock-function-name-face))
@@ -270,13 +251,22 @@ sexp to span at most that many extra lines."
                       (1 'font-lock-variable-name-face)))
       (,(concat "\\_<\\(val\\) +\\(" id "\\) *:")
        (1 'fstar-structure-face)
-       (2 'font-lock-function-name-face)
-       ;; Type highlighting doesn't work too well
-       ;; (,id nil nil (0 'font-lock-type-face))
-       )
-      ;; Constructors and module calls use the same syntax
+       (2 'font-lock-function-name-face))
       (,fstar-syntax-cs (0 'font-lock-constant-face))
-      )))
+      ("(\\*--\\(build-config\\)"
+       (1 'font-lock-preprocessor-face prepend)))))
+
+(defun fstar-setup-font-lock ()
+  "Setup font-lock for use with F*."
+  (setq font-lock-defaults
+        `(((,fstar-syntax-constants    . 'font-lock-constant-face)
+           (,fstar-syntax-keywords     . 'font-lock-keyword-face)
+           (,fstar-syntax-builtins     . 'font-lock-builtin-face)
+           (,fstar-syntax-preprocessor . 'font-lock-preprocessor-face)
+           (,fstar-syntax-structure    . 'fstar-structure-face)
+           ,@fstar-syntax-additional)
+          nil nil))
+  (font-lock-set-defaults))
 
 ;;; Syntax table
 
