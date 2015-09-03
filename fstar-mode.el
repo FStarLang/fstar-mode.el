@@ -44,18 +44,39 @@
 
 (flycheck-def-executable-var fstar "fstar.exe")
 
+(defconst fstar-flycheck-patterns
+  (let ((fstar-pat '((message) "near line " line ", character " column " in file " (file-name)))
+        (z3-pat  '((file-name) "(" line "," column "-" (+ (any digit)) "," (+ (any digit)) ")"
+                   (* (any ": ")) (? "Error" (* (any " \n")))
+                   (message))))
+    `((error "ERROR: " ,@fstar-pat)
+      (warning "WARNING: " ,@fstar-pat)
+      (error ,@z3-pat))))
+
 (flycheck-define-command-checker 'fstar
   "Flycheck checker for F*."
   :command '("fstar.exe" source-inplace)
-  :error-patterns
-  `((error "ERROR: " (message) "near line " line ", character " column " in file " (file-name))
-    (error (file-name) "(" line "," column "-" (+ (any digit)) "," (+ (any digit)) ")"
-           (* (any ": ")) (? "Error" (* (any " \n")))
-           (message)))
+  :error-patterns fstar-flycheck-patterns
   :error-filter #'flycheck-increment-error-columns
   :modes '(fstar-mode))
 
 (add-to-list 'flycheck-checkers 'fstar)
+
+;;; Build config
+
+(defconst fstar-build-config-header "(*--build-config")
+(defconst fstar-build-config-footer "--*)")
+
+;; (defun fstar-read-build-config ()
+;;   (save-excursion
+;;     (save-restriction
+;;       (widen)
+;;       (goto-char (point-min))
+;;       (-when-let* ((beg (search-forward fstar-build-config-header nil t))
+;;                    (end (search-forward fstar-build-config-footer nil t)))))))
+
+(defun fstar-setup-flycheck ()
+  (flycheck-mode))
 
 ;;; Prettify symbols
 
@@ -159,7 +180,7 @@ sexp to span at most that many extra lines."
 
 (defconst fstar-syntax-id (rx symbol-start
                               (? (or "#" "'"))
-                              (any "a-z") (* (or wordchar (syntax symbol)))
+                              (any "a-z_") (* (or wordchar (syntax symbol)))
                               (? "." (* (or wordchar (syntax symbol))))
                               symbol-end))
 
@@ -311,44 +332,51 @@ sexp to span at most that many extra lines."
         (save-excursion (indent-line-to target))
       (indent-line-to target))))
 
-;;; Main mode
-
-(defun fstar-setup-prettify ()
-  "Setup prettify-symbols for use with F*."
-  (setq-local prettify-symbols-alist (append fstar-symbols-alist
-                                             prettify-symbols-alist))
-  (prettify-symbols-mode))
-
-(defun fstar-setup-fontlock ()
-  "Setup font-lock for use with F*."
-  (setq font-lock-defaults
-        `(((,fstar-syntax-constants . 'font-lock-constant-face)
-           ;; (,fstar-syntax-types     . 'font-lock-type-face)
-           (,fstar-syntax-keywords  . 'font-lock-keyword-face)
-           (,fstar-syntax-builtins  . 'font-lock-builtin-face)
-           (,fstar-syntax-structure . 'fstar-structure-face)
-           ,@fstar-syntax-additional)
-          nil nil))
-  (font-lock-set-defaults))
-
 (defun fstar-setup-indentation ()
   "Setup indentation for F*."
   (setq-local indent-line-function #'fstar-indent)
-  (electric-indent-mode -1))
+  (electric-indent-local-mode -1))
+
+;;; Comment syntax
+
+(defun fstar-syntactic-face-function-aux (_ _ _ in-string comment-depth _ _ _ comment-start-pos _)
+  (cond (in-string font-lock-string-face)
+        ((and comment-depth
+              comment-start-pos
+              (numberp comment-depth))
+         (save-excursion
+           (goto-char comment-start-pos)
+           (cond
+            ((looking-at (regexp-quote fstar-build-config-header)) font-lock-doc-face)
+            ((looking-at (regexp-quote "(*** ")) '(:inherit font-lock-doc-face :height 2.5))
+            ((looking-at (regexp-quote "(**+ ")) '(:inherit font-lock-doc-face :height 1.8))
+            ((looking-at (regexp-quote "(**! ")) '(:inherit font-lock-doc-face :height 1.5))
+            ((looking-at (regexp-quote "(** "))  font-lock-doc-face)
+            (t font-lock-comment-face))))))
+
+(defun fstar-syntactic-face-function (args)
+  (apply #'fstar-syntactic-face-function-aux args))
+
+(defun fstar-setup-comments ()
+  (setq-local comment-start      "(*")
+  (setq-local comment-end        "*)")
+  (setq-local comment-start-skip "\\s-*(\\*+\\s-**")
+  (setq-local comment-end-skip   "\\s-*\\*+)\\s-*")
+  (setq-local font-lock-syntactic-face-function #'fstar-syntactic-face-function))
+
+;;; Main mode
+
+(defcustom fstar-enabled-modules
+  '(font-lock prettify indentation comments flycheck)
+  "Which F* mode modules to load."
+  :group 'fstar)
 
 ;;;###autoload
-
-;; (defun fstar-setup-comments ()
-  ;; (setq-local comment)
-
 (define-derived-mode fstar-mode prog-mode "F✪"
   :syntax-table fstar-syntax-table
-  (fstar-setup-fontlock)
-  (fstar-setup-prettify)
-  (fstar-setup-indentation)
-  ;; (fstar-setup-comments)
-  ;; (flycheck-mode))
-  )
+  (dolist (module fstar-enabled-modules)
+    (funcall (intern (concat "fstar-setup-" (symbol-name module))))))
+
 ;;;###autoload
 (add-to-list 'auto-mode-alist '("\\.fs[ity]\\'" . fstar-mode))
 
