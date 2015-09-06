@@ -407,6 +407,28 @@ FORMAT and ARGS are as in `message'."
   (declare (debug t))
   `(message ,format ,@args))
 
+(defmacro fstar-subp-with-process-buffer (proc must-be-live &rest body)
+  "Move to PROC's buffer to eval BODY.
+
+If MUST-BE-LIVE is nil and PROC is dead, do not eval BODY."
+  (declare (indent defun) (debug t))
+  `(-when-let* ((livep    (or (not ,must-be-live) (fstar-subp-live-p ,proc)))
+                (buf      (process-buffer ,proc))
+                (buflivep (buffer-live-p buf)))
+     (with-current-buffer buf
+       ,@body)))
+
+(defmacro fstar-subp-with-source-buffer (proc must-be-live &rest body)
+  "Move to parent buffer of PROC to eval BODY.
+
+If MUST-BE-LIVE is nil and PROC is dead, do not eval BODY."
+  (declare (indent defun) (debug t))
+  `(-when-let* ((livep    (or (not ,must-be-live) (fstar-subp-live-p ,proc)))
+                (buf      (process-get ,proc 'fstar-subp-source-buffer))
+                (buflivep (buffer-live-p buf)))
+     (with-current-buffer buf
+       ,@body)))
+
 (defun fstar-subp-live-p (&optional proc)
   "Return t if the PROC is a live F* subprocess.
 
@@ -416,25 +438,25 @@ If PROC is nil, use the current buffer's `fstar-subp--process'."
 
 (defun fstar-subp-killed (proc)
   "Clean up buffer after PROC was killed."
-  (-when-let* ((procp proc)
-               (buf   (process-buffer proc))
-               (bufp  (buffer-live-p buf)))
-    (kill-buffer buf))
+  (fstar-subp-with-process-buffer proc nil
+    (kill-buffer))
   (fstar-subp-remove-tracking-overlays)
   (fstar-subp-remove-issues-overlays)
   (setq fstar-subp--busy-now nil
         fstar-subp--process nil))
 
-(defun fstar-subp-kill ()
-  "Kill F* subprocess and clean up buffer."
+(defun fstar-subp-kill (&optional proc)
+  "Kill F* subprocess PROC and clean up buffer."
   (interactive)
-  (when (fstar-subp-live-p)
-    (kill-process fstar-subp--process)
-    (accept-process-output fstar-subp--process 0.25 nil t))
-  (fstar-subp-killed fstar-subp--process))
+  (setq proc (or proc fstar-subp--process))
+  (when (fstar-subp-live-p proc)
+    (kill-process proc)
+    (accept-process-output proc 0.25 nil t))
+  (fstar-subp-with-source-buffer proc nil
+    (fstar-subp-killed proc)))
 
 (defun fstar-subp-sentinel (proc signal)
-  "Hamdle signals from PROC."
+  "Handle PROC's SIGNAL."
   (fstar-subp-log "SENTINEL [%s] [%s]" signal (process-status proc))
   (when (or (memq (process-status proc) '(exit signal))
 	    (not (process-live-p proc)))
@@ -447,24 +469,6 @@ If PROC is nil, use the current buffer's `fstar-subp--process'."
 (defun fstar-subp-remove-issues-overlays ()
   "Remove all F* overlays in the current buffer."
   (mapcar #'delete-overlay (fstar-subp-issues-overlays)))
-
-(defmacro fstar-subp-with-process-buffer (proc &rest body)
-  "Move to PROC's buffer to eval BODY."
-  (declare (indent defun) (debug t))
-  `(-when-let* ((livep    (fstar-subp-live-p ,proc))
-                (buf      (process-buffer ,proc))
-                (buflivep (buffer-live-p buf)))
-     (with-current-buffer buf
-       ,@body)))
-
-(defmacro fstar-subp-with-source-buffer (proc &rest body)
-  "Move to parent buffer of PROC to eval BODY."
-  (declare (indent defun) (debug t))
-  `(-when-let* ((livep    (fstar-subp-live-p ,proc))
-                (buf      (process-get ,proc 'fstar-subp-source-buffer))
-                (buflivep (buffer-live-p buf)))
-     (with-current-buffer buf
-       ,@body)))
 
 (defun fstar-subp-find-response (proc)
   "Find full response in PROC's buffer; handle it if found."
@@ -480,7 +484,7 @@ If PROC is nil, use the current buffer's `fstar-subp--process'."
       ;; string-trim is defined by flycheck if not present
       (fstar-subp-log "RESPONSE [%s] [%s]" status response)
       (delete-region resp-beg resp-real-end)
-      (fstar-subp-with-source-buffer proc
+      (fstar-subp-with-source-buffer proc t
         (fstar-subp-process-response status response)))))
 
 (defun fstar-subp-clear-issues ()
@@ -625,15 +629,21 @@ FIXME: This doesn't do error handling."
   "Handle PROC's output (STRING)."
   (when string
     (fstar-subp-log "OUTPUT [%s]" string)
-    (fstar-subp-with-process-buffer proc
+    (fstar-subp-with-process-buffer proc t
       (goto-char (point-max))
       (insert string)
       (fstar-subp-find-response proc))))
+
+(defun fstar-subp-buffer-killed ()
+  "Kill F* process associated to current buffer."
+  (-when-let* ((proc (get-buffer-process (current-buffer))))
+    (run-with-timer 0 nil #'fstar-subp-kill proc)))
 
 (defun fstar-subp-make-buffer ()
   "Create a buffer for the F* subprocess."
   (with-current-buffer (generate-new-buffer
                         (format " *F* interactive for %s" (buffer-name)))
+    (add-hook 'kill-buffer-hook #'fstar-subp-buffer-killed t t)
     (buffer-disable-undo)
     (current-buffer)))
 
