@@ -394,7 +394,7 @@ sexp to span at most that many extra lines."
   :group 'fstar)
 
 (defface fstar-subp-overlay-issue-face
-  '((t :underline (:color "red" :line wave)))
+  '((t :underline (:color "red" :style wave)))
   "Face used to highlight processed sections of the buffer."
   :group 'fstar)
 
