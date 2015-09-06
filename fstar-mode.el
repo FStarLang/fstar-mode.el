@@ -35,6 +35,14 @@
 (require 'cl-lib)
 (require 'flycheck)
 
+;;; Compatibility
+
+(defmacro fstar-assert (&rest args)
+  "Call `assert' on ARGS, if available."
+  (declare (debug t))
+  `(when (fboundp 'assert)
+     (assert ,@args)))
+
 ;;; Group
 
 (defgroup fstar nil
@@ -98,9 +106,11 @@
 
 (defun fstar-setup-prettify ()
   "Setup prettify-symbols for use with F*."
-  (setq-local prettify-symbols-alist (append fstar-symbols-alist
-                                             prettify-symbols-alist))
-  (prettify-symbols-mode))
+  (when (and (boundp 'prettify-symbols-alist)
+             (fboundp 'prettify-symbols-mode))
+    (setq-local prettify-symbols-alist (append fstar-symbols-alist
+                                               prettify-symbols-alist))
+    (prettify-symbols-mode)))
 
 ;;; Font-Lock
 
@@ -347,7 +357,8 @@ sexp to span at most that many extra lines."
 (defun fstar-setup-indentation ()
   "Setup indentation for F*."
   (setq-local indent-line-function #'fstar-indent)
-  (electric-indent-local-mode -1))
+  (when (fboundp 'electric-indent-local-mode)
+    (electric-indent-local-mode -1)))
 
 ;;; Interaction with the server (interactive mode)
 
@@ -566,11 +577,12 @@ FIXME: This doesn't do error handling."
     (overlay-put overlay 'face 'fstar-subp-overlay-issue-face)
     (overlay-put overlay 'help-echo (fstar-issue-message issue))
     (overlay-put overlay 'modification-hooks '(fstar-subp-remove-issue-overlay))
-    (pulse-momentary-highlight-region from to)))
+    (when (fboundp 'pulse-momentary-highlight-region)
+      (pulse-momentary-highlight-region from to))))
 
 (defun fstar-subp-highlight-issues (issues)
   "Highlight ISSUES whose name match that of the current buffer."
-  (assert issues)
+  (fstar-assert issues)
   (mapcar #'fstar-subp-highlight-issue issues))
 
 (defun fstar-subp-jump-to-issue (issue)
@@ -668,7 +680,7 @@ If STATUS is nil, return all fstar-subp overlays."
 
 (defun fstar-subp-set-status (overlay status)
   "Set status of OVERLAY to STATUS."
-  (assert (memq status fstar-subp-statuses))
+  (fstar-assert (memq status fstar-subp-statuses))
   (let ((inhibit-read-only t)
         (face-name (concat "fstar-subp-overlay-" (symbol-name status) "-face")))
     (overlay-put overlay 'fstar-subp-status status)
@@ -677,7 +689,7 @@ If STATUS is nil, return all fstar-subp overlays."
 
 (defun fstar-subp-process-overlay (overlay)
   "Send the contents of OVERLAY to the underlying F* process."
-  (assert (not fstar-subp--busy-now))
+  (fstar-assert (not fstar-subp--busy-now))
   (fstar-subp-set-status overlay 'busy)
   (setq fstar-subp--busy-now overlay)
   (fstar-subp-send-region (overlay-start overlay) (overlay-end overlay)))
@@ -709,7 +721,7 @@ If STATUS is nil, return all fstar-subp overlays."
 If NO-ERROR is set, do not report an error if the region is empty."
   (let ((beg (fstar-subp-unprocessed-beginning))
         (end (fstar-skip-spaces-backwards-from end)))
-    (assert (cl-loop for overlay in (overlays-in beg end)
+    (fstar-assert (cl-loop for overlay in (overlays-in beg end)
                      never (fstar-subp-tracking-overlay-p overlay)))
     (if (<= end beg)
         (unless no-error
@@ -738,7 +750,7 @@ If NO-ERROR is set, do not report an error if the region is empty."
 
 (defun fstar-subp-pop-overlay (overlay)
   "Remove overlay OVERLAY and issue the corresponding #pop command."
-  (assert (not fstar-subp--busy-now))
+  (fstar-assert (not fstar-subp--busy-now))
   (process-send-string fstar-subp--process fstar-subp--cancel)
   (delete-overlay overlay))
 
@@ -785,7 +797,8 @@ If NO-ERROR is set, do not report an error if the region is empty."
   (define-key fstar-mode-map (kbd "C-c C-n") #'fstar-subp-advance-next)
   (define-key fstar-mode-map (kbd "C-c C-u") #'fstar-subp-retract-last)
   (define-key fstar-mode-map (kbd "C-c C-p") #'fstar-subp-retract-last)
-  (define-key fstar-mode-map (kbd "C-c <C-return>") #'fstar-subp-advance-or-retract-to-point))
+  (define-key fstar-mode-map (kbd "C-c <C-return>") #'fstar-subp-advance-or-retract-to-point)
+  (flycheck-mode -1))
 
 ;;; Comment syntax
 
