@@ -642,7 +642,7 @@ FIXME: This doesn't do error handling."
 (defun fstar-subp-make-buffer ()
   "Create a buffer for the F* subprocess."
   (with-current-buffer (generate-new-buffer
-                        (format " *F* interactive for %s" (buffer-name)))
+                        (format " *F* interactive for %s*" (buffer-name)))
     (add-hook 'kill-buffer-hook #'fstar-subp-buffer-killed t t)
     (buffer-disable-undo)
     (current-buffer)))
