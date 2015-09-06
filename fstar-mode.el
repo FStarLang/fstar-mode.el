@@ -433,9 +433,11 @@ If PROC is nil, use the current buffer's `fstar-subp--process'."
     (accept-process-output fstar-subp--process 0.25 nil t))
   (fstar-subp-killed fstar-subp--process))
 
-(defun fstar-subp-sentinel (proc _signal)
+(defun fstar-subp-sentinel (proc signal)
   "Hamdle signals from PROC."
-  (when (not (process-live-p proc))
+  (fstar-subp-log "SENTINEL [%s] [%s]" signal (process-status proc))
+  (when (or (memq (process-status proc) '(exit signal))
+	    (not (process-live-p proc)))
     (fstar-subp-killed proc)))
 
 (defun fstar-subp-remove-tracking-overlays ()
@@ -622,7 +624,7 @@ FIXME: This doesn't do error handling."
 (defun fstar-subp-filter (proc string)
   "Handle PROC's output (STRING)."
   (when string
-    (fstar-subp-log "OUTPUT [%s]" (replace-regexp-in-string "\n" " // " string t t))
+    (fstar-subp-log "OUTPUT [%s]" string)
     (fstar-subp-with-process-buffer proc
       (goto-char (point-max))
       (insert string)
@@ -638,13 +640,21 @@ FIXME: This doesn't do error handling."
 (defun fstar-subp-start ()
   "Start an F* subprocess attached to the current buffer, if none exists."
   (unless fstar-subp--process
-    (let* ((buf (fstar-subp-make-buffer))
-           (proc (start-process "F* interactive" buf
-                                flycheck-fstar-executable "--in")))
-      (set-process-filter proc #'fstar-subp-filter)
-      (set-process-sentinel proc #'fstar-subp-sentinel)
-      (process-put proc 'fstar-subp-source-buffer (current-buffer))
-      (setq fstar-subp--process proc))))
+    (let* ((prog (or flycheck-fstar-executable
+                     (flycheck-checker-default-executable 'fstar)))
+           (prog-abs (and prog (executable-find prog))))
+      (unless (and prog-abs (file-exists-p prog-abs))
+        (user-error "F* executable not found; please set `fstar-flycheck-executable'"))
+      (unless (file-executable-p prog-abs)
+        (user-error "F* executable not executable; please check the value of `fstar-flycheck-executable'"))
+      (let* ((buf (fstar-subp-make-buffer))
+             (process-connection-type nil)
+             (proc (start-process "F* interactive" buf prog-abs "--in")))
+        (set-process-filter proc #'fstar-subp-filter)
+        (set-process-sentinel proc #'fstar-subp-sentinel)
+        (process-put proc 'fstar-subp-source-buffer (current-buffer))
+        (setq fstar-subp--process proc)
+        (message "[%s]" (process-status proc))))))
 
 (defun fstar-subp-send-region (beg end)
   "Send the region between BEG and END to the inferior F* process."
@@ -700,12 +710,14 @@ If STATUS is nil, return all fstar-subp overlays."
 (defun fstar-subp-process-overlay (overlay)
   "Send the contents of OVERLAY to the underlying F* process."
   (fstar-assert (not fstar-subp--busy-now))
+  (fstar-subp-start)
   (fstar-subp-set-status overlay 'busy)
   (setq fstar-subp--busy-now overlay)
   (fstar-subp-send-region (overlay-start overlay) (overlay-end overlay)))
 
 (defun fstar-subp-process-queue ()
   "Process the next pending overlay, if any."
+  (fstar-subp-start)
   (unless fstar-subp--busy-now
     (-if-let* ((overlay (car-safe (fstar-subp-tracking-overlays 'pending))))
         (progn (fstar-subp-log "Processing queue")
@@ -729,10 +741,11 @@ If STATUS is nil, return all fstar-subp overlays."
   "Mark region up to END busy, and enqueue the newly created overlay.
 
 If NO-ERROR is set, do not report an error if the region is empty."
+  (fstar-subp-start)
   (let ((beg (fstar-subp-unprocessed-beginning))
         (end (fstar-skip-spaces-backwards-from end)))
     (fstar-assert (cl-loop for overlay in (overlays-in beg end)
-                     never (fstar-subp-tracking-overlay-p overlay)))
+                           never (fstar-subp-tracking-overlay-p overlay)))
     (if (<= end beg)
         (unless no-error
           (user-error "Nothing to process!"))
@@ -752,6 +765,7 @@ If NO-ERROR is set, do not report an error if the region is empty."
 (defun fstar-subp-advance-next ()
   "Process buffer until `fstar-subp-block-sep'."
   (interactive)
+  (fstar-subp-start)
   (goto-char (fstar-subp-unprocessed-beginning))
   (fstar-subp-skip-comments-and-whitespace)
   (-if-let* ((next-start (re-search-forward fstar-subp-block-sep nil t)))
@@ -761,12 +775,14 @@ If NO-ERROR is set, do not report an error if the region is empty."
 (defun fstar-subp-pop-overlay (overlay)
   "Remove overlay OVERLAY and issue the corresponding #pop command."
   (fstar-assert (not fstar-subp--busy-now))
+  (fstar-assert (fstar-subp-live-p))
   (process-send-string fstar-subp--process fstar-subp--cancel)
   (delete-overlay overlay))
 
 (defun fstar-subp-retract-one (overlay)
   "Retract OVERLAY, with some error checking."
   (cond
+   ((not (fstar-subp-live-p)) (user-error "F* subprocess not started."))
    ((not overlay) (user-error "Nothing to retract"))
    ((fstar-subp-status-eq overlay 'pending) (delete-overlay overlay))
    ((fstar-subp-status-eq overlay 'busy) (user-error "Cannot retract busy region"))
@@ -785,6 +801,7 @@ If NO-ERROR is set, do not report an error if the region is empty."
 
 (defun fstar-subp-advance-until (pos)
   "Submit or retract blocks to/from prover until POS."
+  (fstar-subp-start)
   (save-excursion
     (goto-char (fstar-subp-unprocessed-beginning))
     (let ((found (cl-loop do (fstar-subp-skip-comments-and-whitespace)
@@ -796,6 +813,7 @@ If NO-ERROR is set, do not report an error if the region is empty."
 (defun fstar-subp-advance-or-retract-to-point ()
   "Advance or retract proof state to reach point."
   (interactive)
+  (fstar-subp-start)
   (let ((limit (fstar-subp-unprocessed-beginning)))
     (cond
      ((<= (point) limit) (fstar-subp-retract-until (point)))
