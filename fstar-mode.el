@@ -6,7 +6,7 @@
 
 ;; Created: 27 Aug 2015
 ;; Version: 0.1
-;; Package-Requires: ((flycheck "0.25") (emacs "24.3"))
+;; Package-Requires: ((flycheck "0.25") (emacs "24.3") (dash "2.11"))
 ;; Keywords: convenience, languages
 
 ;; This file is not part of GNU Emacs.
@@ -678,6 +678,12 @@ If STATUS is nil, return all fstar-subp overlays."
            when (fstar-subp-issue-overlay-p overlay)
            collect overlay))
 
+(defun fstar-subp-read-only-hook (&rest _args)
+  "Prevent modifications."
+  (unless inhibit-read-only
+    (error "Region is read-only")))
+(add-to-list 'debug-ignored-errors "Region is read-only")
+
 (defun fstar-subp-set-status (overlay status)
   "Set status of OVERLAY to STATUS."
   (fstar-assert (memq status fstar-subp-statuses))
@@ -685,7 +691,8 @@ If STATUS is nil, return all fstar-subp overlays."
         (face-name (concat "fstar-subp-overlay-" (symbol-name status) "-face")))
     (overlay-put overlay 'fstar-subp-status status)
     (overlay-put overlay 'face (intern face-name))
-    (overlay-put overlay 'read-only t))) ;;FIXME: Read-only
+    (overlay-put overlay 'insert-in-front-hooks '(fstar-subp-read-only-hook))
+    (overlay-put overlay 'modification-hooks '(fstar-subp-read-only-hook))))
 
 (defun fstar-subp-process-overlay (overlay)
   "Send the contents of OVERLAY to the underlying F* process."
