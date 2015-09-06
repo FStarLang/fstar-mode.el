@@ -430,7 +430,7 @@ If PROC is nil, use the current buffer's `fstar-subp--process'."
   (interactive)
   (when (fstar-subp-live-p)
     (kill-process fstar-subp--process)
-    (accept-process-output fstar-subp--process))
+    (accept-process-output fstar-subp--process 0.25 nil t))
   (fstar-subp-killed fstar-subp--process))
 
 (defun fstar-subp-sentinel (proc _signal)
