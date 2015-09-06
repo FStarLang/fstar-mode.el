@@ -650,11 +650,11 @@ FIXME: This doesn't do error handling."
       (let* ((buf (fstar-subp-make-buffer))
              (process-connection-type nil)
              (proc (start-process "F* interactive" buf prog-abs "--in")))
+        (set-process-query-on-exit-flag proc nil)
         (set-process-filter proc #'fstar-subp-filter)
         (set-process-sentinel proc #'fstar-subp-sentinel)
         (process-put proc 'fstar-subp-source-buffer (current-buffer))
-        (setq fstar-subp--process proc)
-        (message "[%s]" (process-status proc))))))
+        (setq fstar-subp--process proc)))))
 
 (defun fstar-subp-send-region (beg end)
   "Send the region between BEG and END to the inferior F* process."
@@ -748,7 +748,7 @@ If NO-ERROR is set, do not report an error if the region is empty."
                            never (fstar-subp-tracking-overlay-p overlay)))
     (if (<= end beg)
         (unless no-error
-          (user-error "Nothing to process!"))
+          (user-error "Nothing more to process!"))
       (let ((overlay (make-overlay beg end (current-buffer) nil nil)))
         (fstar-subp-set-status overlay 'pending)
         (fstar-subp-process-queue)))))
