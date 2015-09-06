@@ -384,12 +384,14 @@ sexp to span at most that many extra lines."
   :group 'fstar)
 
 (defface fstar-subp-overlay-busy-face
-  '((t :background "mediumorchid"))
+  '((((background light)) :background "mistyrose")
+    (((background dark))  :background "mediumorchid"))
   "Face used to highlight busy sections of the buffer."
   :group 'fstar)
 
 (defface fstar-subp-overlay-processed-face
-  '((t :background "darkslateblue"))
+  '((((background light)) :background "#eaf8ff")
+    (((background dark))  :background "darkslateblue"))
   "Face used to highlight processed sections of the buffer."
   :group 'fstar)
 
@@ -690,6 +692,7 @@ If STATUS is nil, return all fstar-subp overlays."
   (let ((inhibit-read-only t)
         (face-name (concat "fstar-subp-overlay-" (symbol-name status) "-face")))
     (overlay-put overlay 'fstar-subp-status status)
+    (overlay-put overlay 'priority -1) ;;FIXME this is not an allowed value
     (overlay-put overlay 'face (intern face-name))
     (overlay-put overlay 'insert-in-front-hooks '(fstar-subp-read-only-hook))
     (overlay-put overlay 'modification-hooks '(fstar-subp-read-only-hook))))
