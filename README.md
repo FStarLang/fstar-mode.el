@@ -48,5 +48,7 @@ Use <kbd>M-x customize-variable RET fstar-enabled-modules RET</kbd> to choose wh
 
 DejaVu Sans Mono, Symbola, FreeMono, STIX, Unifont, Segoe UI Symbol, Arial Unicode and Cambria Math are all good candidates. If Emacs doesn't pick up on the new fonts after a restart, the following snippet (add it to your .emacs) should help:
 
+```elisp
 (set-fontset-font t 'unicode (font-spec :name "YOUR USUAL EMACS FONT") nil 'append)
 (set-fontset-font t 'unicode (font-spec :name "SOME FONT WITH GOOD COVERAGE AS LISTED ABOVE") nil 'append)
+```
