@@ -453,8 +453,9 @@ If PROC is nil, use the current buffer's `fstar-subp--process'."
 (defun fstar-subp-kill-proc (proc)
   "Same as `fstar-subp-kill', but for PROC instead of `fstar-subp--process'."
   (fstar-subp-with-source-buffer proc
-    (assert (eq proc fstar-subp--process))
-    (fstar-subp-kill)))
+    (when fstar-subp--process
+      (assert (eq proc fstar-subp--process))
+      (fstar-subp-kill))))
 
 (defun fstar-subp-sentinel (proc signal)
   "Handle PROC's SIGNAL."
