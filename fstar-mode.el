@@ -740,8 +740,16 @@ If STATUS is nil, return all fstar-subp overlays."
            collect overlay))
 
 (defun fstar-in-comment-p ()
-  "Return non-nil if point is inside a comment"
+  "Return non-nil if point is inside a comment."
   (nth 4 (syntax-ppss)))
+
+(defun fstar-in-build-config-p ()
+  "Return non-nil if point is in build config comment."
+  (let ((state (syntax-ppss)))
+    (and (nth 4 state)
+         (save-excursion
+           (goto-char (nth 8 state))
+           (looking-at-p (regexp-quote fstar-build-config-header))))))
 
 (defun fstar-subp-overlay-attempt-modification (overlay &rest _args)
   "Allow or prevent attempts to modify OVERLAY.
@@ -750,9 +758,10 @@ Modifications are only allowed if it is safe to retract up to the beginning of t
   (let ((inhibit-modification-hooks t))
     (when (overlay-buffer overlay) ;; Hooks can be called multiple times
       (cond
-       ;; Always allow modifications in comments
+       ;; Always allow modifications in non-build-config comments
        ((fstar-in-comment-p)
-        t)
+        (when (fstar-in-build-config-p)
+          (fstar-subp-kill)))
        ;; Allow modifications (after retracting) in pending overlays, and in
        ;; processed overlays provided that F* isn't busy
        ((or (not fstar-subp--busy-now)
