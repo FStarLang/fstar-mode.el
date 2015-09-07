@@ -295,6 +295,7 @@ sexp to span at most that many extra lines."
 
 (defun fstar-setup-font-lock ()
   "Setup font-lock for use with F*."
+  (font-lock-mode)
   (setq-local
    font-lock-defaults
    `(((,fstar-syntax-constants    . 'font-lock-constant-face)
@@ -317,7 +318,8 @@ sexp to span at most that many extra lines."
     (modify-syntax-entry ?\" "\"" table)
     (modify-syntax-entry ?*  ". 23" table)
     (modify-syntax-entry ?/  ". 12b" table)
-    (modify-syntax-entry ?\n "> b" table)
+    (modify-syntax-entry ?\n  "> b" table)
+    (modify-syntax-entry ?\^m "> b" table)
     (modify-syntax-entry ?\( "()1n" table)
     (modify-syntax-entry ?\) ")(4n" table)
     table)
@@ -845,15 +847,14 @@ into blocks; process it as one large block instead."
 
 ;;; Comment syntax
 
-(defun fstar-syntactic-face-function-aux (_ _b _c in-string comment-depth _d _e _f comment-start-pos _g)
+(defun fstar-syntactic-face-function-aux (_ _b _c in-string _comment-depth _d _e _f comment-start-pos _g)
   "Choose face to display.
 
 Arguments IN-STRING COMMENT-DEPTH and COMMENT-START-POS ar as in
 `font-lock-syntactic-face-function'."
-  (cond (in-string font-lock-string-face)
-        ((and comment-depth
-              comment-start-pos
-              (numberp comment-depth))
+  (cond (in-string ;; Strings
+         font-lock-string-face)
+        (comment-start-pos ;; Comments ('//' doesnt have a comment-depth
          (save-excursion
            (goto-char comment-start-pos)
            (cond
@@ -869,9 +870,9 @@ Arguments IN-STRING COMMENT-DEPTH and COMMENT-START-POS ar as in
 
 (defun fstar-setup-comments ()
   "Set comment-related variables for F*."
-  (setq-local comment-start      "(*")
-  (setq-local comment-end        "*)")
-  (setq-local comment-start-skip "\\s-*(\\*+\\s-**")
+  (setq-local comment-start      "//")
+  (setq-local comment-end        "")
+  (setq-local comment-start-skip "\\s-*\\((\\*+\\|//\\)\\s-*")
   (setq-local comment-end-skip   "\\s-*\\*+)\\s-*")
   (setq-local font-lock-syntactic-face-function #'fstar-syntactic-face-function))
 
