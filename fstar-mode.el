@@ -648,6 +648,38 @@ FIXME: This doesn't do error handling."
     (buffer-disable-undo)
     (current-buffer)))
 
+(defcustom fstar-subp-prover-args nil
+  "Used for computing arguments to pass to F* in interactive mode.
+
+If set to a string, that string is considered to be a single
+argument to pass to F*. If set to a list of strings, each element
+of the list is passed to F*. If set to a function, that function
+is called in the current buffer without arguments, and expected
+to produce a string or a list of strings.
+
+Some examples:
+
+- (setq fstar-subp-prover-args \"--ab\") results in F* being
+called as 'fstar.exe --in --ab'.
+
+- (setq fstar-subp-prover-args '(\"--ab\" \"--cd\")) results in
+F* being called as 'fstar.exe --in --ab --cd'.
+
+- (setq fstar-subp-prover-args (lambda () '(\"--ab\" \"--cd\")))
+results in F* being called as 'fstar.exe --in --ab --cd'.
+
+To debug unexpected behaviours with this variable, try
+evaluating (fstar-subp-get-prover-args)."
+  :group 'fstar)
+
+(defun fstar-subp-get-prover-args ()
+  (let ((args (if (functionp fstar-subp-prover-args)
+                  (funcall fstar-subp-prover-args)
+                fstar-subp-prover-args)))
+    (cond ((listp args) args)
+          ((stringp args) (list args))
+          (t (user-error "Interpreting fstar-subp-prover-args led to invalid value [%s]" args)))))
+
 (defun fstar-subp-start ()
   "Start an F* subprocess attached to the current buffer, if none exists."
   (unless fstar-subp--process
@@ -660,7 +692,9 @@ FIXME: This doesn't do error handling."
         (user-error "F* executable not executable; please check the value of `fstar-flycheck-executable'"))
       (let* ((buf (fstar-subp-make-buffer))
              (process-connection-type nil)
-             (proc (start-process "F* interactive" buf prog-abs "--in")))
+             (args (cons "--in" (fstar-subp-get-prover-args)))
+             (proc (apply #'start-process "F* interactive" buf prog-abs args)))
+        (fstar-subp-log "Started F* interactive with arguments %s" args)
         (set-process-query-on-exit-flag proc nil)
         (set-process-filter proc #'fstar-subp-filter)
         (set-process-sentinel proc #'fstar-subp-sentinel)
