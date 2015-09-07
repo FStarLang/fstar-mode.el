@@ -580,7 +580,7 @@ FIXME: This doesn't do error handling."
                                    (fstar-issue-col-from issue)))
          (to (fstar-issue-offset (fstar-issue-line-to issue)
                                  (fstar-issue-col-to issue)))
-         (overlay (make-overlay from to (current-buffer) t nil)))
+         (overlay (make-overlay from (max to (1+ from)) (current-buffer) t nil)))
     (overlay-put overlay 'fstar-subp-issue t)
     (overlay-put overlay 'face 'fstar-subp-overlay-issue-face)
     (overlay-put overlay 'help-echo (fstar-issue-message issue))
