@@ -71,6 +71,9 @@
 
 (add-to-list 'flycheck-checkers 'fstar)
 
+(defun fstar-setup-flycheck ()
+  (flycheck-mode))
+
 ;;; Build config
 
 (defconst fstar-build-config-header "(*--build-config")
@@ -83,9 +86,6 @@
 ;;       (goto-char (point-min))
 ;;       (-when-let* ((beg (search-forward fstar-build-config-header nil t))
 ;;                    (end (search-forward fstar-build-config-footer nil t)))))))
-
-(defun fstar-setup-flycheck ()
-  (flycheck-mode))
 
 ;;; Prettify symbols
 
