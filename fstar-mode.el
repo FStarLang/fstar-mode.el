@@ -912,10 +912,13 @@ Arguments IN-STRING COMMENT-DEPTH and COMMENT-START-POS ar as in
   :type `(set ,@(cl-loop for (mod . desc) in fstar-known-modules
                          collect `(const :tag ,desc ,mod))))
 
+(defun fstar-setup-hooks ()
+  (add-hook 'before-revert-hook #'fstar-subp-kill nil t))
+
 ;;;###autoload
 (define-derived-mode fstar-mode prog-mode "F✪"
   :syntax-table fstar-syntax-table
-  (dolist (module fstar-enabled-modules)
+  (dolist (module (cons 'hooks fstar-enabled-modules))
     (funcall (intern (concat "fstar-setup-" (symbol-name module))))))
 
 ;;;###autoload
