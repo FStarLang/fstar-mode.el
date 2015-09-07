@@ -5,10 +5,10 @@
 Includes:
 
 * (Moderately complex) syntax highlighting
-* Prettification of mathematical symbols using `prettify-symbols-moe`
+* Basic (control-points-based) indentation
+* Prettification of mathematical symbols using `prettify-symbols-mode`
 * Real-time verification using `flycheck`
-
-Indentation support is still extremely rudimentary.
+* Experimental support for) interactive (Coq-style) verification [GH-3]
 
 ![Screenshot](img/fstar-mode.png)
 
@@ -39,6 +39,10 @@ Clone the repo to a directory of your choice `dir`. Add the following to your `.
 ```
 
 Make sure to install the dependencies: <kbd>M-x package-install RET flycheck RET</kbd> should do it.
+
+## Customization
+
+Use <kbd>M-x customize-variable RET fstar-enabled-modules RET</kbd> to choose which pars of fstar-mode to enable.
 
 ## Fonts
 
