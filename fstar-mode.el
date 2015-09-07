@@ -879,10 +879,19 @@ Arguments IN-STRING COMMENT-DEPTH and COMMENT-START-POS ar as in
 
 ;;; Main mode
 
-(defcustom fstar-enabled-modules
-  '(font-lock prettify indentation comments flycheck interactive)
+(defconst fstar-known-modules
+  '((font-lock   . "Syntax highlighting")
+    (prettify    . "Unicode math (e.g. display forall as ∀)")
+    (indentation . "Indentation (based on control points)")
+    (comments    . "Comment syntax and special comments ('(***', '(*+', etc.)")
+    (flycheck    . "Real-time verification (good for small files)")
+    (interactive . "Interactive verification (à la Proof-General)")))
+
+(defcustom fstar-enabled-modules (mapcar #'car fstar-known-modules)
   "Which F* mode modules to load."
-  :group 'fstar)
+  :group 'fstar
+  :type `(set ,@(cl-loop for (mod . desc) in fstar-known-modules
+                         collect `(const :tag ,desc ,mod))))
 
 ;;;###autoload
 (define-derived-mode fstar-mode prog-mode "F✪"
