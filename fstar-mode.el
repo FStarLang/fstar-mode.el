@@ -710,21 +710,22 @@ If STATUS is nil, return all fstar-subp overlays."
 
 Modifications are only allowed if it is safe to retract up to the beginning of the current overlay."
   (let ((inhibit-modification-hooks t))
-    (cond
-     ;; Always allow modifications in comments
-     ((fstar-in-comment-p)
-      t)
-     ;; Allow modifications (after retracting) in pending overlays, and in
-     ;; processed overlays provided that F* isn't busy
-     ((or (not fstar-subp--busy-now)
-          (fstar-subp-status-eq overlay 'pending))
-      (fstar-subp-retract-until (overlay-start overlay)))
-     ;; Disallow modifications in processed overlays when F* is busy
-     ((fstar-subp-status-eq overlay 'processed)
-      (user-error "Cannot retract a processed section while F* is busy."))
-     ;; Always disallow modifications in busy overlays
-     ((fstar-subp-status-eq overlay 'busy)
-      (user-error "Cannot retract a busy section.")))))
+    (when (overlay-buffer overlay) ;; Hooks can be called multiple times
+      (cond
+       ;; Always allow modifications in comments
+       ((fstar-in-comment-p)
+        t)
+       ;; Allow modifications (after retracting) in pending overlays, and in
+       ;; processed overlays provided that F* isn't busy
+       ((or (not fstar-subp--busy-now)
+            (fstar-subp-status-eq overlay 'pending))
+        (fstar-subp-retract-until (overlay-start overlay)))
+       ;; Disallow modifications in processed overlays when F* is busy
+       ((fstar-subp-status-eq overlay 'processed)
+        (user-error "Cannot retract a processed section while F* is busy."))
+       ;; Always disallow modifications in busy overlays
+       ((fstar-subp-status-eq overlay 'busy)
+        (user-error "Cannot retract a busy section."))))))
 
 (defun fstar-subp-set-status (overlay status)
   "Set status of OVERLAY to STATUS."
