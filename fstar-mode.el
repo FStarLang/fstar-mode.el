@@ -842,6 +842,7 @@ into blocks; process it as one large block instead."
   (define-key fstar-mode-map (kbd "C-c C-n") #'fstar-subp-advance-next)
   (define-key fstar-mode-map (kbd "C-c C-u") #'fstar-subp-retract-last)
   (define-key fstar-mode-map (kbd "C-c C-p") #'fstar-subp-retract-last)
+  (define-key fstar-mode-map (kbd "C-c RET") #'fstar-subp-advance-or-retract-to-point)
   (define-key fstar-mode-map (kbd "C-c <C-return>") #'fstar-subp-advance-or-retract-to-point)
   (flycheck-mode -1))
 
