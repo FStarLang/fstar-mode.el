@@ -90,19 +90,18 @@
 ;;; Prettify symbols
 
 (defconst fstar-symbols-alist '(("exists" . ?∃) ("forall" . ?∀) ("fun" . ?λ)
-                                ("nat" . ?ℕ) ("int" . ?ℤ)
-                                ("True" . ?⊤) ("False" . ?⊥)
-                                ("*" . ?×) ("~>" . ?↝)
-                                ("<=" . ?≤) (">=" . ?≥) ("::" . ?⸬)
-                                ("/\\" . ?∧) ("\\/" . ?∨) ("=!=" . ?≠)
-                                ("&&" . ?∧) ("||" . ?∨) ("<>" . ?≠)
-                                ("<==>" . ?⟺) ("==>" . ?⟹)
-                                ("=>" . ?⇒) ("->" . ?→)
-                                ;; ("(|" . 10629) ("|)" . 10630)
-                                ("'a" . ?α) ("'b" . ?β) ("'c" . ?γ)
-                                ("'d" . ?δ) ("'e" . ?η))
+                            ("nat" . ?ℕ) ("int" . ?ℤ)
+                            ("True" . ?⊤) ("False" . ?⊥)
+                            ("*" . ?×) ("~>" . ?↝)
+                            ("<=" . ?≤) (">=" . ?≥) ("::" . ?⸬)
+                            ("/\\" . ?∧) ("\\/" . ?∨) ("=!=" . ?≠)
+                            ("&&" . ?∧) ("||" . ?∨) ("<>" . ?≠)
+                            ("<==>" . ?⟺) ("==>" . ?⟹)
+                            ("=>" . ?⇒) ("->" . ?→)
+                            ;; ("(|" . 10629) ("|)" . 10630)
+                            ("'a" . ?α) ("'b" . ?β) ("'c" . ?γ)
+                            ("'d" . ?δ) ("'e" . ?η))
   "Fstar symbols.")
-
 
 (defun fstar-setup-prettify ()
   "Setup prettify-symbols for use with F*."
@@ -195,14 +194,14 @@ sexp to span at most that many extra lines."
   (match-end (or bound-to 0)))
 
 (defconst fstar-syntax-id (rx symbol-start
-                              (? (or "#" "'"))
-                              (any "a-z_") (* (or wordchar (syntax symbol)))
-                              (? "." (* (or wordchar (syntax symbol))))
-                              symbol-end))
+                          (? (or "#" "'"))
+                          (any "a-z_") (* (or wordchar (syntax symbol)))
+                          (? "." (* (or wordchar (syntax symbol))))
+                          symbol-end))
 
 (defconst fstar-syntax-cs (rx symbol-start
-                              (any "A-Z") (* (or wordchar (syntax symbol)))
-                              symbol-end))
+                          (any "A-Z") (* (or wordchar (syntax symbol)))
+                          symbol-end))
 
 (defun fstar-find-id-with-type (bound)
   (fstar-find-id-maybe-type bound t))
@@ -261,13 +260,13 @@ sexp to span at most that many extra lines."
              (2 'font-lock-function-name-face append)
              (3 'fstar-attribute-face append)))
       ("%\\[" ("%\\[\\([^]]+\\)\\]"
-               (fstar-group-pre-matcher 1 0) nil
-               (1 'fstar-decreases-face append)))
+              (fstar-group-pre-matcher 1 0) nil
+              (1 'fstar-decreases-face append)))
       (,(concat "\\_<\\(let\\(?: +rec\\)?\\)\\(\\(?: +" id "\\)?\\) +[^=]+=")
        (1 'fstar-structure-face)
        (2 'font-lock-function-name-face)
        (fstar-find-id (fstar-subexpr-pre-matcher 2) nil
-                      (1 'font-lock-variable-name-face)))
+                  (1 'font-lock-variable-name-face)))
       (fstar-find-id-with-type
        (1 'font-lock-variable-name-face))
       (,(concat "\\_<\\(type\\|kind\\)\\( +" id "\\)\\s-*$")
@@ -277,15 +276,15 @@ sexp to span at most that many extra lines."
        (1 'fstar-structure-face)
        (2 'font-lock-function-name-face)
        (fstar-find-id (fstar-subexpr-pre-matcher 2) nil
-                      (1 'font-lock-variable-name-face)))
+                  (1 'font-lock-variable-name-face)))
       ("\\_<\\(forall\\|exists\\) [^.]+\."
        (0 'font-lock-keyword-face)
        (fstar-find-id (fstar-subexpr-pre-matcher 1) nil
-                      (1 'font-lock-variable-name-face)))
+                  (1 'font-lock-variable-name-face)))
       (fstar-find-fun-and-args
        (1 'font-lock-keyword-face)
        (fstar-find-id (fstar-subexpr-pre-matcher 1) nil
-                      (1 'font-lock-variable-name-face)))
+                  (1 'font-lock-variable-name-face)))
       (,(concat "\\_<\\(val\\) +\\(" id "\\) *:")
        (1 'fstar-structure-face)
        (2 'font-lock-function-name-face))
@@ -579,9 +578,9 @@ FIXME: This doesn't do error handling."
 (defun fstar-subp-highlight-issue (issue)
   "Highlight ISSUE in current buffer."
   (let* ((from (fstar-issue-offset (fstar-issue-line-from issue)
-                                   (fstar-issue-col-from issue)))
+                               (fstar-issue-col-from issue)))
          (to (fstar-issue-offset (fstar-issue-line-to issue)
-                                 (fstar-issue-col-to issue)))
+                             (fstar-issue-col-to issue)))
          (overlay (make-overlay from (max to (1+ from)) (current-buffer) t nil)))
     (overlay-put overlay 'fstar-subp-issue t)
     (overlay-put overlay 'face 'fstar-subp-overlay-issue-face)
@@ -598,7 +597,7 @@ FIXME: This doesn't do error handling."
 (defun fstar-subp-jump-to-issue (issue)
   "Jump to ISSUE in current buffer."
   (goto-char (fstar-issue-offset (fstar-issue-line-from issue)
-                                 (fstar-issue-col-from issue))))
+                             (fstar-issue-col-from issue))))
 
 (defun fstar-subp-handle-failure (response overlay)
   "Process failure RESPONSE from F* subprocess for OVERLAY."
@@ -757,7 +756,7 @@ If NO-ERROR is set, do not report an error if the region is empty."
   (let ((beg (fstar-subp-unprocessed-beginning))
         (end (fstar-skip-spaces-backwards-from end)))
     (fstar-assert (cl-loop for overlay in (overlays-in beg end)
-                           never (fstar-subp-tracking-overlay-p overlay)))
+                       never (fstar-subp-tracking-overlay-p overlay)))
     (if (<= end beg)
         (unless no-error
           (user-error "Nothing more to process!"))
@@ -906,3 +905,7 @@ Arguments IN-STRING COMMENT-DEPTH and COMMENT-START-POS ar as in
 
 (provide 'fstar-mode)
 ;;; fstar-mode.el ends here
+
+;; Local Variables:
+;; nameless-aliases: (("f*" . "fstar"))
+;; End:
