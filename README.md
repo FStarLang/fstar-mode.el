@@ -37,3 +37,12 @@ Clone the repo to a directory of your choice `dir`. Add the following to your `.
 ```elisp
 (require 'fstar-mode "dir/fstar-mode.el")
 ```
+
+Make sure to install the dependencies: <kbd>M-x package-install RET flycheck RET</kbd> should do it.
+
+## Fonts
+
+DejaVu Sans Mono, Symbola, FreeMono, STIX, Unifont, Segoe UI Symbol, Arial Unicode and Cambria Math are all good candidates. If Emacs doesn't pick up on the new fonts after a restart, the following snippet (add it to your .emacs) should help:
+
+(set-fontset-font t 'unicode (font-spec :name "YOUR USUAL EMACS FONT") nil 'append)
+(set-fontset-font t 'unicode (font-spec :name "SOME FONT WITH GOOD COVERAGE AS LISTED ABOVE") nil 'append)
