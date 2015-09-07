@@ -863,6 +863,7 @@ into blocks; process it as one large block instead."
   (define-key fstar-mode-map (kbd "C-c C-p") #'fstar-subp-retract-last)
   (define-key fstar-mode-map (kbd "C-c RET") #'fstar-subp-advance-or-retract-to-point)
   (define-key fstar-mode-map (kbd "C-c <C-return>") #'fstar-subp-advance-or-retract-to-point)
+  (define-key fstar-mode-map (kbd "C-c C-x") #'fstar-subp-kill)
   (flycheck-mode -1))
 
 ;;; Comment syntax
