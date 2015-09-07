@@ -701,11 +701,30 @@ If STATUS is nil, return all fstar-subp overlays."
            when (fstar-subp-issue-overlay-p overlay)
            collect overlay))
 
-(defun fstar-subp-read-only-hook (&rest _args)
-  "Prevent modifications."
-  (unless inhibit-read-only
-    (error "Region is read-only")))
-(add-to-list 'debug-ignored-errors "Region is read-only")
+(defun fstar-in-comment-p ()
+  "Return non-nil if point is inside a comment"
+  (nth 4 (syntax-ppss)))
+
+(defun fstar-subp-overlay-attempt-modification (overlay &rest _args)
+  "Allow or prevent attempts to modify OVERLAY.
+
+Modifications are only allowed if it is safe to retract up to the beginning of the current overlay."
+  (let ((inhibit-modification-hooks t))
+    (cond
+     ;; Always allow modifications in comments
+     ((fstar-in-comment-p)
+      t)
+     ;; Allow modifications (after retracting) in pending overlays, and in
+     ;; processed overlays provided that F* isn't busy
+     ((or (not fstar-subp--busy-now)
+          (fstar-subp-status-eq overlay 'pending))
+      (fstar-subp-retract-until (overlay-start overlay)))
+     ;; Disallow modifications in processed overlays when F* is busy
+     ((fstar-subp-status-eq overlay 'processed)
+      (user-error "Cannot retract a processed section while F* is busy."))
+     ;; Always disallow modifications in busy overlays
+     ((fstar-subp-status-eq overlay 'busy)
+      (user-error "Cannot retract a busy section.")))))
 
 (defun fstar-subp-set-status (overlay status)
   "Set status of OVERLAY to STATUS."
@@ -715,8 +734,8 @@ If STATUS is nil, return all fstar-subp overlays."
     (overlay-put overlay 'fstar-subp-status status)
     (overlay-put overlay 'priority -1) ;;FIXME this is not an allowed value
     (overlay-put overlay 'face (intern face-name))
-    (overlay-put overlay 'insert-in-front-hooks '(fstar-subp-read-only-hook))
-    (overlay-put overlay 'modification-hooks '(fstar-subp-read-only-hook))))
+    (overlay-put overlay 'insert-in-front-hooks '(fstar-subp-overlay-attempt-modification))
+    (overlay-put overlay 'modification-hooks '(fstar-subp-overlay-attempt-modification))))
 
 (defun fstar-subp-process-overlay (overlay)
   "Send the contents of OVERLAY to the underlying F* process."
@@ -807,7 +826,7 @@ If NO-ERROR is set, do not report an error if the region is empty."
 (defun fstar-subp-retract-until (pos)
   "Retract blocks until POS is in unprocessed region."
   (cl-loop for overlay in (reverse (fstar-subp-tracking-overlays))
-           when (>= (overlay-end overlay) pos)
+           when (> (overlay-end overlay) pos) ;; End point is not inclusive
            do (fstar-subp-retract-one overlay)))
 
 (defun fstar-subp-advance-until (pos)
