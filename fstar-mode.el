@@ -820,14 +820,19 @@ If NO-ERROR is set, do not report an error if the region is empty."
                           collect (point))))
       (fstar-subp-enqueue-until pos found))))
 
-(defun fstar-subp-advance-or-retract-to-point ()
-  "Advance or retract proof state to reach point."
-  (interactive)
+(defun fstar-subp-advance-or-retract-to-point (&optional arg)
+  "Advance or retract proof state to reach point.
+
+With prefix argument ARG, when advancing, do not split region
+into blocks; process it as one large block instead."
+  (interactive "P")
   (fstar-subp-start)
   (let ((limit (fstar-subp-unprocessed-beginning)))
     (cond
      ((<= (point) limit) (fstar-subp-retract-until (point)))
-     ((>  (point) limit) (fstar-subp-advance-until (point))))))
+     ((>  (point) limit) (if (consp arg)
+                             (fstar-subp-enqueue-until (point))
+                           (fstar-subp-advance-until (point)))))))
 
 (defun fstar-setup-interactive ()
   ;; TODO discuss these keybindings
