@@ -72,6 +72,7 @@
 (add-to-list 'flycheck-checkers 'fstar)
 
 (defun fstar-setup-flycheck ()
+  "Prepare Flycheck for use with F*."
   (flycheck-mode))
 
 ;;; Build config
@@ -190,6 +191,7 @@ sexp to span at most that many extra lines."
     (goto-char (match-beginning 0))))
 
 (defun fstar-subexpr-pre-matcher (rewind-to &optional bound-to)
+  "Move past REWIND-TO th group, then return end of BOUND-TO th."
   (goto-char (match-end rewind-to))
   (match-end (or bound-to 0)))
 
@@ -203,10 +205,10 @@ sexp to span at most that many extra lines."
                           (any "A-Z") (* (or wordchar (syntax symbol)))
                           symbol-end))
 
-(defun fstar-find-id-with-type (bound)
-  (fstar-find-id-maybe-type bound t))
-
 (defun fstar-find-id-maybe-type (bound must-find-type)
+  "Find var:type pair between point and BOUND.
+
+If MUST-FIND-TYPE is nil, the :type part is not necessary."
   (let ((found t) (rejected t))
     (while (and found rejected)
       (setq found (re-search-forward (concat "\\(" fstar-syntax-id "\\) *\\(:\\)?") bound t))
@@ -227,9 +229,15 @@ sexp to span at most that many extra lines."
     found))
 
 (defun fstar-find-id (bound)
+  "Find variable name between point and BOUND."
   (fstar-find-id-maybe-type bound nil))
 
+(defun fstar-find-id-with-type (bound)
+  "Find var:type pair between point and BOUND."
+  (fstar-find-id-maybe-type bound t))
+
 (defun fstar-find-fun-and-args (bound)
+  "Find lambda expression between point and BOUND."
   (let ((found))
     (while (and (not found) (re-search-forward "\\_<fun\\_>" bound t))
       (-when-let* ((mdata (match-data))
@@ -240,6 +248,7 @@ sexp to span at most that many extra lines."
     found))
 
 (defun fstar-find-subtype-annotation (bound)
+  "Find {...} group between point and BOUND."
   (let ((found))
     (while (and (not found) (re-search-forward "{[^:]" bound t))
       (setq found
@@ -656,8 +665,8 @@ FIXME: This doesn't do error handling."
   "Used for computing arguments to pass to F* in interactive mode.
 
 If set to a string, that string is considered to be a single
-argument to pass to F*. If set to a list of strings, each element
-of the list is passed to F*. If set to a function, that function
+argument to pass to F*.  If set to a list of strings, each element
+of the list is passed to F*.  If set to a function, that function
 is called in the current buffer without arguments, and expected
 to produce a string or a list of strings.
 
@@ -673,10 +682,13 @@ F* being called as 'fstar.exe --in --ab --cd'.
 results in F* being called as 'fstar.exe --in --ab --cd'.
 
 To debug unexpected behaviours with this variable, try
-evaluating (fstar-subp-get-prover-args)."
+evaluating (fstar-subp-get-prover-args).  Note that passing
+multiple arguments as one string will not work: you should use
+'(\"--aa\" \"--bb\"), not \"--aa --bb\""
   :group 'fstar)
 
 (defun fstar-subp-get-prover-args ()
+  "Compute prover arguments from `fstar-subp-prover-args'."
   (let ((args (if (functionp fstar-subp-prover-args)
                   (funcall fstar-subp-prover-args)
                 fstar-subp-prover-args)))
@@ -769,10 +781,10 @@ Modifications are only allowed if it is safe to retract up to the beginning of t
         (fstar-subp-retract-until (overlay-start overlay)))
        ;; Disallow modifications in processed overlays when F* is busy
        ((fstar-subp-status-eq overlay 'processed)
-        (user-error "Cannot retract a processed section while F* is busy."))
+        (user-error "Cannot retract a processed section while F* is busy"))
        ;; Always disallow modifications in busy overlays
        ((fstar-subp-status-eq overlay 'busy)
-        (user-error "Cannot retract a busy section."))))))
+        (user-error "Cannot retract a busy section"))))))
 
 (defun fstar-subp-set-status (overlay status)
   "Set status of OVERLAY to STATUS."
@@ -860,7 +872,7 @@ If NO-ERROR is set, do not report an error if the region is empty."
 (defun fstar-subp-retract-one (overlay)
   "Retract OVERLAY, with some error checking."
   (cond
-   ((not (fstar-subp-live-p)) (user-error "F* subprocess not started."))
+   ((not (fstar-subp-live-p)) (user-error "F* subprocess not started"))
    ((not overlay) (user-error "Nothing to retract"))
    ((fstar-subp-status-eq overlay 'pending) (delete-overlay overlay))
    ((fstar-subp-status-eq overlay 'busy) (user-error "Cannot retract busy region"))
@@ -915,26 +927,21 @@ into blocks; process it as one large block instead."
 
 ;;; Comment syntax
 
-(defun fstar-syntactic-face-function-aux (_ _b _c in-string _comment-depth _d _e _f comment-start-pos _g)
-  "Choose face to display.
-
-Arguments IN-STRING COMMENT-DEPTH and COMMENT-START-POS ar as in
-`font-lock-syntactic-face-function'."
-  (cond (in-string ;; Strings
-         font-lock-string-face)
-        (comment-start-pos ;; Comments ('//' doesnt have a comment-depth
-         (save-excursion
-           (goto-char comment-start-pos)
-           (cond
-            ((looking-at (regexp-quote fstar-build-config-header)) font-lock-doc-face)
-            ((looking-at (regexp-quote "(*** ")) '(:inherit font-lock-doc-face :height 2.5))
-            ((looking-at (regexp-quote "(**+ ")) '(:inherit font-lock-doc-face :height 1.8))
-            ((looking-at (regexp-quote "(**! ")) '(:inherit font-lock-doc-face :height 1.5))
-            ((looking-at (regexp-quote "(** "))  font-lock-doc-face)
-            (t font-lock-comment-face))))))
-
 (defun fstar-syntactic-face-function (args)
-  (apply #'fstar-syntactic-face-function-aux args))
+  "Choose face to display based on ARGS."
+  (pcase-let ((`(_ _ _ ,in-string _ _ _ _ ,comment-start-pos _) args))
+    (cond (in-string ;; Strings
+           font-lock-string-face)
+          (comment-start-pos ;; Comments ('//' doesnt have a comment-depth
+           (save-excursion
+             (goto-char comment-start-pos)
+             (cond
+              ((looking-at (regexp-quote fstar-build-config-header)) font-lock-doc-face)
+              ((looking-at (regexp-quote "(*** ")) '(:inherit font-lock-doc-face :height 2.5))
+              ((looking-at (regexp-quote "(**+ ")) '(:inherit font-lock-doc-face :height 1.8))
+              ((looking-at (regexp-quote "(**! ")) '(:inherit font-lock-doc-face :height 1.5))
+              ((looking-at (regexp-quote "(** "))  font-lock-doc-face)
+              (t font-lock-comment-face)))))))
 
 (defun fstar-setup-comments ()
   "Set comment-related variables for F*."
@@ -952,15 +959,17 @@ Arguments IN-STRING COMMENT-DEPTH and COMMENT-START-POS ar as in
     (indentation . "Indentation (based on control points)")
     (comments    . "Comment syntax and special comments ('(***', '(*+', etc.)")
     (flycheck    . "Real-time verification (good for small files)")
-    (interactive . "Interactive verification (à la Proof-General)")))
+    (interactive . "Interactive verification (à la Proof-General)"))
+  "Available components of F*-mode.")
 
 (defcustom fstar-enabled-modules (mapcar #'car fstar-known-modules)
-  "Which F* mode modules to load."
+  "Which F*-mode components to load."
   :group 'fstar
   :type `(set ,@(cl-loop for (mod . desc) in fstar-known-modules
                          collect `(const :tag ,desc ,mod))))
 
 (defun fstar-setup-hooks ()
+  "Setup hooks required by F*-mode."
   (add-hook 'before-revert-hook #'fstar-subp-kill nil t))
 
 ;;;###autoload
