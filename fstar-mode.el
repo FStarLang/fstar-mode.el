@@ -1,4 +1,4 @@
-;;; fstar-mode.el --- support for F* programming -*- lexical-binding: t -*-
+;;; fstar-mode.el --- Support for F* programming -*- lexical-binding: t -*-
 
 ;; Copyright (C) 2015 Clément Pit--Claudel
 ;; Author: Clément Pit--Claudel <clement.pitclaudel@live.com>
