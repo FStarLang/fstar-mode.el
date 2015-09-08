@@ -6,7 +6,7 @@
 
 ;; Created: 27 Aug 2015
 ;; Version: 0.1
-;; Package-Requires: ((flycheck "0.25") (emacs "24.3") (dash "2.11"))
+;; Package-Requires: ((flycheck "0.25") (emacs "24.3") (cl-lib "0.3") (dash "2.11"))
 ;; Keywords: convenience, languages
 
 ;; This file is not part of GNU Emacs.
