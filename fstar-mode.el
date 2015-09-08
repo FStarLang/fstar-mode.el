@@ -938,8 +938,8 @@ into blocks; process it as one large block instead."
 (defun fstar-subp-refresh-keybindings (style)
   (cl-loop for (pg atom target) in fstar-subp-keybindings-table
            do (pcase style
-                ('pg   (fstar-subp-refresh-keybinding pg atom target))
-                ('atom (fstar-subp-refresh-keybinding atom pg target))
+                (`pg   (fstar-subp-refresh-keybinding pg atom target))
+                (`atom (fstar-subp-refresh-keybinding atom pg target))
                 (other (user-error "Invalid keybinding style: %S" other)))))
 
 (defun fstar-subp-set-keybinding-style (var style)
