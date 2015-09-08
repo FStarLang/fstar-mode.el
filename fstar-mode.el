@@ -46,10 +46,10 @@
 ;;; Compatibility
 
 (defmacro fstar-assert (&rest args)
-  "Call `assert' on ARGS, if available."
+  "Call `cl-assert' on ARGS, if available."
   (declare (debug t))
   `(when (fboundp 'assert)
-     (assert ,@args)))
+     (cl-assert ,@args)))
 
 ;;; Group
 
@@ -475,7 +475,7 @@ If PROC is nil, use the current buffer's `fstar-subp--process'."
   "Same as `fstar-subp-kill', but for PROC instead of `fstar-subp--process'."
   (fstar-subp-with-source-buffer proc
     (when fstar-subp--process
-      (assert (eq proc fstar-subp--process))
+      (cl-assert (eq proc fstar-subp--process))
       (fstar-subp-kill))))
 
 (defun fstar-subp-sentinel (proc signal)
