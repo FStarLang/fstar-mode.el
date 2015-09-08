@@ -1,4 +1,4 @@
-;;; fstar-mode.el --- support for the F* language in Emacs -*- lexical-binding: t -*-
+;;; fstar-mode.el --- support for F* programming -*- lexical-binding: t -*-
 
 ;; Copyright (C) 2015 Clément Pit--Claudel
 ;; Author: Clément Pit--Claudel <clement.pitclaudel@live.com>
@@ -418,12 +418,16 @@ If MUST-FIND-TYPE is nil, the :type part is not necessary."
   "Face used to highlight processed sections of the buffer."
   :group 'fstar)
 
+(defvar fstar-subp-debug nil
+  "If non-nil, print debuging information in interactive mode.")
+
 (defmacro fstar-subp-log (format &rest args)
-  "Log a query or response.
+  "Log a message, conditional on fstar-subp-debug.
 
 FORMAT and ARGS are as in `message'."
   (declare (debug t))
-  `(message ,format ,@args))
+  `(when fstar-subp-debug
+     (message ,format ,@args)))
 
 (defmacro fstar-subp-with-process-buffer (proc &rest body)
   "If PROC is non-nil, move to PROC's buffer to eval BODY."
@@ -931,18 +935,21 @@ into blocks; process it as one large block instead."
     ("C-c C-x"        "C-M-c" fstar-subp-kill))
   "Proof-General and Atom bindings table.")
 
-(defun fstar-subp-refresh-keybinding (bind unbind target)
+(defun fstar-subp-refresh-keybinding (bind target unbind)
+  "Bind BIND to TARGET, and unbind UNBIND."
   (define-key fstar-mode-map (kbd bind) target)
   (define-key fstar-mode-map (kbd unbind) nil))
 
 (defun fstar-subp-refresh-keybindings (style)
+  "Adjust keybindings to match STYLE."
   (cl-loop for (pg atom target) in fstar-subp-keybindings-table
            do (pcase style
-                (`pg   (fstar-subp-refresh-keybinding pg atom target))
-                (`atom (fstar-subp-refresh-keybinding atom pg target))
+                (`pg   (fstar-subp-refresh-keybinding pg target atom))
+                (`atom (fstar-subp-refresh-keybinding atom target pg))
                 (other (user-error "Invalid keybinding style: %S" other)))))
 
 (defun fstar-subp-set-keybinding-style (var style)
+  "Set VAR to STYLE and update keybindings."
   (set-default var style)
   (fstar-subp-refresh-keybindings style))
 
