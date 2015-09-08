@@ -14,7 +14,7 @@ Includes:
 
 # Setup
 
-Copy the following into an empty buffer, and run <kbd>M-x eval-buffer</kbd>.
+On Emacs 24.3 or newer, copy the following into an empty buffer, and run <kbd>M-x eval-buffer</kbd>.
 
 ```elisp
 (let ((url "https://raw.githubusercontent.com/FStarLang/fstar.el/master/fstar-mode.el"))
