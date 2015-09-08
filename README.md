@@ -14,7 +14,15 @@ Includes:
 
 # Setup
 
-On Emacs 24.3 or newer, copy the following into an empty buffer, and run <kbd>M-x eval-buffer</kbd>.
+F*-mode requires Emacs 24.3 or newer, and its dependencies are hosted on [MELPA](https://melpa.org). Add the following to your init file (usually `.emacs`):
+
+```elisp
+(require 'package)
+(add-to-list 'package-archives '("melpa" . "http://melpa.org/packages/") t)
+(package-initialize)
+```
+
+Then copy the following into an empty buffer, and run <kbd>M-x eval-buffer</kbd>.
 
 ```elisp
 (let ((url "https://raw.githubusercontent.com/FStarLang/fstar.el/master/fstar-mode.el"))
@@ -22,13 +30,13 @@ On Emacs 24.3 or newer, copy the following into an empty buffer, and run <kbd>M-
     (package-install-from-buffer)))
 ```
 
-Alternatively, use <kbd>M-:</kbd> to open the `eval-expression` mini-buffer, and paste the snippet above.
-
-If `fstar` is not already in your path, set the `flycheck-fstar-executable` variable:
+Finally, if `fstar.exe` is not already in your path, set the `flycheck-fstar-executable` variable:
 
 ```elisp
 (set-default flycheck-fstar-executable "PATH-TO-FSTAR.EXE")
 ```
+
+Restart Emacs, and you should be good to go.
 
 ## Customization
 
