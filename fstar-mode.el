@@ -25,7 +25,15 @@
 
 ;;; Commentary:
 
-;; This file implements basic support for programming in F* in Emacs.
+;; This file implements support for F* programming in Emacs, including:
+;;
+;; * Syntax highlighting
+;; * Unicode math (with prettify-symbols-mode)
+;; * Indentation
+;; * Real-time verification (with flycheck)
+;; * Interactive proofs (à la Proof-General)
+;;
+;; See https://github.com/FStarLang/fstar-mode.el for setup and usage tips.
 
 ;;; Code:
 
@@ -914,15 +922,40 @@ into blocks; process it as one large block instead."
                              (fstar-subp-enqueue-until (point))
                            (fstar-subp-advance-until (point)))))))
 
+(defconst fstar-subp-keybindings-table
+  '(("C-c C-n"        "C-S-n" fstar-subp-advance-next)
+    ("C-c C-u"        "C-S-p" fstar-subp-retract-last)
+    ("C-c C-p"        "C-S-p" fstar-subp-retract-last)
+    ("C-c RET"        "C-S-i" fstar-subp-advance-or-retract-to-point)
+    ("C-c <C-return>" "C-S-i" fstar-subp-advance-or-retract-to-point)
+    ("C-c C-x"        "C-M-c" fstar-subp-kill))
+  "Proof-General and Atom bindings table.")
+
+(defun fstar-subp-refresh-keybinding (bind unbind target)
+  (define-key fstar-mode-map (kbd bind) target)
+  (define-key fstar-mode-map (kbd unbind) nil))
+
+(defun fstar-subp-refresh-keybindings (style)
+  (cl-loop for (pg atom target) in fstar-subp-keybindings-table
+           do (pcase style
+                ('pg   (fstar-subp-refresh-keybinding pg atom target))
+                ('atom (fstar-subp-refresh-keybinding atom pg target))
+                (other (user-error "Invalid keybinding style: %S" other)))))
+
+(defun fstar-subp-set-keybinding-style (var style)
+  (set-default var style)
+  (fstar-subp-refresh-keybindings style))
+
+(defcustom fstar-interactive-keybinding-style 'pg
+  "Which style of bindings to use in F* interactive mode."
+  :group 'fstar
+  :set #'fstar-subp-set-keybinding-style
+  :type '(choice (const :tag "Proof-General style bindings" pg)
+                 (const :tag "Atom-style bindings" atom)))
+
 (defun fstar-setup-interactive ()
-  ;; TODO discuss these keybindings
   "Setup interactive F* mode."
-  (define-key fstar-mode-map (kbd "C-c C-n") #'fstar-subp-advance-next)
-  (define-key fstar-mode-map (kbd "C-c C-u") #'fstar-subp-retract-last)
-  (define-key fstar-mode-map (kbd "C-c C-p") #'fstar-subp-retract-last)
-  (define-key fstar-mode-map (kbd "C-c RET") #'fstar-subp-advance-or-retract-to-point)
-  (define-key fstar-mode-map (kbd "C-c <C-return>") #'fstar-subp-advance-or-retract-to-point)
-  (define-key fstar-mode-map (kbd "C-c C-x") #'fstar-subp-kill)
+  (fstar-subp-refresh-keybindings fstar-interactive-keybinding-style)
   (flycheck-mode -1))
 
 ;;; Comment syntax
