@@ -97,8 +97,9 @@
 
 (defun fstar-setup-flycheck ()
   "Prepare Flycheck for use with F*."
-  (when (featurep 'flycheck)
-    (flycheck-mode)))
+  (if (featurep 'flycheck)
+      (flycheck-mode)
+    (warn "Please install the Flycheck package to get real-time verification")))
 
 ;;; Customization
 
@@ -1041,7 +1042,7 @@ into blocks; process it as one large block instead."
     (interactive . "Interactive verification (à la Proof-General; requires a recent F* build)"))
   "Available components of F*-mode.")
 
-(defcustom fstar-enabled-modules (mapcar #'car fstar-known-modules)
+(defcustom fstar-enabled-modules '(font-lock prettify indentation comments interactive)
   "Which F*-mode components to load."
   :group 'fstar
   :type `(set ,@(cl-loop for (mod . desc) in fstar-known-modules
