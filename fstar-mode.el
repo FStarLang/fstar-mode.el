@@ -351,9 +351,20 @@ If MUST-FIND-TYPE is nil, the :type part is not necessary."
 
 (defvar fstar-syntax-table
   (let ((table (make-syntax-table)))
+    ;; Symbols
     (modify-syntax-entry ?# "_" table)
     (modify-syntax-entry ?_ "_" table)
     (modify-syntax-entry ?' "_" table)
+    ;; None of these is part of symbols (cf. c-populate-syntax-table)
+    (modify-syntax-entry ?+  "."     table)
+    (modify-syntax-entry ?-  "."     table)
+    (modify-syntax-entry ?=  "."     table)
+    (modify-syntax-entry ?%  "."     table)
+    (modify-syntax-entry ?<  "."     table)
+    (modify-syntax-entry ?>  "."     table)
+    (modify-syntax-entry ?&  "."     table)
+    (modify-syntax-entry ?|  "."     table)
+    ;; Comments and strings
     (modify-syntax-entry ?\\ "\\" table)
     (modify-syntax-entry ?\" "\"" table)
     (modify-syntax-entry ?*  ". 23" table)
