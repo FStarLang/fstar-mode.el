@@ -5,8 +5,8 @@
 ;; URL: https://github.com/FStarLang/fstar.el
 
 ;; Created: 27 Aug 2015
-;; Version: 0.1
-;; Package-Requires: ((flycheck "0.25") (emacs "24.3") (cl-lib "0.3") (dash "2.11"))
+;; Version: 0.2
+;; Package-Requires: ((emacs "24.3") (cl-lib "0.3") (dash "2.11"))
 ;; Keywords: convenience, languages
 
 ;; This file is not part of GNU Emacs.
@@ -30,7 +30,7 @@
 ;; * Syntax highlighting
 ;; * Unicode math (with prettify-symbols-mode)
 ;; * Indentation
-;; * Real-time verification (with flycheck)
+;; * Real-time verification (requires the Flycheck package)
 ;; * Interactive proofs (à la Proof-General)
 ;;
 ;; See https://github.com/FStarLang/fstar-mode.el for setup and usage tips.
@@ -41,7 +41,7 @@
 
 (require 'dash)
 (require 'cl-lib)
-(require 'flycheck)
+(require 'flycheck nil t)
 
 ;;; Compatibility
 
@@ -51,6 +51,21 @@
   `(when (fboundp 'cl-assert)
      (cl-assert ,@args)))
 
+(unless (featurep 'subr-x)
+  (defsubst string-trim-left (string)
+    "Remove leading whitespace from STRING."
+    (if (string-match "\\`[ \t\n\r]+" string)
+        (replace-match "" t t string)
+      string))
+  (defsubst string-trim-right (string)
+    "Remove trailing whitespace from STRING."
+    (if (string-match "[ \t\n\r]+\\'" string)
+        (replace-match "" t t string)
+      string))
+  (defsubst string-trim (string)
+    "Remove leading and trailing whitespace from STRING."
+    (string-trim-left (string-trim-right string))))
+
 ;;; Group
 
 (defgroup fstar nil
@@ -58,8 +73,6 @@
   :group 'languages)
 
 ;;; Flycheck
-
-(flycheck-def-executable-var fstar "fstar.exe")
 
 (defconst fstar-error-patterns
   (let ((fstar-pat '((message) "near line " line ", character " column " in file " (file-name)))
@@ -70,31 +83,34 @@
       (warning "WARNING: " ,@fstar-pat)
       (error ,@z3-pat))))
 
-(flycheck-define-command-checker 'fstar
-  "Flycheck checker for F*."
-  :command '("fstar.exe" source-inplace)
-  :error-patterns fstar-error-patterns
-  :error-filter #'flycheck-increment-error-columns
-  :modes '(fstar-mode))
+(when (featurep 'flycheck)
+  (define-obsolete-variable-alias 'flycheck-fstar-executable 'fstar-executable "0.2")
 
-(add-to-list 'flycheck-checkers 'fstar)
+  (flycheck-define-command-checker 'fstar
+    "Flycheck checker for F*."
+    :command '("fstar.exe" source-inplace)
+    :error-patterns fstar-error-patterns
+    :error-filter #'flycheck-increment-error-columns
+    :modes '(fstar-mode))
+
+  (add-to-list 'flycheck-checkers 'fstar))
 
 (defun fstar-setup-flycheck ()
   "Prepare Flycheck for use with F*."
-  (flycheck-mode))
+  (when (featurep 'flycheck)
+    (flycheck-mode)))
+
+;;; Customization
+
+(defcustom fstar-executable "fstar.exe"
+  "Full path to the fstar.exe binary."
+  :group 'fstar
+  :risky t)
 
 ;;; Build config
 
 (defconst fstar-build-config-header "(*--build-config")
 (defconst fstar-build-config-footer "--*)")
-
-;; (defun fstar-read-build-config ()
-;;   (save-excursion
-;;     (save-restriction
-;;       (widen)
-;;       (goto-char (point-min))
-;;       (-when-let* ((beg (search-forward fstar-build-config-header nil t))
-;;                    (end (search-forward fstar-build-config-footer nil t)))))))
 
 ;;; Prettify symbols
 
@@ -513,7 +529,6 @@ If PROC is nil, use the current buffer's `fstar-subp--process'."
            (resp-end      (point-at-bol))
            (resp-real-end (point-at-eol))
            (response      (string-trim (buffer-substring resp-beg resp-end))))
-      ;; string-trim is defined by flycheck if not present
       (fstar-subp-log "RESPONSE [%s] [%s]" status response)
       (delete-region resp-beg resp-real-end)
       (when (fstar-subp-live-p proc)
@@ -719,13 +734,11 @@ multiple arguments as one string will not work: you should use
 (defun fstar-subp-start ()
   "Start an F* subprocess attached to the current buffer, if none exists."
   (unless fstar-subp--process
-    (let* ((prog (or flycheck-fstar-executable
-                     (flycheck-checker-default-executable 'fstar)))
-           (prog-abs (and prog (executable-find prog))))
+    (let ((prog-abs (and fstar-executable (executable-find fstar-executable))))
       (unless (and prog-abs (file-exists-p prog-abs))
-        (user-error "F* executable not found; please set `flycheck-fstar-executable'"))
+        (user-error "F* executable not found; please set `fstar-executable'"))
       (unless (file-executable-p prog-abs)
-        (user-error "F* executable not executable; please check the value of `flycheck-fstar-executable'"))
+        (user-error "F* executable not executable; please check the value of `fstar-executable'"))
       (let* ((buf (fstar-subp-make-buffer))
              (process-connection-type nil)
              (args (cons "--in" (fstar-subp-get-prover-args)))
@@ -971,7 +984,8 @@ into blocks; process it as one large block instead."
 (defun fstar-setup-interactive ()
   "Setup interactive F* mode."
   (fstar-subp-refresh-keybindings fstar-interactive-keybinding-style)
-  (flycheck-mode -1))
+  (when (featurep 'flycheck)
+    (flycheck-mode -1)))
 
 ;;; Comment syntax
 
@@ -1003,11 +1017,11 @@ into blocks; process it as one large block instead."
 
 (defconst fstar-known-modules
   '((font-lock   . "Syntax highlighting")
-    (prettify    . "Unicode math (e.g. display forall as ∀)")
+    (prettify    . "Unicode math (e.g. display forall as ∀; requires emacs 24.4 or later)")
     (indentation . "Indentation (based on control points)")
     (comments    . "Comment syntax and special comments ('(***', '(*+', etc.)")
-    (flycheck    . "Real-time verification (good for small files)")
-    (interactive . "Interactive verification (à la Proof-General)"))
+    (flycheck    . "Real-time verification (good for small files; requires the flycheck package)")
+    (interactive . "Interactive verification (à la Proof-General; requires a recent F* build)"))
   "Available components of F*-mode.")
 
 (defcustom fstar-enabled-modules (mapcar #'car fstar-known-modules)
