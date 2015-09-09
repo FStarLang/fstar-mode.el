@@ -915,11 +915,20 @@ If NO-ERROR is set, do not report an error if the region is empty."
       (fstar-subp-enqueue-until next-start)
     (user-error "Cannot find a full block to process")))
 
+(defun fstar-sub-overlay-contains-build-config (overlay)
+  (save-excursion
+    (save-match-data
+      (goto-char (overlay-start overlay))
+      (cl-loop while (re-search-forward (regexp-quote fstar-build-config-header) (overlay-end overlay) t)
+               thereis (fstar-in-build-config-p)))))
+
 (defun fstar-subp-pop-overlay (overlay)
   "Remove overlay OVERLAY and issue the corresponding #pop command."
   (fstar-assert (not fstar-subp--busy-now))
   (fstar-assert (fstar-subp-live-p))
-  (process-send-string fstar-subp--process fstar-subp--cancel)
+  (if (fstar-sub-overlay-contains-build-config overlay)
+      (fstar-subp-kill)
+    (process-send-string fstar-subp--process fstar-subp--cancel))
   (delete-overlay overlay))
 
 (defun fstar-subp-retract-one (overlay)
