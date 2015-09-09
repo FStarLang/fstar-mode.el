@@ -84,7 +84,8 @@
       (error ,@z3-pat))))
 
 (when (featurep 'flycheck)
-  (define-obsolete-variable-alias 'flycheck-fstar-executable 'fstar-executable "0.2")
+  (defvaralias 'flycheck-fstar-executable 'fstar-executable)
+  (make-obsolete-variable 'flycheck-fstar-executable 'fstar-executable "0.2" 'set)
 
   (flycheck-define-command-checker 'fstar
     "Flycheck checker for F*."
