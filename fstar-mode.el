@@ -683,9 +683,13 @@ FIXME: This doesn't do error handling."
            (fstar-subp-highlight-issues aligned)
            (display-local-help)))))
 
+(defun fstar-subp-status (overlay)
+  "Get status of OVERLAY."
+  (overlay-get overlay 'fstar-subp-status))
+
 (defun fstar-subp-status-eq (overlay status)
   "Check if OVERLAY has status STATUS."
-  (eq (overlay-get overlay 'fstar-subp-status) status))
+  (eq (fstar-subp-status overlay) status))
 
 (defun fstar-subp-remove-unprocessed ()
   "Remove pending and busy overlays."
@@ -782,7 +786,7 @@ multiple arguments as one string will not work: you should use
 
 (defun fstar-subp-tracking-overlay-p (overlay)
   "Return non-nil if OVERLAY is an fstar-subp tracking overlay."
-  (overlay-get overlay 'fstar-subp-status))
+  (fstar-subp-status overlay))
 
 (defun fstar-subp-tracking-overlays (&optional status)
   "Find all -subp tracking overlays with status STATUS in the current buffer.
@@ -865,7 +869,7 @@ Modifications are only allowed if it is safe to retract up to the beginning of t
     (-if-let* ((overlay (car-safe (fstar-subp-tracking-overlays 'pending))))
         (progn (fstar-subp-log "Processing queue")
                (fstar-subp-process-overlay overlay))
-      (fstar-subp-log "Queue is empty"))))
+      (fstar-subp-log "Queue is empty %S" (mapcar #'fstar-subp-status (fstar-subp-tracking-overlays))))))
 
 (defun fstar-subp-unprocessed-beginning ()
   "Find the beginning of the unprocessed buffer area."
