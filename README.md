@@ -7,8 +7,8 @@ Includes:
 * (Moderately complex) syntax highlighting
 * Basic (control-points-based) indentation
 * Prettification of mathematical symbols using `prettify-symbols-mode`
-* Real-time verification using `flycheck`
-* Experimental support for) interactive (Coq-style) verification [GH-3]
+* Real-time verification (requires `flycheck`, see `fstar-enabled-modules`)
+* (Experimental support for) interactive verification (<i>à la</i> Proof-General)
 
 ![Screenshot](img/fstar-mode.png)
 
