@@ -350,6 +350,9 @@ If MUST-FIND-TYPE is nil, the :type part is not necessary."
   (add-to-list 'font-lock-extra-managed-props 'display)
   (add-to-list 'font-lock-extra-managed-props 'invisible))
 
+(defun fstar-teardown-font-lock ()
+  (remove-from-invisibility-spec 'fstar-subscripts))
+
 ;;; Syntax table
 
 (defvar fstar-syntax-table
@@ -1048,11 +1051,26 @@ into blocks; process it as one large block instead."
   "Setup hooks required by F*-mode."
   (add-hook 'before-revert-hook #'fstar-subp-kill nil t))
 
+(defun fstar-teardown-hooks ()
+  "Remove hooks required by F*-mode."
+  (remove-hook 'before-revert-hook #'fstar-subp-kill))
+
+(defun fstar-enable-disable (enable)
+  "Enable or disable F* mode components."
+  (dolist (module (cons 'hooks fstar-enabled-modules))
+    (let* ((prefix (if enable "fstar-setup-" "fstar-teardown-"))
+           (fsymb  (intern (concat prefix (symbol-name module)))))
+      (when (fboundp fsymb)
+        (funcall fsymb)))))
+
 ;;;###autoload
 (define-derived-mode fstar-mode prog-mode "F✪"
   :syntax-table fstar-syntax-table
-  (dolist (module (cons 'hooks fstar-enabled-modules))
-    (funcall (intern (concat "fstar-setup-" (symbol-name module))))))
+  (fstar-enable-disable t))
+
+(defun fstar-mode-unload-function ()
+  "Unload F* mode components."
+  (fstar-enable-disable nil))
 
 ;;;###autoload
 (add-to-list 'auto-mode-alist '("\\.fs[ity]\\'" . fstar-mode))
