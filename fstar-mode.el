@@ -329,8 +329,9 @@ If MUST-FIND-TYPE is nil, the :type part is not necessary."
       (,fstar-syntax-cs (0 'font-lock-constant-face))
       ("(\\*--\\(build-config\\)"
        (1 'font-lock-preprocessor-face prepend))
-      (,(concat "\\_<" fstar-syntax-id-unwrapped "\\(_[0-9]+\\)\\_>")
-       (1 '(face fstar-subscript-face display (raise -0.3)) append)))))
+      (,(concat "\\_<" fstar-syntax-id-unwrapped "\\(_\\)\\([0-9]+\\)\\_>")
+       (1 '(face nil invisible 'fstar-subscripts) prepend)
+       (2 '(face fstar-subscript-face display (raise -0.3)) append)))))
 
 (defun fstar-setup-font-lock ()
   "Setup font-lock for use with F*."
@@ -345,7 +346,9 @@ If MUST-FIND-TYPE is nil, the :type part is not necessary."
       ,@fstar-syntax-additional)
      nil nil))
   (font-lock-set-defaults)
-  (add-to-list 'font-lock-extra-managed-props 'display))
+  (add-to-invisibility-spec 'fstar-subscripts)
+  (add-to-list 'font-lock-extra-managed-props 'display)
+  (add-to-list 'font-lock-extra-managed-props 'invisible))
 
 ;;; Syntax table
 
