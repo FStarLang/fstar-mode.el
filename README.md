@@ -36,7 +36,7 @@ Finally, if `fstar.exe` is not already in your path, set the `fstar-executable` 
 (set-default fstar-executable "PATH-TO-FSTAR.EXE")
 ```
 
-Restart Emacs, and you should be good to go.
+Restart Emacs, and you should be good to go. If you want real-time verification (instead of interactive, Proof-General style verification), you may also want to install Flycheck from MELPA and see the Customization section below.
 
 ## Customization
 
