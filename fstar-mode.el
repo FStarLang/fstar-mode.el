@@ -181,6 +181,11 @@
   "Face used to highlight decreases clauses."
   :group 'fstar)
 
+(defface fstar-subscript-face
+  '((t :height 0.8))
+  "Face used to use for subscripts"
+  :group 'fstar)
+
 (defun fstar-group-pre-matcher (prefix-len allowed-newlines)
   "Prepare for highlighting.
 
@@ -203,11 +208,11 @@ sexp to span at most that many extra lines."
   (goto-char (match-end rewind-to))
   (match-end (or bound-to 0)))
 
-(defconst fstar-syntax-id (rx symbol-start
-                          (? (or "#" "'"))
-                          (any "a-z_") (* (or wordchar (syntax symbol)))
-                          (? "." (* (or wordchar (syntax symbol))))
-                          symbol-end))
+(defconst fstar-syntax-id-unwrapped (rx (? (or "#" "'"))
+                                    (any "a-z_") (* (or wordchar (syntax symbol)))
+                                    (? "." (* (or wordchar (syntax symbol))))))
+
+(defconst fstar-syntax-id (concat "\\_<" fstar-syntax-id-unwrapped "\\_>"))
 
 (defconst fstar-syntax-cs (rx symbol-start
                           (any "A-Z") (* (or wordchar (syntax symbol)))
@@ -307,7 +312,9 @@ If MUST-FIND-TYPE is nil, the :type part is not necessary."
        (2 'font-lock-function-name-face))
       (,fstar-syntax-cs (0 'font-lock-constant-face))
       ("(\\*--\\(build-config\\)"
-       (1 'font-lock-preprocessor-face prepend)))))
+       (1 'font-lock-preprocessor-face prepend))
+      (,(concat "\\_<" fstar-syntax-id-unwrapped "\\(_[0-9]+\\)\\_>")
+       (1 '(face fstar-subscript-face display (raise -0.3)) append)))))
 
 (defun fstar-setup-font-lock ()
   "Setup font-lock for use with F*."
@@ -321,7 +328,8 @@ If MUST-FIND-TYPE is nil, the :type part is not necessary."
       (,fstar-syntax-structure    . 'fstar-structure-face)
       ,@fstar-syntax-additional)
      nil nil))
-  (font-lock-set-defaults))
+  (font-lock-set-defaults)
+  (add-to-list 'font-lock-extra-managed-props 'display))
 
 ;;; Syntax table
 
