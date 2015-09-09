@@ -440,7 +440,8 @@ If MUST-FIND-TYPE is nil, the :type part is not necessary."
   "Indicates which overlay the F* subprocess is currently processing, if any.")
 
 (defface fstar-subp-overlay-pending-face
-  '((t :background "grey"))
+  '((((background light)) :background "#AD7FA8")
+    (((background dark))  :background "#5C3566"))
   "Face used to highlight pending sections of the buffer."
   :group 'fstar)
 
@@ -451,7 +452,7 @@ If MUST-FIND-TYPE is nil, the :type part is not necessary."
   :group 'fstar)
 
 (defface fstar-subp-overlay-processed-face
-  '((((background light)) :background "#eaf8ff")
+  '((((background light)) :background "#EAF8FF")
     (((background dark))  :background "darkslateblue"))
   "Face used to highlight processed sections of the buffer."
   :group 'fstar)
