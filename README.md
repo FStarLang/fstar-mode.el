@@ -30,10 +30,10 @@ Then copy the following into an empty buffer, and run <kbd>M-x eval-buffer</kbd>
     (package-install-from-buffer)))
 ```
 
-Finally, if `fstar.exe` is not already in your path, set the `flycheck-fstar-executable` variable:
+Finally, if `fstar.exe` is not already in your path, set the `fstar-executable` variable:
 
 ```elisp
-(set-default flycheck-fstar-executable "PATH-TO-FSTAR.EXE")
+(set-default fstar-executable "PATH-TO-FSTAR.EXE")
 ```
 
 Restart Emacs, and you should be good to go.
