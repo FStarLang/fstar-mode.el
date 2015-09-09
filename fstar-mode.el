@@ -5,7 +5,7 @@
 ;; URL: https://github.com/FStarLang/fstar.el
 
 ;; Created: 27 Aug 2015
-;; Version: 0.2
+;; Version: 0.2.1
 ;; Package-Requires: ((emacs "24.3") (cl-lib "0.3") (dash "2.11"))
 ;; Keywords: convenience, languages
 
