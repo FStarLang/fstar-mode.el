@@ -755,6 +755,13 @@ multiple arguments as one string will not work: you should use
           ((stringp args) (list args))
           (t (user-error "Interpreting fstar-subp-prover-args led to invalid value [%s]" args)))))
 
+(defun fstar-subp-is-fsi-p ()
+  (string-match-p "\\.fst?i\\'" buffer-file-name))
+
+(defun fstar-subp-with-interactive-args (args)
+  "Return ARGS precedeed by --in and optionally --fsi."
+  (append '("--in") (when (fstar-subp-is-fsi-p) '("--fsi")) args))
+
 (defun fstar-subp-start ()
   "Start an F* subprocess attached to the current buffer, if none exists."
   (unless fstar-subp--process
@@ -765,9 +772,9 @@ multiple arguments as one string will not work: you should use
         (user-error "F* executable not executable; please check the value of `fstar-executable'"))
       (let* ((buf (fstar-subp-make-buffer))
              (process-connection-type nil)
-             (args (cons "--in" (fstar-subp-get-prover-args)))
+             (args (fstar-subp-add-interactive-args (fstar-subp-get-prover-args)))
              (proc (apply #'start-process "F* interactive" buf prog-abs args)))
-        (fstar-subp-log "Started F* interactive with arguments %s" args)
+        (fstar-subp-log "Started F* interactive with arguments %S" args)
         (set-process-query-on-exit-flag proc nil)
         (set-process-filter proc #'fstar-subp-filter)
         (set-process-sentinel proc #'fstar-subp-sentinel)
