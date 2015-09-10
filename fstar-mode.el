@@ -41,6 +41,7 @@
 
 (require 'dash)
 (require 'cl-lib)
+(require 'help-at-pt)
 (require 'flycheck nil t)
 
 ;;; Compatibility
@@ -1025,8 +1026,16 @@ into blocks; process it as one large block instead."
 (defun fstar-setup-interactive ()
   "Setup interactive F* mode."
   (fstar-subp-refresh-keybindings fstar-interactive-keybinding-style)
+  (setq-local help-at-pt-display-when-idle t)
+  (setq-local help-at-pt-timer-delay 0.2)
+  (help-at-pt-cancel-timer)
+  (help-at-pt-set-timer)
   (when (featurep 'flycheck)
     (flycheck-mode -1)))
+
+(defun fstar-teardown-interactive ()
+  "Cleanup F* interactive mode."
+  (help-at-pt-cancel-timer))
 
 ;;; Comment syntax
 
