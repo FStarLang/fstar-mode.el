@@ -1,6 +1,6 @@
-# `fstar-mode`
+[![MELPA](https://melpa.org/packages/fstar-mode-badge.svg)](https://melpa.org/#/fstar-mode) [![Build Status](https://travis-ci.org/FStarLang/fstar-mode.el.svg?branch=master)](https://travis-ci.org/FStarLang/fstar-mode.el)
 
-[![MELPA](https://melpa.org/packages/fstar-mode-badge.svg)](https://melpa.org/#/fstar-mode)[![Build Status](https://travis-ci.org/FStarLang/fstar-mode.el.svg?branch=master)](https://travis-ci.org/FStarLang/fstar-mode.el)
+# `fstar-mode`
 
 ## Use F* in Emacs!
 
@@ -62,6 +62,14 @@ C-c C-x               C-M-c    Kill the F* process
 Use <kbd>M-x customize-variable RET fstar-enabled-modules RET</kbd> to choose which parts of fstar-mode to enable.
 
 In particular, you can get real-time verification (instead of interactive, Proof-General style verification), by enabling the `flycheck` module. You'll need to install Flycheck from MELPA.
+
+### Using F*-mode for `.fsi` files
+
+Use the following snippet:
+
+```elisp
+(add-to-list 'auto-mode-alist '("\\.fsi\\'" . fstar-mode))
+```
 
 ## Font issues
 

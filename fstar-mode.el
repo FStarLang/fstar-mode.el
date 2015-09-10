@@ -755,13 +755,13 @@ multiple arguments as one string will not work: you should use
           ((stringp args) (list args))
           (t (user-error "Interpreting fstar-subp-prover-args led to invalid value [%s]" args)))))
 
-(defun fstar-subp-is-fsti-p ()
+(defun fstar-subp-is-interface-p ()
   "Check whether the current script needs --fsi."
-  (string-match-p "\\.fsti\\'" buffer-file-name))
+  (string-match-p "\\.fst?i\\'" buffer-file-name))
 
 (defun fstar-subp-with-interactive-args (args)
   "Return ARGS precedeed by --in and optionally --fsi."
-  (append '("--in") (when (fstar-subp-is-fsti-p) '("--fsi")) args))
+  (append '("--in") (when (fstar-subp-is-interface-p) '("--fsi")) args))
 
 (defun fstar-subp-start ()
   "Start an F* subprocess attached to the current buffer, if none exists."
