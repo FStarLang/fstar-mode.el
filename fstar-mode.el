@@ -772,7 +772,7 @@ multiple arguments as one string will not work: you should use
         (user-error "F* executable not executable; please check the value of `fstar-executable'"))
       (let* ((buf (fstar-subp-make-buffer))
              (process-connection-type nil)
-             (args (fstar-subp-add-interactive-args (fstar-subp-get-prover-args)))
+             (args (fstar-subp-with-interactive-args (fstar-subp-get-prover-args)))
              (proc (apply #'start-process "F* interactive" buf prog-abs args)))
         (fstar-subp-log "Started F* interactive with arguments %S" args)
         (set-process-query-on-exit-flag proc nil)
