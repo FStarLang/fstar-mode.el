@@ -1,5 +1,7 @@
 # `fstar-mode`
 
+[![MELPA](https://melpa.org/packages/fstar-mode-badge.svg)](https://melpa.org/#/fstar-mode)
+
 ## Use F* in Emacs!
 
 Includes:
@@ -12,9 +14,11 @@ Includes:
 
 ![Screenshot](img/fstar-mode.png)
 
-# Setup
+## Setup
 
-F*-mode requires Emacs 24.3 or newer, and its dependencies are hosted on [MELPA](https://melpa.org). Add the following to your init file (usually `.emacs`):
+### From MELPA
+
+F*-mode requires Emacs 24.3 or newer, and is distributed through [MELPA](https://melpa.org). Add the following to your init file (usually `.emacs`), if it is not already there:
 
 ```elisp
 (require 'package)
@@ -22,25 +26,25 @@ F*-mode requires Emacs 24.3 or newer, and its dependencies are hosted on [MELPA]
 (package-initialize)
 ```
 
-Then copy the following into an empty buffer, and run <kbd>M-x eval-buffer</kbd>.
+Restart Emacs, and run <kbd>M-x package-refresh-contents</kbd>, then <kbd>M-x package-install RET fstar-mode RET</kbd>. Future updates can be downloaded using <kbd>M-x list-packages</kbd>.
 
-```elisp
-(let ((url "https://raw.githubusercontent.com/FStarLang/fstar.el/master/fstar-mode.el"))
-  (with-current-buffer (url-retrieve-synchronously url)
-    (package-install-from-buffer)))
-```
-
-Finally, if `fstar.exe` is not already in your path, set the `fstar-executable` variable:
+If `fstar.exe` is not already in your path, set the `fstar-executable` variable:
 
 ```elisp
 (set-default fstar-executable "PATH-TO-FSTAR.EXE")
 ```
 
-Restart Emacs, and you should be good to go. If you want real-time verification (instead of interactive, Proof-General style verification), you may also want to install Flycheck from MELPA and see the Customization section below.
+### From source
+
+Setup MELPA as described above, then install the dependencies and clone the repo to a directory of your choice (`~.emacs.d/lisp/fstar-mode.el` for example). Optionally byte-compile `fstar-mode.el`, and finally add the following to your init file:
+
+```elisp
+(require 'fstar-mode "~/.emacs.d/lisp/fstar-mode.el/fstar-mode.el")
+```
 
 ## Customization
 
-### Use Atom keybindings
+### Using Atom keybindings
 
 Use <kbd>M-x customize-variable RET fstar-interactive-keybinding-style RET</kbd> to pick a keybinding style. The default is Proof-General; the other option is Atom.
 
@@ -53,25 +57,27 @@ C-c RET or C-c C-RET  C-S-i    Process the file up to the current point
 C-c C-x               C-M-c    Kill the F* process
 ```
 
-### Disable individual F* mode components
+### Enabling and disabling individual F* mode components
 
 Use <kbd>M-x customize-variable RET fstar-enabled-modules RET</kbd> to choose which parts of fstar-mode to enable.
 
-## Fixing font issues
+In particular, you can get real-time verification (instead of interactive, Proof-General style verification), by enabling the `flycheck` module. You'll need to install Flycheck from MELPA.
 
-DejaVu Sans Mono, Symbola, FreeMono, STIX, Unifont, Segoe UI Symbol, Arial Unicode and Cambria Math are all good candidates. If Emacs doesn't pick up on the new fonts after a restart, the following snippet (add it to your .emacs) should help:
+## Font issues
+
+### Missing characters
+
+Boxes instead of math symbols are most likely due to missing fonts. DejaVu Sans Mono, Symbola, FreeMono, STIX, Unifont, Segoe UI Symbol, Arial Unicode and Cambria Math are all good candidates. If Emacs doesn't pick up on the new fonts after a restart, the following snippet (add it to your .emacs) should help:
 
 ```elisp
 (set-fontset-font t 'unicode (font-spec :name "YOUR USUAL EMACS FONT") nil 'append)
 (set-fontset-font t 'unicode (font-spec :name "SOME FONT WITH GOOD COVERAGE AS LISTED ABOVE") nil 'append)
 ```
 
-## Setting up
+### Fonts for specific characters
 
-Clone the repo to a directory of your choice `dir`. Add the following to your `.emacs`:
+Use the following snippet to use `Symbola` for `∀` only:
 
 ```elisp
-(require 'fstar-mode "dir/fstar-mode.el")
+(set-fontset-font t (cons ?∀ ?∀) "Symbola" nil 'prepend)
 ```
-
-Make sure to install the dependencies: <kbd>M-x package-install RET flycheck RET</kbd> should do it.
