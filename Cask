@@ -4,5 +4,4 @@
 (package-file "fstar-mode.el")
 
 (development
- (depends-on "flycheck")
- (depends-on "nameless"))
+ (depends-on "flycheck"))
