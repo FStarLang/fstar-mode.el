@@ -5,7 +5,7 @@
 ;; URL: https://github.com/FStarLang/fstar.el
 
 ;; Created: 27 Aug 2015
-;; Version: 0.2.1
+;; Version: 0.2.2
 ;; Package-Requires: ((emacs "24.3") (cl-lib "0.3") (dash "2.11"))
 ;; Keywords: convenience, languages
 
@@ -400,7 +400,9 @@ If MUST-FIND-TYPE is nil, the :type part is not necessary."
       (while (re-search-forward "\\s-+" (point-at-eol) t)
         (push (current-column) points)))
     (when points
-      (push (+ 2 (apply #'min points)) points))
+      (let ((mn (apply #'min points)))
+        (push (+ 2 mn) points)
+        (push (+ 4 mn) points)))
     (push 0 points)
     (push 2 points)
     (-distinct (sort points #'<))))
