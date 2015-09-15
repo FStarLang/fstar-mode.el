@@ -118,17 +118,17 @@
 ;;; Prettify symbols
 
 (defconst fstar-symbols-alist '(("exists" . ?∃) ("forall" . ?∀) ("fun" . ?λ)
-                            ("nat" . ?ℕ) ("int" . ?ℤ)
-                            ("True" . ?⊤) ("False" . ?⊥)
-                            ("*" . ?×) ("~>" . ?↝)
-                            ("<=" . ?≤) (">=" . ?≥) ("::" . ?⸬)
-                            ("/\\" . ?∧) ("\\/" . ?∨) ("~" . ?¬) ("<>" . ?≠)
-                            ;; ("&&" . ?∧) ("||" . ?∨) ("=!=" . ?≠)
-                            ("<==>" . ?⟺) ("==>" . ?⟹)
-                            ("=>" . ?⇒) ("->" . ?→)
-                            ;; ("(|" . 10629) ("|)" . 10630)
-                            ("'a" . ?α) ("'b" . ?β) ("'c" . ?γ)
-                            ("'d" . ?δ) ("'e" . ?ϵ))
+                           ("nat" . ?ℕ) ("int" . ?ℤ)
+                           ("True" . ?⊤) ("False" . ?⊥)
+                           ("*" . ?×) ("~>" . ?↝)
+                           ("<=" . ?≤) (">=" . ?≥) ("::" . ?⸬)
+                           ("/\\" . ?∧) ("\\/" . ?∨) ("~" . ?¬) ("<>" . ?≠)
+                           ;; ("&&" . ?∧) ("||" . ?∨) ("=!=" . ?≠)
+                           ("<==>" . ?⟺) ("==>" . ?⟹)
+                           ("=>" . ?⇒) ("->" . ?→)
+                           ;; ("(|" . 10629) ("|)" . 10630)
+                           ("'a" . ?α) ("'b" . ?β) ("'c" . ?γ)
+                           ("'d" . ?δ) ("'e" . ?ϵ))
   "Fstar symbols.")
 
 (defun fstar-setup-prettify ()
@@ -228,14 +228,14 @@ sexp to span at most that many extra lines."
   (match-end (or bound-to 0)))
 
 (defconst fstar-syntax-id-unwrapped (rx (? (or "#" "'"))
-                                    (any "a-z_") (* (or wordchar (syntax symbol)))
-                                    (? "." (* (or wordchar (syntax symbol))))))
+                                   (any "a-z_") (* (or wordchar (syntax symbol)))
+                                   (? "." (* (or wordchar (syntax symbol))))))
 
 (defconst fstar-syntax-id (concat "\\_<" fstar-syntax-id-unwrapped "\\_>"))
 
 (defconst fstar-syntax-cs (rx symbol-start
-                          (any "A-Z") (* (or wordchar (syntax symbol)))
-                          symbol-end))
+                         (any "A-Z") (* (or wordchar (syntax symbol)))
+                         symbol-end))
 
 (defun fstar-find-id-maybe-type (bound must-find-type)
   "Find var:type pair between point and BOUND.
@@ -307,7 +307,7 @@ If MUST-FIND-TYPE is nil, the :type part is not necessary."
        (1 'fstar-structure-face)
        (2 'font-lock-function-name-face)
        (fstar-find-id (fstar-subexpr-pre-matcher 2) nil
-                  (1 'font-lock-variable-name-face)))
+                 (1 'font-lock-variable-name-face)))
       (fstar-find-id-with-type
        (1 'font-lock-variable-name-face))
       (,(concat "\\_<\\(type\\|kind\\)\\( +" id "\\)\\s-*$")
@@ -317,15 +317,15 @@ If MUST-FIND-TYPE is nil, the :type part is not necessary."
        (1 'fstar-structure-face)
        (2 'font-lock-function-name-face)
        (fstar-find-id (fstar-subexpr-pre-matcher 2) nil
-                  (1 'font-lock-variable-name-face)))
+                 (1 'font-lock-variable-name-face)))
       ("\\_<\\(forall\\|exists\\) [^.]+\."
        (0 'font-lock-keyword-face)
        (fstar-find-id (fstar-subexpr-pre-matcher 1) nil
-                  (1 'font-lock-variable-name-face)))
+                 (1 'font-lock-variable-name-face)))
       (fstar-find-fun-and-args
        (1 'font-lock-keyword-face)
        (fstar-find-id (fstar-subexpr-pre-matcher 1) nil
-                  (1 'font-lock-variable-name-face)))
+                 (1 'font-lock-variable-name-face)))
       (,(concat "\\_<\\(val\\) +\\(" id "\\) *:")
        (1 'fstar-structure-face)
        (2 'font-lock-function-name-face))
@@ -648,9 +648,9 @@ FIXME: This doesn't do error handling."
 (defun fstar-subp-highlight-issue (issue)
   "Highlight ISSUE in current buffer."
   (let* ((from (fstar-issue-offset (fstar-issue-line-from issue)
-                               (fstar-issue-col-from issue)))
+                              (fstar-issue-col-from issue)))
          (to (fstar-issue-offset (fstar-issue-line-to issue)
-                             (fstar-issue-col-to issue)))
+                            (fstar-issue-col-to issue)))
          (overlay (make-overlay from (max to (1+ from)) (current-buffer) t nil)))
     (overlay-put overlay 'fstar-subp-issue t)
     (overlay-put overlay 'face 'fstar-subp-overlay-issue-face)
@@ -667,7 +667,7 @@ FIXME: This doesn't do error handling."
 (defun fstar-subp-jump-to-issue (issue)
   "Jump to ISSUE in current buffer."
   (goto-char (fstar-issue-offset (fstar-issue-line-from issue)
-                             (fstar-issue-col-from issue))))
+                            (fstar-issue-col-from issue))))
 
 (defun fstar-subp-handle-failure (response overlay)
   "Process failure RESPONSE from F* subprocess for OVERLAY."
@@ -903,7 +903,7 @@ If NO-ERROR is set, do not report an error if the region is empty."
   (let ((beg (fstar-subp-unprocessed-beginning))
         (end (fstar-skip-spaces-backwards-from end)))
     (fstar-assert (cl-loop for overlay in (overlays-in beg end)
-                       never (fstar-subp-tracking-overlay-p overlay)))
+                      never (fstar-subp-tracking-overlay-p overlay)))
     (if (<= end beg)
         (unless no-error
           (user-error "Nothing more to process!"))
@@ -1114,7 +1114,3 @@ into blocks; process it as one large block instead."
 
 (provide 'fstar-mode)
 ;;; fstar-mode.el ends here
-
-;; Local Variables:
-;; nameless-aliases: (("f*" . "fstar"))
-;; End:
