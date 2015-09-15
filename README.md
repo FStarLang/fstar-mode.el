@@ -32,11 +32,9 @@ Setup MELPA as described above, then install the dependencies and clone the repo
 (require 'fstar-mode "~/.emacs.d/lisp/fstar-mode.el/fstar-mode.el")
 ```
 
-## Customization
+## Using the interactive mode
 
-### Using Atom keybindings
-
-Use <kbd>M-x customize-variable RET fstar-interactive-keybinding-style RET</kbd> to pick a keybinding style. The default is Proof-General; the other option is Atom.
+The keybindings are as follows:
 
 ```
 Emacs                 Atom     Action
@@ -46,6 +44,10 @@ C-c C-u or C-c C-p    C-S-p    Retract last block
 C-c RET or C-c C-RET  C-S-i    Process the file up to the current point
 C-c C-x               C-M-c    Kill the F* process
 ```
+
+Use <kbd>M-x customize-variable RET fstar-interactive-keybinding-style RET</kbd> to pick a keybinding style. The default is Proof-General; the other option is Atom.
+
+## Customization
 
 ### Enabling and disabling individual F* mode components
 
