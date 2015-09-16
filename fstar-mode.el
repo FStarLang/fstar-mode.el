@@ -785,12 +785,33 @@ multiple arguments as one string will not work: you should use
         (process-put proc 'fstar-subp-source-buffer (current-buffer))
         (setq fstar-subp--process proc)))))
 
+(defun fstar-subp-prepare-message (msg)
+  "Cleanup MSG before sending it to the F* process."
+  (with-temp-buffer
+    (set-syntax-table fstar-syntax-table)
+    (fstar-setup-comments)
+    (comment-normalize-vars)
+    (insert msg)
+    (goto-char (point-min))
+    (let (start end)
+      (while (setq start (comment-search-forward nil t))
+        (goto-char start)
+        (forward-comment 1)
+        (setq end (point))
+        (when (not (fstar-in-build-config-p))
+          (save-match-data
+            (let* ((comment (buffer-substring-no-properties start end))
+                   (replacement (replace-regexp-in-string "." " " comment t t)))
+              (delete-region start end)
+              (insert replacement))))))
+    (buffer-substring-no-properties (point-min) (point-max))))
+
 (defun fstar-subp-send-region (beg end)
   "Send the region between BEG and END to the inferior F* process."
   (interactive "r")
   (fstar-subp-start)
   (let ((msg (concat fstar-subp--header
-                     (buffer-substring-no-properties beg end)
+                     (fstar-subp-prepare-message (buffer-substring-no-properties beg end))
                      fstar-subp--footer)))
     (fstar-subp-log "QUERY [%s]" msg)
     (process-send-string fstar-subp--process msg)))
