@@ -392,6 +392,13 @@ If MUST-FIND-TYPE is nil, the :type part is not necessary."
 
 ;;; Indentation
 
+(defun fstar-comment-offset ()
+  (comment-normalize-vars)
+  (when (fstar-in-comment-p)
+    (save-excursion
+      (comment-beginning)
+      (- (point) (point-at-bol)))))
+
 (defun fstar-indentation-points ()
   "Find reasonable indentation points on the current line."
   (let ((points)) ;; FIXME first line?
@@ -405,6 +412,9 @@ If MUST-FIND-TYPE is nil, the :type part is not necessary."
         (push (+ 4 mn) points)))
     (push 0 points)
     (push 2 points)
+    (-when-let* ((comment-offset (fstar-comment-offset)))
+      (setq points (-filter (lambda (pt) (>= pt comment-offset))
+                            (cons comment-offset points))))
     (-distinct (sort points #'<))))
 
 (defun fstar-indent ()
@@ -1080,10 +1090,11 @@ into blocks; process it as one large block instead."
 
 (defun fstar-setup-comments ()
   "Set comment-related variables for F*."
-  (setq-local comment-start      "//")
-  (setq-local comment-end        "")
-  (setq-local comment-start-skip "\\s-*\\((\\*+\\|//\\)\\s-*")
-  (setq-local comment-end-skip   "\\s-*\\*+)\\s-*")
+  (setq-local comment-multi-line t)
+  (setq-local comment-use-syntax t)
+  (setq-local comment-start      "(*")
+  (setq-local comment-continue   " *")
+  (setq-local comment-end        "*)")
   (setq-local font-lock-syntactic-face-function #'fstar-syntactic-face-function))
 
 ;;; Main mode
