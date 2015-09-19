@@ -965,13 +965,24 @@ If NO-ERROR is set, do not report an error if the region is empty."
   (while (or (> (skip-chars-forward " \r\n\t") 0)
              (comment-forward 1))))
 
+(defun fstar-subp-next-block-sep (bound)
+  "Find the next block separator before BOUND.
+Ignores separators found in comments."
+  (let (pos)
+    (save-excursion
+      (while (and (null pos) (re-search-forward fstar-subp-block-sep bound t))
+        (unless (fstar-in-comment-p)
+          (setq pos (point)))))
+    (when pos
+      (goto-char pos))))
+
 (defun fstar-subp-advance-next ()
   "Process buffer until `fstar-subp-block-sep'."
   (interactive)
   (fstar-subp-start)
   (goto-char (fstar-subp-unprocessed-beginning))
   (fstar-subp-skip-comments-and-whitespace)
-  (-if-let* ((next-start (re-search-forward fstar-subp-block-sep nil t)))
+  (-if-let* ((next-start (fstar-subp-next-block-sep nil)))
       (fstar-subp-enqueue-until next-start)
     (user-error "Cannot find a full block to process")))
 
@@ -1017,7 +1028,7 @@ If NO-ERROR is set, do not report an error if the region is empty."
   (save-excursion
     (goto-char (fstar-subp-unprocessed-beginning))
     (let ((found (cl-loop do (fstar-subp-skip-comments-and-whitespace)
-                          while (and (< (point) pos) (re-search-forward fstar-subp-block-sep pos t))
+                          while (and (< (point) pos) (fstar-subp-next-block-sep pos))
                           do (fstar-subp-enqueue-until (point))
                           collect (point))))
       (fstar-subp-enqueue-until pos found))))
