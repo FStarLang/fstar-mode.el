@@ -1065,7 +1065,7 @@ into blocks; process it as one large block instead."
   (help-at-pt-cancel-timer)
   (help-at-pt-set-timer)
   (when (featurep 'flycheck)
-    (flycheck-mode -1)))
+    (add-to-list 'flycheck-disabled-checkers 'fstar)))
 
 (defun fstar-teardown-interactive ()
   "Cleanup F* interactive mode."
