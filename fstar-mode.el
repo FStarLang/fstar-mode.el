@@ -399,7 +399,7 @@ If MUST-FIND-TYPE is nil, the :type part is not necessary."
   (interactive "*P")
   (if (save-excursion (beginning-of-line) (looking-at-p "[ \t]*$"))
       (progn (delete-region (point-at-bol) (point-at-eol))
-             (newline arg nil))
+             (newline arg)) ;; 24.3 doesn't support second argument
     (let ((indentation (current-indentation)))
       (newline arg nil)
       (indent-line-to indentation))))
