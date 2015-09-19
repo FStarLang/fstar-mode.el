@@ -389,7 +389,20 @@ If MUST-FIND-TYPE is nil, the :type part is not necessary."
 ;;; Mode map
 
 (defvar fstar-mode-map
-  (make-sparse-keymap))
+  (let ((map (make-sparse-keymap)))
+    (define-key map (kbd "RET") #'fstar-newline-and-indent)
+    map))
+
+(defun fstar-newline-and-indent (arg)
+  (interactive "*P")
+  (if (save-excursion (beginning-of-line) (looking-at-p "[ \t]*$"))
+      (progn (delete-region (point-at-bol) (point-at-eol))
+             (newline arg nil))
+    (let ((indentation (current-indentation)))
+      (newline arg nil)
+      (indent-line-to indentation))))
+
+(put 'fstar-newline-and-indent 'delete-selection t)
 
 ;;; Indentation
 
