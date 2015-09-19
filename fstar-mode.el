@@ -401,7 +401,7 @@ If MUST-FIND-TYPE is nil, the :type part is not necessary."
       (progn (delete-region (point-at-bol) (point-at-eol))
              (newline arg)) ;; 24.3 doesn't support second argument
     (let ((indentation (current-indentation)))
-      (newline arg nil)
+      (newline arg)
       (indent-line-to indentation))))
 
 (put 'fstar-newline-and-indent 'delete-selection t)
