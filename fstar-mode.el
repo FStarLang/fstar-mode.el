@@ -338,7 +338,7 @@ If MUST-FIND-TYPE is nil, the :type part is not necessary."
 
 (defun fstar-setup-font-lock ()
   "Setup font-lock for use with F*."
-  (font-lock-mode)
+  (font-lock-mode -1)
   (setq-local
    font-lock-defaults
    `(((,fstar-syntax-constants    . 'font-lock-constant-face)
@@ -351,7 +351,8 @@ If MUST-FIND-TYPE is nil, the :type part is not necessary."
   (font-lock-set-defaults)
   (add-to-invisibility-spec 'fstar-subscripts)
   (add-to-list 'font-lock-extra-managed-props 'display)
-  (add-to-list 'font-lock-extra-managed-props 'invisible))
+  (add-to-list 'font-lock-extra-managed-props 'invisible)
+  (font-lock-mode))
 
 (defun fstar-teardown-font-lock ()
   (remove-from-invisibility-spec 'fstar-subscripts))
