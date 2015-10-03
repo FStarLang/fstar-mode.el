@@ -493,6 +493,11 @@ If MUST-FIND-TYPE is nil, the :type part is not necessary."
 (defvar fstar-subp-debug nil
   "If non-nil, print debuging information in interactive mode.")
 
+(defun fstar-subp-toggle-debug ()
+  "Toggle `fstar-subp-debug'."
+  (interactive)
+  (message "Debugging set to %s." (setq-local fstar-subp-debug (not fstar-subp-debug))))
+
 (defmacro fstar-subp-log (format &rest args)
   "Log a message, conditional on fstar-subp-debug.
 
