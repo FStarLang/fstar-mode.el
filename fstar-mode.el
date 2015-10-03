@@ -560,6 +560,7 @@ If PROC is nil, use the current buffer's `fstar-subp--process'."
   (fstar-subp-log "SENTINEL [%s] [%s]" signal (process-status proc))
   (when (or (memq (process-status proc) '(exit signal))
             (not (process-live-p proc)))
+    (message "F* subprocess exited.")
     (fstar-subp-with-source-buffer proc
       (fstar-subp-killed))))
 
