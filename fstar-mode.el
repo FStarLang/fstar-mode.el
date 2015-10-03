@@ -496,7 +496,7 @@ If MUST-FIND-TYPE is nil, the :type part is not necessary."
 (defun fstar-subp-toggle-debug ()
   "Toggle `fstar-subp-debug'."
   (interactive)
-  (message "Debugging set to %s." (setq-local fstar-subp-debug (not fstar-subp-debug))))
+  (message "F*: Debugging set to %s." (setq-local fstar-subp-debug (not fstar-subp-debug))))
 
 (defmacro fstar-subp-log (format &rest args)
   "Log a message, conditional on fstar-subp-debug.
@@ -560,7 +560,7 @@ If PROC is nil, use the current buffer's `fstar-subp--process'."
   (fstar-subp-log "SENTINEL [%s] [%s]" signal (process-status proc))
   (when (or (memq (process-status proc) '(exit signal))
             (not (process-live-p proc)))
-    (message "F* subprocess exited.")
+    (message "F*: subprocess exited.")
     (fstar-subp-with-source-buffer proc
       (fstar-subp-killed))))
 
@@ -621,7 +621,7 @@ If PROC is nil, use the current buffer's `fstar-subp--process'."
   level filename line-from line-to col-from col-to message)
 
 (defconst fstar-subp-issue-regexp
-  "\\(.*?\\)(\\([[:digit:]]+\\),\\([[:digit:]]+\\)-\\([[:digit:]]+\\),\\([[:digit:]]+\\)):\\s-*\\(.*\\)")
+  "\\(.*?\\)(\\([[:digit:]]+\\),\\([[:digit:]]+\\)-\\([[:digit:]]+\\),\\([[:digit:]]+\\))\\s-*:\\s-*\\(.*\\)")
 
 (defun fstar-subp-parse-issue (context)
   "Construct an issue object from the current match data and CONTEXT."
@@ -731,15 +731,20 @@ FIXME: This doesn't do error handling."
            unless (fstar-subp-status-eq overlay 'processed)
            do (delete-overlay overlay)))
 
+(defun fstar-subp-warn-unexpected-output (string)
+  "Warn user about unexpected output STR."
+  (message "F*: received unexpected output from subprocess (%s)" string))
+
 (defun fstar-subp-filter (proc string)
   "Handle PROC's output (STRING)."
   (when string
     (fstar-subp-log "OUTPUT [%s]" string)
-    (when (fstar-subp-live-p proc)
-      (fstar-subp-with-process-buffer proc
-        (goto-char (point-max))
-        (insert string)
-        (fstar-subp-find-response proc)))))
+    (if (fstar-subp-live-p proc)
+        (fstar-subp-with-process-buffer proc
+          (goto-char (point-max))
+          (insert string)
+          (fstar-subp-find-response proc))
+      (run-with-timer 0 nil #'fstar-subp-warn-unexpected-output string))))
 
 (defun fstar-subp-buffer-killed ()
   "Kill F* process associated to current buffer."
