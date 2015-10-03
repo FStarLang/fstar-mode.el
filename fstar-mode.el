@@ -447,8 +447,7 @@ If MUST-FIND-TYPE is nil, the :type part is not necessary."
 (defun fstar-setup-indentation ()
   "Setup indentation for F*."
   (setq-local indent-line-function #'fstar-indent)
-  (when (fboundp 'electric-indent-local-mode)
-    (electric-indent-local-mode -1)))
+  (setq-local electric-indent-inhibit t))
 
 ;;; Interaction with the server (interactive mode)
 
