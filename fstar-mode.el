@@ -173,6 +173,9 @@
                 "effect" "new_effect" "sub_effect")
               'symbols))
 
+(defconst fstar-syntax-ambiguous
+  (regexp-opt `("\\/" "/\\")))
+
 ;; (defconst fstar-syntax-types
 ;;   (regexp-opt '("Type")
 ;;               'symbols))
@@ -205,6 +208,11 @@
 (defface fstar-subscript-face
   '((t :height 0.8))
   "Face used to use for subscripts"
+  :group 'fstar)
+
+(defface fstar-ambiguous-face
+  '((t :inherit font-lock-negation-char-face))
+  "Face used to use for /\\ and \//."
   :group 'fstar)
 
 (defun fstar-group-pre-matcher (prefix-len allowed-newlines)
@@ -348,6 +356,7 @@ If MUST-FIND-TYPE is nil, the :type part is not necessary."
       (,fstar-syntax-builtins     . 'font-lock-builtin-face)
       (,fstar-syntax-preprocessor . 'font-lock-preprocessor-face)
       (,fstar-syntax-structure    . 'fstar-structure-face)
+      (,fstar-syntax-ambiguous    . 'fstar-ambiguous-face)
       ,@fstar-syntax-additional)
      nil nil))
   (font-lock-set-defaults)
