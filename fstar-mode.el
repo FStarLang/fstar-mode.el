@@ -558,6 +558,23 @@ If PROC is nil, use the current buffer's `fstar-subp--process'."
     (accept-process-output fstar-subp--process 0.25 nil t))
   (fstar-subp-killed))
 
+(defun fstar-subp-kill-all ()
+  "Kill F* subprocesses in all buffers."
+  (interactive)
+  (dolist (buf (buffer-list))
+    (when (buffer-live-p buf) ; May have been killed by previous iterations
+      (with-current-buffer buf
+        (when (derived-mode-p 'fstar-mode)
+          (fstar-subp-kill))))))
+
+  (defun fstar-subp-kill-one-or-many (&optional arg)
+    "Kill current F* subprocess.
+With prefix argument ARG, kill all F* subprocesses."
+    (interactive "P")
+    (if (consp arg)
+        (fstar-subp-kill-all)
+      (fstar-subp-kill)))
+
 (defun fstar-subp-kill-proc (proc)
   "Same as `fstar-subp-kill', but for PROC instead of `fstar-subp--process'."
   (fstar-subp-with-source-buffer proc
@@ -1075,7 +1092,7 @@ into blocks; process it as one large block instead."
     ("C-c C-p"        "C-S-p" fstar-subp-retract-last)
     ("C-c RET"        "C-S-i" fstar-subp-advance-or-retract-to-point)
     ("C-c <C-return>" "C-S-i" fstar-subp-advance-or-retract-to-point)
-    ("C-c C-x"        "C-M-c" fstar-subp-kill))
+    ("C-c C-x"        "C-M-c" fstar-subp-kill-one-or-many))
   "Proof-General and Atom bindings table.")
 
 (defun fstar-subp-refresh-keybinding (bind target unbind)
