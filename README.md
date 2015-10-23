@@ -36,14 +36,13 @@ Setup MELPA as described above, then install the dependencies and clone the repo
 
 The keybindings are as follows:
 
-```
-Emacs                 Atom     Action
--------------------------------------------------------------------------------------
-C-c C-n               C-S-n    Process the next block (terminated by two empty lines)
-C-c C-u or C-c C-p    C-S-p    Retract last block
-C-c RET or C-c C-RET  C-S-i    Process the file up to the current point
-C-c C-x               C-M-c    Kill the F* process
-```
+
+Emacs                | Atom  | Action
+---------------------|-------|----------------------------------------------------------
+C-c C-n              | C-S-n | Process the next block (terminated by two empty lines)
+C-c C-u or C-c C-p   | C-S-p | Retract last block
+C-c RET or C-c C-RET | C-S-i | Process the file up to the current point
+C-c C-x              | C-M-c | Kill the F* process
 
 Use <kbd>M-x customize-variable RET fstar-interactive-keybinding-style RET</kbd> to pick a keybinding style. The default is Proof-General; the other option is Atom.
 
