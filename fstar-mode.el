@@ -1159,6 +1159,7 @@ into blocks; process it as one large block instead."
   (setq-local comment-start      "(*")
   (setq-local comment-continue   " *")
   (setq-local comment-end        "*)")
+  (setq-local comment-start-skip "\\(//+\\|(\\*+\\)[ \t]*")
   (setq-local font-lock-syntactic-face-function #'fstar-syntactic-face-function))
 
 ;;; Main mode
