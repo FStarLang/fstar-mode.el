@@ -34,6 +34,8 @@ Setup MELPA as described above, then install the dependencies and clone the repo
 
 ## Using the interactive mode
 
+Please be aware of the [current restrictions](https://github.com/FStarLang/FStar/wiki/Dealing-with-F%E2%98%85-dependencies#when-invoking-f-in-interactive-mode) on the interactive-mode.
+
 The keybindings are as follows:
 
 
