@@ -148,7 +148,7 @@
 (defconst fstar-syntax-structure
   (regexp-opt '("begin" "end"
                 "let" "rec" "in" "val"
-                "kind" "type" "logic"
+                "kind" "type" "logic" "new" "abstract"
                 "private" "opaque" "total" "default"
                 "open" "module")
               'symbols))
