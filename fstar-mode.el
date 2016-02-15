@@ -149,6 +149,7 @@
   (regexp-opt '("begin" "end"
                 "let" "rec" "in" "val"
                 "kind" "type" "logic" "new" "abstract"
+                "irreducible" "unfoldable" "inline"
                 "private" "opaque" "total" "default"
                 "open" "module")
               'symbols))
@@ -162,7 +163,7 @@
                 "forall" "exists"
                 "assert" "assume"
                 "fun" "function"
-                "match" "with"
+                "try" "match" "with"
                 "if" "then" "else"
                 "ALL" "All" "DIV" "Div" "EXN" "Ex" "Exn" "GHOST" "GTot" "Ghost"
                 "Lemma" "PURE" "Pure" "ST" "STATE" "St" "Tot")
