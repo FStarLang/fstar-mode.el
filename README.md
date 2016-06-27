@@ -21,7 +21,7 @@ Restart Emacs, and run <kbd>M-x package-refresh-contents</kbd>, then <kbd>M-x pa
 If `fstar.exe` is not already in your path, set the `fstar-executable` variable:
 
 ```elisp
-(set-default 'fstar-executable "PATH-TO-FSTAR.EXE")
+(setq-default fstar-executable "PATH-TO-FSTAR.EXE")
 ```
 
 ### From source
