@@ -1,11 +1,11 @@
 ;;; fstar-mode.el --- Support for F* programming -*- lexical-binding: t -*-
 
-;; Copyright (C) 2015 Clément Pit--Claudel
+;; Copyright (C) 2015 Clément Pit-Claudel
 ;; Author: Clément Pit--Claudel <clement.pitclaudel@live.com>
 ;; URL: https://github.com/FStarLang/fstar.el
 
 ;; Created: 27 Aug 2015
-;; Version: 0.2.2
+;; Version: 0.3
 ;; Package-Requires: ((emacs "24.3") (dash "2.11"))
 ;; Keywords: convenience, languages
 
