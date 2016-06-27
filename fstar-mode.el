@@ -211,27 +211,15 @@
   "Face used to use for subscripts"
   :group 'fstar)
 
+(defface fstar-braces-face
+  '((t))
+  "Face used to use for { and }."
+  :group 'fstar)
+
 (defface fstar-ambiguous-face
   '((t :inherit font-lock-negation-char-face))
   "Face used to use for /\\ and \//."
   :group 'fstar)
-
-(defun fstar-group-pre-matcher (prefix-len allowed-newlines)
-  "Prepare for highlighting.
-
-Go back PREFIX-LEN chars, skip one sexp forward without moving
-point and report that position; point is placed at beginning of
-original match.  If ALLOWED-NEWLINES is non-nil, then allow the
-sexp to span at most that many extra lines."
-  (prog1
-      (min (save-excursion
-             (backward-char prefix-len)
-             (ignore-errors (forward-sexp))
-             (point))
-           (save-excursion
-             (forward-line (or allowed-newlines 0))
-             (point-at-eol)))
-    (goto-char (match-beginning 0))))
 
 (defun fstar-subexpr-pre-matcher (rewind-to &optional bound-to)
   "Move past REWIND-TO th group, then return end of BOUND-TO th."
@@ -262,7 +250,8 @@ If MUST-FIND-TYPE is nil, the :type part is not necessary."
                                       (skip-syntax-backward "-")
                                       (or (eq (char-before) ?|) ; | X: int
                                           (save-match-data
-                                            (looking-back "\\_<val" (point-at-bol))))))))) ; val x : Y:int
+                                            ;; val x : Y:int
+                                            (looking-back "\\_<\\(val\\|let\\)\\_>" (point-at-bol)))))))))
     (when (and found (match-beginning 2))
       (ignore-errors
         (goto-char (match-end 2))
@@ -292,57 +281,55 @@ If MUST-FIND-TYPE is nil, the :type part is not necessary."
 
 (defun fstar-find-subtype-annotation (bound)
   "Find {...} group between point and BOUND."
-  (let ((found))
-    (while (and (not found) (re-search-forward "{[^:]" bound t))
-      (setq found
-            (save-excursion
-              (backward-char)
-              (not (looking-at-p "[^ ]+ +with")))))
+  (let ((found) (end))
+    (while (and (not found) (re-search-forward "{[^:].*}" bound t))
+      (setq end (save-excursion
+                  (goto-char (match-beginning 0))
+                  (ignore-errors (forward-sexp))
+                  (point)))
+      (setq found (and (<= end bound)
+                       (<= end (point-at-eol))
+                       (save-excursion
+                         (backward-char)
+                         (not (looking-at-p "[^ ]+ +with"))))))
+    (when found
+      (set-match-data `(,(1+ (match-beginning 0)) ,(1- end))))
     found))
 
 (defconst fstar-syntax-additional
   (let ((id fstar-syntax-id))
-    `(
-      (fstar-find-subtype-annotation
-       ("{\\(\\(?:.\\|\n\\)+\\)}"
-        (fstar-group-pre-matcher 2 5) nil
-        (1 'fstar-subtype-face append)))
-      ("{:" (,(concat "\\({\\)\\(:" id "\\)\\(\\(?: +.+\\)?\\)\\(}\\)")
-             (fstar-group-pre-matcher 2 2) nil
-             (2 'font-lock-function-name-face append)
-             (3 'fstar-attribute-face append)))
-      ("%\\[" ("%\\[\\([^]]+\\)\\]"
-              (fstar-group-pre-matcher 1 0) nil
-              (1 'fstar-decreases-face append)))
-      (,(concat "\\_<\\(let\\(?: +rec\\)?\\)\\(\\(?: +" id "\\)?\\) +[^=]+=")
-       (1 'fstar-structure-face)
-       (2 'font-lock-function-name-face)
-       (fstar-find-id (fstar-subexpr-pre-matcher 2) nil
-                 (1 'font-lock-variable-name-face)))
-      (fstar-find-id-with-type
-       (1 'font-lock-variable-name-face))
-      (,(concat "\\_<\\(type\\|kind\\)\\( +" id "\\)\\s-*$")
+    `((,fstar-syntax-cs
+       (0 'font-lock-type-face))
+      (,(concat "{\\(:" id "\\) *\\([^}]*\\)}")
+       (1 'font-lock-builtin-face append)
+       (2 'fstar-attribute-face append))
+      (,(concat "\\_<\\(let\\(?: +rec\\_>\\)?\\)\\(\\(?: +" id "\\)?\\)")
        (1 'fstar-structure-face)
        (2 'font-lock-function-name-face))
-      (,(concat "\\_<\\(type\\|kind\\)\\( +" id "\\)[^=]+=")
+      (,(concat "\\_<\\(type\\|kind\\)\\( +" id "\\)")
        (1 'fstar-structure-face)
-       (2 'font-lock-function-name-face)
-       (fstar-find-id (fstar-subexpr-pre-matcher 2) nil
-                 (1 'font-lock-variable-name-face)))
-      ("\\_<\\(forall\\|exists\\) [^.]+\."
-       (0 'font-lock-keyword-face)
-       (fstar-find-id (fstar-subexpr-pre-matcher 1) nil
-                 (1 'font-lock-variable-name-face)))
-      (fstar-find-fun-and-args
-       (1 'font-lock-keyword-face)
-       (fstar-find-id (fstar-subexpr-pre-matcher 1) nil
-                 (1 'font-lock-variable-name-face)))
+       (2 'font-lock-function-name-face))
       (,(concat "\\_<\\(val\\) +\\(" id "\\) *:")
        (1 'fstar-structure-face)
        (2 'font-lock-function-name-face))
-      (,fstar-syntax-cs (0 'font-lock-constant-face))
+      (fstar-find-id-with-type
+       (1 'font-lock-variable-name-face))
+      (fstar-find-subtype-annotation
+       (0 'fstar-subtype-face append))
+      ("%\\[\\([^]]+\\)\\]"
+       (1 'fstar-decreases-face append))
+      ("\\_<\\(forall\\|exists\\) [^.]+\."
+       (0 'font-lock-keyword-face)
+       (fstar-find-id (fstar-subexpr-pre-matcher 1) nil (1 'font-lock-variable-name-face)))
+      (fstar-find-fun-and-args
+       (1 'font-lock-keyword-face)
+       (fstar-find-id (fstar-subexpr-pre-matcher 1) nil (1 'font-lock-variable-name-face)))
       ("(\\*--\\(build-config\\)"
        (1 'font-lock-preprocessor-face prepend))
+      (,fstar-syntax-ambiguous
+       (0 'fstar-ambiguous-face append))
+      ("[{}]"
+       (0 'fstar-braces-face append))
       (,(concat "\\_<" fstar-syntax-id-unwrapped "\\(_\\)\\([0-9]+\\)\\_>")
        (1 '(face nil invisible 'fstar-subscripts) prepend)
        (2 '(face fstar-subscript-face display (raise -0.3)) append)))))
@@ -357,7 +344,6 @@ If MUST-FIND-TYPE is nil, the :type part is not necessary."
       (,fstar-syntax-builtins     . 'font-lock-builtin-face)
       (,fstar-syntax-preprocessor . 'font-lock-preprocessor-face)
       (,fstar-syntax-structure    . 'fstar-structure-face)
-      (,fstar-syntax-ambiguous    . 'fstar-ambiguous-face)
       ,@fstar-syntax-additional)
      nil nil))
   (font-lock-set-defaults)
