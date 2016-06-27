@@ -367,6 +367,7 @@ If MUST-FIND-TYPE is nil, the :type part is not necessary."
   (font-lock-mode))
 
 (defun fstar-teardown-font-lock ()
+  "Disable F*-related font-locking."
   (remove-from-invisibility-spec 'fstar-subscripts))
 
 ;;; Syntax table
@@ -406,6 +407,7 @@ If MUST-FIND-TYPE is nil, the :type part is not necessary."
     map))
 
 (defun fstar-newline-and-indent (arg)
+  "Call (newline ARG), and indent resulting line as the previous one."
   (interactive "*P")
   (if (save-excursion (beginning-of-line) (looking-at-p "[ \t]*$"))
       (progn (delete-region (point-at-bol) (point-at-eol))
@@ -419,6 +421,7 @@ If MUST-FIND-TYPE is nil, the :type part is not necessary."
 ;;; Indentation
 
 (defun fstar-comment-offset ()
+  "Compute offset at beginning of comment."
   (comment-normalize-vars)
   (when (fstar-in-comment-p)
     (save-excursion
@@ -568,13 +571,13 @@ If PROC is nil, use the current buffer's `fstar-subp--process'."
         (when (derived-mode-p 'fstar-mode)
           (fstar-subp-kill))))))
 
-  (defun fstar-subp-kill-one-or-many (&optional arg)
-    "Kill current F* subprocess.
+(defun fstar-subp-kill-one-or-many (&optional arg)
+  "Kill current F* subprocess.
 With prefix argument ARG, kill all F* subprocesses."
-    (interactive "P")
-    (if (consp arg)
-        (fstar-subp-kill-all)
-      (fstar-subp-kill)))
+  (interactive "P")
+  (if (consp arg)
+      (fstar-subp-kill-all)
+    (fstar-subp-kill)))
 
 (defun fstar-subp-kill-proc (proc)
   "Same as `fstar-subp-kill', but for PROC instead of `fstar-subp--process'."
@@ -760,7 +763,7 @@ FIXME: This doesn't do error handling."
            do (delete-overlay overlay)))
 
 (defun fstar-subp-warn-unexpected-output (string)
-  "Warn user about unexpected output STR."
+  "Warn user about unexpected output STRING."
   (message "F*: received unexpected output from subprocess (%s)" string))
 
 (defun fstar-subp-filter (proc string)
@@ -1027,6 +1030,7 @@ Ignores separators found in comments."
     (user-error "Cannot find a full block to process")))
 
 (defun fstar-sub-overlay-contains-build-config (overlay)
+  "Check if OVERLAY contains a build-config header."
   (save-excursion
     (save-match-data
       (goto-char (overlay-start overlay))
@@ -1189,7 +1193,7 @@ into blocks; process it as one large block instead."
   (remove-hook 'before-revert-hook #'fstar-subp-kill))
 
 (defun fstar-enable-disable (enable)
-  "Enable or disable F* mode components."
+  "ENABLE or disable F* mode components."
   (dolist (module (cons 'hooks fstar-enabled-modules))
     (let* ((prefix (if enable "fstar-setup-" "fstar-teardown-"))
            (fsymb  (intern (concat prefix (symbol-name module)))))
@@ -1209,6 +1213,10 @@ into blocks; process it as one large block instead."
 (add-to-list 'auto-mode-alist '("\\.fsti?\\'" . fstar-mode))
 
 ;;; Footer
+
+;; Local Variables:
+;; checkdoc-verb-check-experimental-flag: nil
+;; End:
 
 (provide 'fstar-mode)
 ;;; fstar-mode.el ends here
