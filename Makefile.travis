@@ -7,7 +7,7 @@ prepare-emacs-24.3 prepare-emacs-24.4 prepare-emacs-24.5:
 	mv /tmp/$(EMACS_TARGET) "/tmp/emacs"
 
 prepare-emacs-git:
-	git clone --depth=1 'http://git.sv.gnu.org/r/emacs.git' --branch emacs-25 /tmp/emacs
+	git clone --depth=1 'git://git.savannah.gnu.org/emacs.git' --branch emacs-25 /tmp/emacs
 	cd /tmp/emacs && ./autogen.sh
 
 prepare-emacs: prepare-$(EMACS_TARGET)
