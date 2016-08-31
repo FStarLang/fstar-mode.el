@@ -64,6 +64,24 @@ Use the following snippet:
 (add-to-list 'auto-mode-alist '("\\.fsi\\'" . fstar-mode))
 ```
 
+### Include non-standard libraries when using fstar-mode
+
+Add the following line to your `.emacs`.
+
+```
+(setq fstar-subp-prover-args '("--include" "<your-path>"))
+```
+
+Note that under cygwin, `fstar` is a windows program and expects windows pathnames. For example, 
+```
+(setq fstar-subp-prover-args '("--include" "E:\\FStar\\ucontrib\\Platform\\fst")
+```
+('\\\\' is used to escape a Windows pathname.) 
+See [fstar-subp-prover-args] for more documentation.
+
+[fstar-subp-prover-args]: https://github.com/FStarLang/fstar-mode.el/blob/master/fstar-mode.el#L779
+
+
 ## Font issues
 
 ### Missing characters
