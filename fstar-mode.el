@@ -149,7 +149,7 @@
   (regexp-opt '("begin" "end"
                 "let" "rec" "in" "val"
                 "kind" "type" "logic" "new" "abstract"
-                "irreducible" "unfoldable" "inline" "noeq"
+                "irreducible" "unfoldable" "inline" "inline_for_extraction" "noeq"
                 "private" "opaque" "total" "default"
                 "open" "module")
               'symbols))
