@@ -456,7 +456,7 @@ If MUST-FIND-TYPE is nil, the :type part is not necessary."
 (defconst fstar-subp--done "\n#done-")
 
 (defconst fstar-subp--cancel "#pop\n")
-(defconst fstar-subp--header "#push\n")
+(defconst fstar-subp--header "#push ")
 (defconst fstar-subp--footer "\n#end #done-ok #done-nok\n")
 
 (defconst fstar-subp-statuses '(pending busy processed))
@@ -662,8 +662,9 @@ With prefix argument ARG, kill all F* subprocesses."
 
 (defun fstar-subp-adjust-line-numbers (issue overlay-start-line)
   "Adjust line numbers of ISSUE relative to OVERLAY-START-LINE."
-  (setf (fstar-issue-line-from issue) (+ (fstar-issue-line-from issue) (1- overlay-start-line)))
-  (setf (fstar-issue-line-to issue) (+ (fstar-issue-line-to issue) (1- overlay-start-line))))
+  issue)
+  ;; (setf (fstar-issue-line-from issue) (fstar-issue-line-from issue))
+  ;; (setf (fstar-issue-line-to issue) (fstar-issue-line-to issue))) ;;what's a better noop?
 
 (defun fstar-subp-realign-issue (overlay-start-line issue)
   "Use first line of overlay (OVERLAY-START-LINE) to realign issue ISSUE."
@@ -859,11 +860,19 @@ multiple arguments as one string will not work: you should use
                 (insert replacement)))))))
     (buffer-substring-no-properties (point-min) (point-max))))
 
+
+(defun column-number-at-pos (pos)
+  "Analog to line-number-at-pos."
+  (save-excursion (goto-char pos) (current-column)))
+
 (defun fstar-subp-send-region (beg end)
   "Send the region between BEG and END to the inferior F* process."
   (interactive "r")
   (fstar-subp-start)
   (let ((msg (concat fstar-subp--header
+		     (format "%d %d\n"
+			     (line-number-at-pos beg)
+			     (column-number-at-pos beg))
                      (fstar-subp-prepare-message (buffer-substring-no-properties beg end))
                      fstar-subp--footer)))
     (fstar-subp-log "QUERY [%s]" msg)
