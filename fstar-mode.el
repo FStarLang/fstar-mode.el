@@ -486,6 +486,12 @@ If MUST-FIND-TYPE is nil, the :type part is not necessary."
   "Face used to highlight processed sections of the buffer."
   :group 'fstar)
 
+(defface fstar-subp-overlay-processedlax-face
+  '((((background light)) :background "#E5E7E9")
+    (((background dark))  :background "lightgrey"))
+  "Face used to highlight processed lax-checked sections of the buffer."
+  :group 'fstar)
+
 (defface fstar-subp-overlay-issue-face
   '((t :underline (:color "red" :style wave)))
   "Face used to highlight processed sections of the buffer."
@@ -945,7 +951,10 @@ Modifications are only allowed if it is safe to retract up to the beginning of t
   "Set status of OVERLAY to STATUS."
   (fstar-assert (memq status fstar-subp-statuses))
   (let ((inhibit-read-only t)
-        (face-name (concat "fstar-subp-overlay-" (symbol-name status) "-face")))
+        (face-name (if (and (eq (overlay-get overlay 'is-lax) 1)
+			    (string= (symbol-name status) "processed")) 
+		       "fstar-subp-overlay-processedlax-face"
+		     (concat "fstar-subp-overlay-" (symbol-name status) "-face"))))
     (overlay-put overlay 'fstar-subp-status status)
     (overlay-put overlay 'priority -1) ;;FIXME this is not an allowed value
     (overlay-put overlay 'face (intern face-name))
