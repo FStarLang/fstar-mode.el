@@ -996,7 +996,6 @@ If NO-ERROR is set, do not report an error if the region is empty."
           (user-error "Nothing more to process!"))
       (let ((overlay (make-overlay beg end (current-buffer) nil nil)))
         (fstar-subp-set-status overlay 'pending)
-	(fstar-subp-log "Putting is-lax %S" lax)
 	(overlay-put overlay 'is-lax lax)
         (fstar-subp-process-queue)))))
 
