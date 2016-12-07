@@ -874,8 +874,8 @@ multiple arguments as one string will not work: you should use
 (defun fstar-subp--header (pos lax)
   "Prepare a header for a region starting at POS.
 With non-nil LAX, the region is to be processed in lax mode."
-  (format "#push %d %d%s\n"
-          (line-number-at-pos pos)
+  (format "#push %d %d%s"
+          (1- (line-number-at-pos pos))
           (fstar-subp--column-number-at-pos pos)
           (if lax " #lax" "")))
 
