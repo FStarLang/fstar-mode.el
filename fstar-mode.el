@@ -951,7 +951,7 @@ Modifications are only allowed if it is safe to retract up to the beginning of t
   "Set status of OVERLAY to STATUS."
   (fstar-assert (memq status fstar-subp-statuses))
   (let ((inhibit-read-only t)
-        (face-name (if (and (eq (overlay-get overlay 'is-lax) 1)
+        (face-name (if (and (eq (overlay-get overlay 'fstar-subp--lax) 1)
 			    (string= (symbol-name status) "processed")) 
 		       "fstar-subp-overlay-processedlax-face"
 		     (concat "fstar-subp-overlay-" (symbol-name status) "-face"))))
@@ -967,7 +967,7 @@ Modifications are only allowed if it is safe to retract up to the beginning of t
   (fstar-subp-start)
   (fstar-subp-set-status overlay 'busy)
   (setq fstar-subp--busy-now overlay)
-  (fstar-subp-send-region (overlay-start overlay) (overlay-end overlay) (overlay-get overlay 'is-lax)))
+  (fstar-subp-send-region (overlay-start overlay) (overlay-end overlay) (overlay-get overlay 'fstar-subp--lax)))
 
 (defun fstar-subp-process-queue ()
   "Process the next pending overlay, if any."
@@ -1005,7 +1005,7 @@ If NO-ERROR is set, do not report an error if the region is empty."
           (user-error "Nothing more to process!"))
       (let ((overlay (make-overlay beg end (current-buffer) nil nil)))
         (fstar-subp-set-status overlay 'pending)
-	(overlay-put overlay 'is-lax lax)
+        (overlay-put overlay 'fstar-subp--lax lax)
         (fstar-subp-process-queue)))))
 
 (defcustom fstar-subp-block-sep "\\(\\'\\|\\s-*\\(\n\\s-*\\)\\{3,\\}\\)" ;; FIXME add magic comment
