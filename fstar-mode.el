@@ -869,7 +869,7 @@ multiple arguments as one string will not work: you should use
 
 (defun fstar-subp--column-number-at-pos (pos)
   "Return column number at POS."
-  (save-excursion (goto-char pos) (current-column)))
+  (save-excursion (goto-char pos) (- (point) (point-at-bol))))
 
 (defun fstar-subp--header (pos lax)
   "Prepare a header for a region starting at POS.
