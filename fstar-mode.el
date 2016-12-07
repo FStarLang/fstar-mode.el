@@ -475,10 +475,20 @@ If MUST-FIND-TYPE is nil, the :type part is not necessary."
   "Face used to highlight pending sections of the buffer."
   :group 'fstar)
 
+(defface fstar-subp-overlay-pending-lax-face
+  '((t :inherit fstar-subp-overlay-pending-face))
+  "Face used to highlight pending lax sections of the buffer."
+  :group 'fstar)
+
 (defface fstar-subp-overlay-busy-face
   '((((background light)) :background "mistyrose")
     (((background dark))  :background "mediumorchid"))
   "Face used to highlight busy sections of the buffer."
+  :group 'fstar)
+
+(defface fstar-subp-overlay-busy-lax-face
+  '((t :inherit fstar-subp-overlay-busy-face))
+  "Face used to highlight busy lax sections of the buffer."
   :group 'fstar)
 
 (defface fstar-subp-overlay-processed-face
@@ -487,7 +497,7 @@ If MUST-FIND-TYPE is nil, the :type part is not necessary."
   "Face used to highlight processed sections of the buffer."
   :group 'fstar)
 
-(defface fstar-subp-overlay-processedlax-face
+(defface fstar-subp-overlay-processed-lax-face
   '((((background light)) :background "#E5E7E9")
     (((background dark))  :background "lightgrey"))
   "Face used to highlight processed lax-checked sections of the buffer."
@@ -942,11 +952,9 @@ Modifications are only allowed if it is safe to retract up to the beginning of t
 (defun fstar-subp-set-status (overlay status)
   "Set status of OVERLAY to STATUS."
   (fstar-assert (memq status fstar-subp-statuses))
-  (let ((inhibit-read-only t)
-        (face-name (if (and (eq (overlay-get overlay 'fstar-subp--lax) 1)
-			    (string= (symbol-name status) "processed")) 
-		       "fstar-subp-overlay-processedlax-face"
-		     (concat "fstar-subp-overlay-" (symbol-name status) "-face"))))
+  (let* ((inhibit-read-only t)
+         (face-name (format "fstar-subp-overlay-%s-%sface" (symbol-name status)
+                            (if (overlay-get overlay 'fstar-subp--lax) "lax-" ""))))
     (overlay-put overlay 'fstar-subp-status status)
     (overlay-put overlay 'priority -1) ;;FIXME this is not an allowed value
     (overlay-put overlay 'face (intern face-name))
