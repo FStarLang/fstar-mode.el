@@ -680,7 +680,7 @@ With prefix argument ARG, kill all F* subprocesses."
 
 (defun fstar-subp-cleanup-issue (issue)
   "Make sure that ISSUE mentions a file name."
-  (when (string= (fstar-issue-filename issue) "<input>")
+  (when (member (fstar-issue-filename issue) '("unknown" "<input>"))
     (setf (fstar-issue-filename issue) (buffer-file-name))) ;; FIXME ensure we have a file name?
   issue)
 
