@@ -456,8 +456,6 @@ If MUST-FIND-TYPE is nil, the :type part is not necessary."
 (defconst fstar-subp--done "\n#done-")
 
 (defconst fstar-subp--cancel "#pop\n")
-(defconst fstar-subp--header "#push")
-(defconst fstar-subp--laxheader "#lax")
 (defconst fstar-subp--footer "\n#end #done-ok #done-nok\n")
 
 (defconst fstar-subp-statuses '(pending busy processed))
@@ -870,25 +868,26 @@ multiple arguments as one string will not work: you should use
                 (insert replacement)))))))
     (buffer-substring-no-properties (point-min) (point-max))))
 
-(defun column-number-at-pos (pos)
-  "Analog to line-number-at-pos."
+(defun fstar-subp--column-number-at-pos (pos)
+  "Return column number at POS."
   (save-excursion (goto-char pos) (current-column)))
+
+(defun fstar-subp--header (pos lax)
+  "Prepare a header for a region starting at POS.
+With non-nil LAX, the region is to be processed in lax mode."
+  (format "#push %d %d%s\n"
+          (line-number-at-pos pos)
+          (fstar-subp--column-number-at-pos pos)
+          (if lax " #lax" "")))
 
 (defun fstar-subp-send-region (beg end lax)
   "Send the region between BEG and END to the inferior F* process.
 With non-nil LAX, send region in lax mode."
   (interactive "r")
   (fstar-subp-start)
-  (let* ((pushlc (concat fstar-subp--header
-			 (format " %d %d"
-				 (line-number-at-pos beg)
-				 (column-number-at-pos beg))))
-         (header (if lax
-                     (concat pushlc " " fstar-subp--laxheader)
-                   pushlc))
-         (msg (concat header "\n"
-                      (fstar-subp-prepare-message (buffer-substring-no-properties beg end))
-                      fstar-subp--footer)))
+  (let* ((body (buffer-substring-no-properties beg end))
+         (payload (fstar-subp-prepare-message body))
+         (msg (concat (fstar-subp--header beg lax) "\n" payload fstar-subp--footer)))
     (fstar-subp-log "QUERY [%s]" msg)
     (process-send-string fstar-subp--process msg)))
 
