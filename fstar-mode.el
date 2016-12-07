@@ -668,23 +668,12 @@ With prefix argument ARG, kill all F* subprocesses."
              collect (fstar-subp-parse-issue response)
              do (setq start (match-end 0)))))
 
-(defun fstar-subp-adjust-line-numbers (issue overlay-start-line)
-  "Adjust line numbers of ISSUE relative to OVERLAY-START-LINE."
-  issue)
-  ;; (setf (fstar-issue-line-from issue) (fstar-issue-line-from issue))
-  ;; (setf (fstar-issue-line-to issue) (fstar-issue-line-to issue))) ;;what's a better noop?
-
-(defun fstar-subp-realign-issue (overlay-start-line issue)
-  "Use first line of overlay (OVERLAY-START-LINE) to realign issue ISSUE."
+(defun fstar-subp-cleanup-issue (issue)
+  "Make sure that ISSUE mentions a file name."
   (when (string= (fstar-issue-filename issue) "<input>")
-    (setf (fstar-issue-filename issue) (buffer-file-name)) ;; FIXME ensure we have a file name?
-    (fstar-subp-adjust-line-numbers issue overlay-start-line))
+    (setf (fstar-issue-filename issue) (buffer-file-name))) ;; FIXME ensure we have a file name?
   issue)
 
-(defun fstar-subp-realign-issues (overlay issues)
-  "Use beginning of OVERLAY to realign issues ISSUES."
-  (let ((start-line (line-number-at-pos (overlay-start overlay))))
-    (mapcar (apply-partially #'fstar-subp-realign-issue start-line) issues)))
 
 (defun fstar-issue-offset (line column)
   "Convert a (LINE, COLUMN) pair into a buffer offset.
@@ -726,11 +715,11 @@ FIXME: This doesn't do error handling."
   (goto-char (fstar-issue-offset (fstar-issue-line-from issue)
                             (fstar-issue-col-from issue))))
 
-(defun fstar-subp-handle-failure (response overlay)
+(defun fstar-subp-handle-failure (response _overlay)
   "Process failure RESPONSE from F* subprocess for OVERLAY."
-  (let* ((issues   (fstar-subp-parse-issues response))
-         (aligned  (fstar-subp-realign-issues overlay issues))
-         (filtered (-filter (lambda (issue) (string= buffer-file-name (fstar-issue-filename issue))) aligned)))
+  (let* ((issues (fstar-subp-parse-issues response))
+         (cleaned (mapcar #'fstar-subp-cleanup-issue issues))
+         (filtered (-filter (lambda (issue) (string= buffer-file-name (fstar-issue-filename issue))) cleaned)))
     (fstar-subp-remove-unprocessed)
     (process-send-string fstar-subp--process fstar-subp--cancel)
     (cond ((null issues)
@@ -740,7 +729,7 @@ FIXME: This doesn't do error handling."
           (t
            (fstar-subp-log "Highlighting issues: %s" issues)
            (fstar-subp-jump-to-issue (car filtered))
-           (fstar-subp-highlight-issues aligned)
+           (fstar-subp-highlight-issues filtered)
            (display-local-help)))))
 
 (defun fstar-subp-status (overlay)
