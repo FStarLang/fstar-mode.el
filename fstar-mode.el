@@ -468,6 +468,9 @@ If MUST-FIND-TYPE is nil, the :type part is not necessary."
 (defvar-local fstar-subp--busy-now nil
   "Indicates which overlay the F* subprocess is currently processing, if any.")
 
+(defvar fstar-subp--lax nil
+  "Whether to process newly sent regions in lax mode.")
+
 (defface fstar-subp-overlay-pending-face
   '((((background light)) :background "#AD7FA8")
     (((background dark))  :background "#5C3566"))
@@ -872,19 +875,20 @@ multiple arguments as one string will not work: you should use
   (save-excursion (goto-char pos) (current-column)))
 
 (defun fstar-subp-send-region (beg end lax)
-  "Send the region between BEG and END to the inferior F* process."
+  "Send the region between BEG and END to the inferior F* process.
+With non-nil LAX, send region in lax mode."
   (interactive "r")
   (fstar-subp-start)
   (let* ((pushlc (concat fstar-subp--header
 			 (format " %d %d"
 				 (line-number-at-pos beg)
 				 (column-number-at-pos beg))))
-	 (header (if (eq lax 0)
-		     pushlc
-		   (concat pushlc " " fstar-subp--laxheader)))
-	 (msg (concat header "\n"
-		      (fstar-subp-prepare-message (buffer-substring-no-properties beg end))
-		      fstar-subp--footer)))
+         (header (if lax
+                     (concat pushlc " " fstar-subp--laxheader)
+                   pushlc))
+         (msg (concat header "\n"
+                      (fstar-subp-prepare-message (buffer-substring-no-properties beg end))
+                      fstar-subp--footer)))
     (fstar-subp-log "QUERY [%s]" msg)
     (process-send-string fstar-subp--process msg)))
 
@@ -967,7 +971,8 @@ Modifications are only allowed if it is safe to retract up to the beginning of t
   (fstar-subp-start)
   (fstar-subp-set-status overlay 'busy)
   (setq fstar-subp--busy-now overlay)
-  (fstar-subp-send-region (overlay-start overlay) (overlay-end overlay) (overlay-get overlay 'fstar-subp--lax)))
+  (let ((lax (overlay-get overlay 'fstar-subp--lax)))
+    (fstar-subp-send-region (overlay-start overlay) (overlay-end overlay) lax)))
 
 (defun fstar-subp-process-queue ()
   "Process the next pending overlay, if any."
@@ -991,7 +996,7 @@ Modifications are only allowed if it is safe to retract up to the beginning of t
     (skip-chars-backward "\n\r\t ")
     (point)))
 
-(defun fstar-subp-enqueue-until (lax end &optional no-error)
+(defun fstar-subp-enqueue-until (end &optional no-error)
   "Mark region up to END busy, and enqueue the newly created overlay.
 
 If NO-ERROR is set, do not report an error if the region is empty."
@@ -1005,7 +1010,7 @@ If NO-ERROR is set, do not report an error if the region is empty."
           (user-error "Nothing more to process!"))
       (let ((overlay (make-overlay beg end (current-buffer) nil nil)))
         (fstar-subp-set-status overlay 'pending)
-        (overlay-put overlay 'fstar-subp--lax lax)
+        (overlay-put overlay 'fstar-subp--lax fstar-subp--lax)
         (fstar-subp-process-queue)))))
 
 (defcustom fstar-subp-block-sep "\\(\\'\\|\\s-*\\(\n\\s-*\\)\\{3,\\}\\)" ;; FIXME add magic comment
@@ -1035,7 +1040,7 @@ Ignores separators found in comments."
   (goto-char (fstar-subp-unprocessed-beginning))
   (fstar-subp-skip-comments-and-whitespace)
   (-if-let* ((next-start (fstar-subp-next-block-sep nil)))
-      (fstar-subp-enqueue-until 0 next-start)
+      (fstar-subp-enqueue-until next-start)
     (user-error "Cannot find a full block to process")))
 
 (defun fstar-sub-overlay-contains-build-config (overlay)
@@ -1075,16 +1080,16 @@ Ignores separators found in comments."
            when (> (overlay-end overlay) pos) ;; End point is not inclusive
            do (fstar-subp-retract-one overlay)))
 
-(defun fstar-subp-advance-until (is-lax pos)
+(defun fstar-subp-advance-until (pos)
   "Submit or retract blocks to/from prover until POS."
   (fstar-subp-start)
   (save-excursion
     (goto-char (fstar-subp-unprocessed-beginning))
     (let ((found (cl-loop do (fstar-subp-skip-comments-and-whitespace)
                           while (and (< (point) pos) (fstar-subp-next-block-sep pos))
-                          do (fstar-subp-enqueue-until is-lax (point))
+                          do (fstar-subp-enqueue-until (point))
                           collect (point))))
-      (fstar-subp-enqueue-until is-lax pos found))))
+      (fstar-subp-enqueue-until pos found))))
 
 (defun fstar-subp-advance-or-retract-to-point (&optional arg)
   "Advance or retract proof state to reach point.
@@ -1097,23 +1102,14 @@ into blocks; process it as one large block instead."
     (cond
      ((<= (point) limit) (fstar-subp-retract-until (point)))
      ((>  (point) limit) (if (consp arg)
-                             (fstar-subp-enqueue-until 0 (point))
-                           (fstar-subp-advance-until 0 (point)))))))
+                             (fstar-subp-enqueue-until (point))
+                           (fstar-subp-advance-until (point)))))))
 
-;;AR: this is copy of the function above, ideally we should pass an argument, but could not make it work
 (defun fstar-subp-advance-or-retract-to-point-lax (&optional arg)
-  "Advance or retract proof state to reach point.
-
-With prefix argument ARG, when advancing, do not split region
-into blocks; process it as one large block instead."
+  "Like `fstar-subp-advance-or-retract-to-point' with ARG, in lax mode."
   (interactive "P")
-  (fstar-subp-start)
-  (let ((limit (fstar-subp-unprocessed-beginning)))
-    (cond
-     ((<= (point) limit) (fstar-subp-retract-until (point)))
-     ((>  (point) limit) (if (consp arg)
-                             (fstar-subp-enqueue-until 1 (point))
-                           (fstar-subp-advance-until 1 (point)))))))
+  (let ((fstar-subp--lax t))
+    (fstar-subp-advance-or-retract-to-point arg)))
 
 (defconst fstar-subp-keybindings-table
   '(("C-c C-n"        "C-S-n" fstar-subp-advance-next)
@@ -1121,6 +1117,7 @@ into blocks; process it as one large block instead."
     ("C-c C-p"        "C-S-p" fstar-subp-retract-last)
     ("C-c RET"        "C-S-i" fstar-subp-advance-or-retract-to-point)
     ("C-c <C-return>" "C-S-i" fstar-subp-advance-or-retract-to-point)
+    ("C-l RET"        "C-S-l" fstar-subp-advance-or-retract-to-point-lax)
     ("C-l <C-return>" "C-S-l" fstar-subp-advance-or-retract-to-point-lax)
     ("C-c C-x"        "C-M-c" fstar-subp-kill-one-or-many))
   "Proof-General and Atom bindings table.")
