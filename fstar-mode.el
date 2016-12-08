@@ -73,6 +73,41 @@
   "F* mode."
   :group 'languages)
 
+;;; Customization
+
+(defcustom fstar-executable "fstar.exe"
+  "Full path to the fstar.exe binary."
+  :group 'fstar
+  :risky t)
+
+;;; Compatibility across F* versions
+
+(defun fstar-find-executable ()
+  "Compute the absolute path to the F* executable.
+Check that the binary exists and is executable; if not, raise an
+error."
+  (let ((prog-abs (and fstar-executable (executable-find fstar-executable))))
+    (unless (and prog-abs (file-exists-p prog-abs))
+      (user-error "F* executable not found; please set `fstar-executable'"))
+    (unless (file-executable-p prog-abs)
+      (user-error "F* executable not executable; please check the value of `fstar-executable'"))
+    prog-abs))
+
+(defvar fstar--vernum nil
+  "F*'s version number.")
+
+(defvar fstar--error-messages-use-absolute-linums nil
+  "F* > 0.9.3.0-beta1 uses absolute line numbers in error messages.")
+
+(defun fstar--init-compatibility-layer ()
+  "Adjust compatibility settings based on `fstar-executable''s version number."
+  (let* ((version-string (car (process-lines (fstar-find-executable) "--version"))))
+    (unless (string-match "F\\* \\(.*\\)" version-string)
+      (error "Can't parse version number from %S" version-string))
+    (setq fstar--vernum (match-string 1 version-string)))
+  (let ((v (if (string-match-p "unknown" fstar--vernum) "1000" fstar--vernum)))
+    (setq fstar--error-messages-use-absolute-linums (version< "0.9.3.0-beta1" v))))
+
 ;;; Flycheck
 
 (defconst fstar-error-patterns
@@ -102,13 +137,6 @@
   (if (featurep 'flycheck)
       (flycheck-mode)
     (warn "Please install the Flycheck package to get real-time verification")))
-
-;;; Customization
-
-(defcustom fstar-executable "fstar.exe"
-  "Full path to the fstar.exe binary."
-  :group 'fstar
-  :risky t)
 
 ;;; Build config
 
@@ -678,12 +706,15 @@ With prefix argument ARG, kill all F* subprocesses."
              collect (fstar-subp-parse-issue response)
              do (setq start (match-end 0)))))
 
-(defun fstar-subp-cleanup-issue (issue)
-  "Make sure that ISSUE mentions a file name."
+(defun fstar-subp-cleanup-issue (issue ov)
+  "Fixup ISSUE: include a file name, and adjust line numbers wrt OV."
   (when (member (fstar-issue-filename issue) '("unknown" "<input>"))
     (setf (fstar-issue-filename issue) (buffer-file-name))) ;; FIXME ensure we have a file name?
+  (unless fstar--error-messages-use-absolute-linums
+    (let ((linum (1- (line-number-at-pos (overlay-start ov)))))
+      (setf (fstar-issue-line-from issue) (+ (fstar-issue-line-from issue) linum))
+      (setf (fstar-issue-line-to issue) (+ (fstar-issue-line-to issue) linum))))
   issue)
-
 
 (defun fstar-issue-offset (line column)
   "Convert a (LINE, COLUMN) pair into a buffer offset.
@@ -694,7 +725,8 @@ FIXME: This doesn't do error handling."
   (save-excursion
     (goto-char (point-min))
     (forward-line (1- line))
-    (forward-char column)
+    ;; min makes sure that we don't spill to the next line.
+    (forward-char (min (- (point-at-eol) (point-at-bol)) column))
     (point)))
 
 (defun fstar-subp-remove-issue-overlay (overlay &rest _args)
@@ -725,10 +757,10 @@ FIXME: This doesn't do error handling."
   (goto-char (fstar-issue-offset (fstar-issue-line-from issue)
                             (fstar-issue-col-from issue))))
 
-(defun fstar-subp-handle-failure (response _overlay)
+(defun fstar-subp-handle-failure (response overlay)
   "Process failure RESPONSE from F* subprocess for OVERLAY."
   (let* ((issues (fstar-subp-parse-issues response))
-         (cleaned (mapcar #'fstar-subp-cleanup-issue issues))
+         (cleaned (mapcar (lambda (i) (fstar-subp-cleanup-issue i overlay)) issues))
          (filtered (-filter (lambda (issue) (string= buffer-file-name (fstar-issue-filename issue))) cleaned)))
     (fstar-subp-remove-unprocessed)
     (process-send-string fstar-subp--process fstar-subp--cancel)
@@ -830,11 +862,8 @@ multiple arguments as one string will not work: you should use
 (defun fstar-subp-start ()
   "Start an F* subprocess attached to the current buffer, if none exists."
   (unless fstar-subp--process
-    (let ((prog-abs (and fstar-executable (executable-find fstar-executable))))
-      (unless (and prog-abs (file-exists-p prog-abs))
-        (user-error "F* executable not found; please set `fstar-executable'"))
-      (unless (file-executable-p prog-abs)
-        (user-error "F* executable not executable; please check the value of `fstar-executable'"))
+    (let ((prog-abs (fstar-find-executable)))
+      (fstar--init-compatibility-layer)
       (let* ((buf (fstar-subp-make-buffer))
              (process-connection-type nil)
              (args (fstar-subp-with-interactive-args (fstar-subp-get-prover-args)))
