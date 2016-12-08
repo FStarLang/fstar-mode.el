@@ -456,7 +456,6 @@ If MUST-FIND-TYPE is nil, the :type part is not necessary."
 (defconst fstar-subp--done "\n#done-")
 
 (defconst fstar-subp--cancel "#pop\n")
-(defconst fstar-subp--header "#push\n")
 (defconst fstar-subp--footer "\n#end #done-ok #done-nok\n")
 
 (defconst fstar-subp-statuses '(pending busy processed))
@@ -467,10 +466,18 @@ If MUST-FIND-TYPE is nil, the :type part is not necessary."
 (defvar-local fstar-subp--busy-now nil
   "Indicates which overlay the F* subprocess is currently processing, if any.")
 
+(defvar fstar-subp--lax nil
+  "Whether to process newly sent regions in lax mode.")
+
 (defface fstar-subp-overlay-pending-face
   '((((background light)) :background "#AD7FA8")
     (((background dark))  :background "#5C3566"))
   "Face used to highlight pending sections of the buffer."
+  :group 'fstar)
+
+(defface fstar-subp-overlay-pending-lax-face
+  '((t :inherit fstar-subp-overlay-pending-face))
+  "Face used to highlight pending lax sections of the buffer."
   :group 'fstar)
 
 (defface fstar-subp-overlay-busy-face
@@ -479,10 +486,21 @@ If MUST-FIND-TYPE is nil, the :type part is not necessary."
   "Face used to highlight busy sections of the buffer."
   :group 'fstar)
 
+(defface fstar-subp-overlay-busy-lax-face
+  '((t :inherit fstar-subp-overlay-busy-face))
+  "Face used to highlight busy lax sections of the buffer."
+  :group 'fstar)
+
 (defface fstar-subp-overlay-processed-face
   '((((background light)) :background "#EAF8FF")
     (((background dark))  :background "darkslateblue"))
   "Face used to highlight processed sections of the buffer."
+  :group 'fstar)
+
+(defface fstar-subp-overlay-processed-lax-face
+  '((((background light)) :background "#E5E7E9")
+    (((background dark))  :background "lightgrey"))
+  "Face used to highlight processed lax-checked sections of the buffer."
   :group 'fstar)
 
 (defface fstar-subp-overlay-issue-face
@@ -660,22 +678,12 @@ With prefix argument ARG, kill all F* subprocesses."
              collect (fstar-subp-parse-issue response)
              do (setq start (match-end 0)))))
 
-(defun fstar-subp-adjust-line-numbers (issue overlay-start-line)
-  "Adjust line numbers of ISSUE relative to OVERLAY-START-LINE."
-  (setf (fstar-issue-line-from issue) (+ (fstar-issue-line-from issue) (1- overlay-start-line)))
-  (setf (fstar-issue-line-to issue) (+ (fstar-issue-line-to issue) (1- overlay-start-line))))
-
-(defun fstar-subp-realign-issue (overlay-start-line issue)
-  "Use first line of overlay (OVERLAY-START-LINE) to realign issue ISSUE."
-  (when (string= (fstar-issue-filename issue) "<input>")
-    (setf (fstar-issue-filename issue) (buffer-file-name)) ;; FIXME ensure we have a file name?
-    (fstar-subp-adjust-line-numbers issue overlay-start-line))
+(defun fstar-subp-cleanup-issue (issue)
+  "Make sure that ISSUE mentions a file name."
+  (when (member (fstar-issue-filename issue) '("unknown" "<input>"))
+    (setf (fstar-issue-filename issue) (buffer-file-name))) ;; FIXME ensure we have a file name?
   issue)
 
-(defun fstar-subp-realign-issues (overlay issues)
-  "Use beginning of OVERLAY to realign issues ISSUES."
-  (let ((start-line (line-number-at-pos (overlay-start overlay))))
-    (mapcar (apply-partially #'fstar-subp-realign-issue start-line) issues)))
 
 (defun fstar-issue-offset (line column)
   "Convert a (LINE, COLUMN) pair into a buffer offset.
@@ -717,11 +725,11 @@ FIXME: This doesn't do error handling."
   (goto-char (fstar-issue-offset (fstar-issue-line-from issue)
                             (fstar-issue-col-from issue))))
 
-(defun fstar-subp-handle-failure (response overlay)
+(defun fstar-subp-handle-failure (response _overlay)
   "Process failure RESPONSE from F* subprocess for OVERLAY."
-  (let* ((issues   (fstar-subp-parse-issues response))
-         (aligned  (fstar-subp-realign-issues overlay issues))
-         (filtered (-filter (lambda (issue) (string= buffer-file-name (fstar-issue-filename issue))) aligned)))
+  (let* ((issues (fstar-subp-parse-issues response))
+         (cleaned (mapcar #'fstar-subp-cleanup-issue issues))
+         (filtered (-filter (lambda (issue) (string= buffer-file-name (fstar-issue-filename issue))) cleaned)))
     (fstar-subp-remove-unprocessed)
     (process-send-string fstar-subp--process fstar-subp--cancel)
     (cond ((null issues)
@@ -731,7 +739,7 @@ FIXME: This doesn't do error handling."
           (t
            (fstar-subp-log "Highlighting issues: %s" issues)
            (fstar-subp-jump-to-issue (car filtered))
-           (fstar-subp-highlight-issues aligned)
+           (fstar-subp-highlight-issues filtered)
            (display-local-help)))))
 
 (defun fstar-subp-status (overlay)
@@ -859,13 +867,26 @@ multiple arguments as one string will not work: you should use
                 (insert replacement)))))))
     (buffer-substring-no-properties (point-min) (point-max))))
 
-(defun fstar-subp-send-region (beg end)
-  "Send the region between BEG and END to the inferior F* process."
+(defun fstar-subp--column-number-at-pos (pos)
+  "Return column number at POS."
+  (save-excursion (goto-char pos) (- (point) (point-at-bol))))
+
+(defun fstar-subp--header (pos lax)
+  "Prepare a header for a region starting at POS.
+With non-nil LAX, the region is to be processed in lax mode."
+  (format "#push %d %d%s"
+          (1- (line-number-at-pos pos))
+          (fstar-subp--column-number-at-pos pos)
+          (if lax " #lax" "")))
+
+(defun fstar-subp-send-region (beg end lax)
+  "Send the region between BEG and END to the inferior F* process.
+With non-nil LAX, send region in lax mode."
   (interactive "r")
   (fstar-subp-start)
-  (let ((msg (concat fstar-subp--header
-                     (fstar-subp-prepare-message (buffer-substring-no-properties beg end))
-                     fstar-subp--footer)))
+  (let* ((body (buffer-substring-no-properties beg end))
+         (payload (fstar-subp-prepare-message body))
+         (msg (concat (fstar-subp--header beg lax) "\n" payload fstar-subp--footer)))
     (fstar-subp-log "QUERY [%s]" msg)
     (process-send-string fstar-subp--process msg)))
 
@@ -931,8 +952,9 @@ Modifications are only allowed if it is safe to retract up to the beginning of t
 (defun fstar-subp-set-status (overlay status)
   "Set status of OVERLAY to STATUS."
   (fstar-assert (memq status fstar-subp-statuses))
-  (let ((inhibit-read-only t)
-        (face-name (concat "fstar-subp-overlay-" (symbol-name status) "-face")))
+  (let* ((inhibit-read-only t)
+         (face-name (format "fstar-subp-overlay-%s-%sface" (symbol-name status)
+                            (if (overlay-get overlay 'fstar-subp--lax) "lax-" ""))))
     (overlay-put overlay 'fstar-subp-status status)
     (overlay-put overlay 'priority -1) ;;FIXME this is not an allowed value
     (overlay-put overlay 'face (intern face-name))
@@ -945,7 +967,8 @@ Modifications are only allowed if it is safe to retract up to the beginning of t
   (fstar-subp-start)
   (fstar-subp-set-status overlay 'busy)
   (setq fstar-subp--busy-now overlay)
-  (fstar-subp-send-region (overlay-start overlay) (overlay-end overlay)))
+  (let ((lax (overlay-get overlay 'fstar-subp--lax)))
+    (fstar-subp-send-region (overlay-start overlay) (overlay-end overlay) lax)))
 
 (defun fstar-subp-process-queue ()
   "Process the next pending overlay, if any."
@@ -983,6 +1006,7 @@ If NO-ERROR is set, do not report an error if the region is empty."
           (user-error "Nothing more to process!"))
       (let ((overlay (make-overlay beg end (current-buffer) nil nil)))
         (fstar-subp-set-status overlay 'pending)
+        (overlay-put overlay 'fstar-subp--lax fstar-subp--lax)
         (fstar-subp-process-queue)))))
 
 (defcustom fstar-subp-block-sep "\\(\\'\\|\\s-*\\(\n\\s-*\\)\\{3,\\}\\)" ;; FIXME add magic comment
@@ -1077,12 +1101,20 @@ into blocks; process it as one large block instead."
                              (fstar-subp-enqueue-until (point))
                            (fstar-subp-advance-until (point)))))))
 
+(defun fstar-subp-advance-or-retract-to-point-lax (&optional arg)
+  "Like `fstar-subp-advance-or-retract-to-point' with ARG, in lax mode."
+  (interactive "P")
+  (let ((fstar-subp--lax t))
+    (fstar-subp-advance-or-retract-to-point arg)))
+
 (defconst fstar-subp-keybindings-table
   '(("C-c C-n"        "C-S-n" fstar-subp-advance-next)
     ("C-c C-u"        "C-S-p" fstar-subp-retract-last)
     ("C-c C-p"        "C-S-p" fstar-subp-retract-last)
     ("C-c RET"        "C-S-i" fstar-subp-advance-or-retract-to-point)
     ("C-c <C-return>" "C-S-i" fstar-subp-advance-or-retract-to-point)
+    ("C-l RET"        "C-S-l" fstar-subp-advance-or-retract-to-point-lax)
+    ("C-l <C-return>" "C-S-l" fstar-subp-advance-or-retract-to-point-lax)
     ("C-c C-x"        "C-M-c" fstar-subp-kill-one-or-many))
   "Proof-General and Atom bindings table.")
 
