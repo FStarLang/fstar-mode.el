@@ -1143,8 +1143,7 @@ into blocks; process it as one large block instead."
     ("C-c C-p"        "C-S-p" fstar-subp-retract-last)
     ("C-c RET"        "C-S-i" fstar-subp-advance-or-retract-to-point)
     ("C-c <C-return>" "C-S-i" fstar-subp-advance-or-retract-to-point)
-    ("C-l RET"        "C-S-l" fstar-subp-advance-or-retract-to-point-lax)
-    ("C-l <C-return>" "C-S-l" fstar-subp-advance-or-retract-to-point-lax)
+    ("C-c C-l"        "C-S-l" fstar-subp-advance-or-retract-to-point-lax)
     ("C-c C-x"        "C-M-c" fstar-subp-kill-one-or-many))
   "Proof-General and Atom bindings table.")
 
