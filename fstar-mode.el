@@ -178,7 +178,7 @@ error."
   (regexp-opt '("begin" "end"
                 "let" "rec" "in" "val"
                 "kind" "type" "logic" "new" "abstract"
-                "irreducible" "inline_for_extraction" "noeq" "noextract"
+                "unfold" "irreducible" "inline_for_extraction" "noeq" "noextract"
                 "private" "opaque" "total" "default" "reifiable" "reflectable"
                 "open" "module")
               'symbols))
@@ -201,7 +201,8 @@ error."
 
 (defconst fstar-syntax-builtins
   (regexp-opt '("requires" "ensures" "modifies" "decreases" "attributes"
-                "effect" "new_effect" "sub_effect" "new_effect_for_free")
+                "effect" "new_effect" "sub_effect" "new_effect_for_free"
+                "effect_actions")
               'symbols))
 
 (defconst fstar-syntax-ambiguous
