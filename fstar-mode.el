@@ -185,6 +185,7 @@ error."
 
 (defconst fstar-syntax-preprocessor
   (regexp-opt '("#set-options")
+              '("#reset-options")
               'symbols))
 
 (defconst fstar-syntax-keywords
@@ -195,12 +196,13 @@ error."
                 "try" "match" "with"
                 "if" "then" "else"
                 "ALL" "All" "DIV" "Div" "EXN" "Ex" "Exn" "GHOST" "GTot" "Ghost"
-                "Lemma" "PURE" "Pure" "STL" "Stl" "ST" "STATE" "St" "Tot" "attributes")
+                "Lemma" "PURE" "Pure" "STL" "Stl" "ST" "STATE" "St" "Tot"
+                "u#" "max") ;; universe specific keywords
               'symbols))
 
 (defconst fstar-syntax-builtins
-  (regexp-opt '("requires" "ensures" "modifies" "decreases"
-                "effect" "new_effect" "sub_effect")
+  (regexp-opt '("requires" "ensures" "modifies" "decreases" "attributes"
+                "effect" "new_effect" "sub_effect" "new_effect_for_free")
               'symbols))
 
 (defconst fstar-syntax-ambiguous
@@ -271,7 +273,7 @@ error."
 If MUST-FIND-TYPE is nil, the :type part is not necessary."
   (let ((found t) (rejected t))
     (while (and found rejected)
-      (setq found (re-search-forward (concat "\\(" fstar-syntax-id "\\) *\\(:\\)?") bound t))
+      (setq found (re-search-forward (concat "\\(\\(?: *" fstar-syntax-id "\\)+\\) *\\(:\\)?") bound t))
       (setq rejected (and found (or (eq (char-after) ?:) ; h :: t
                                     (and must-find-type (not (match-beginning 2))) ; no type
                                     (save-excursion
