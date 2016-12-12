@@ -44,6 +44,7 @@ Emacs                | Atom  | Action
 C-c C-n              | C-S-n | Process the next block (terminated by two empty lines)
 C-c C-u or C-c C-p   | C-S-p | Retract last block
 C-c RET or C-c C-RET | C-S-i | Process the file up to the current point
+C-c C-l              | C-S-l | Process the next block in lax mode
 C-c C-x              | C-M-c | Kill the F* process
 
 Use <kbd>M-x customize-variable RET fstar-interactive-keybinding-style RET</kbd> to pick a keybinding style. The default is Proof-General; the other option is Atom.
