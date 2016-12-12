@@ -196,8 +196,7 @@ error."
                 "try" "match" "with"
                 "if" "then" "else"
                 "ALL" "All" "DIV" "Div" "EXN" "Ex" "Exn" "GHOST" "GTot" "Ghost"
-                "Lemma" "PURE" "Pure" "STL" "Stl" "ST" "STATE" "St" "Tot"
-                "u#" "max") ;; universe specific keywords
+                "Lemma" "PURE" "Pure" "STL" "Stl" "ST" "STATE" "St" "Tot")
               'symbols))
 
 (defconst fstar-syntax-builtins
@@ -252,6 +251,11 @@ error."
   "Face used to use for /\\ and \//."
   :group 'fstar)
 
+(defface fstar-universe-face
+  '((t :foreground "forest green"))
+  "Face used for universe levels and variables"
+  :group 'fstar)
+
 (defun fstar-subexpr-pre-matcher (rewind-to &optional bound-to)
   "Move past REWIND-TO th group, then return end of BOUND-TO th."
   (goto-char (match-end rewind-to))
@@ -266,6 +270,13 @@ error."
 (defconst fstar-syntax-cs (rx symbol-start
                          (any "A-Z") (* (or wordchar (syntax symbol)))
                          symbol-end))
+
+(defconst fstar-syntax-universe-id-unwrapped (rx "'u" (* (or wordchar (syntax symbol)))))
+
+(defconst fstar-syntax-universe-id (concat "\\_<" fstar-syntax-universe-id-unwrapped "\\_>"))
+
+(defconst fstar-syntax-universe (concat "\\(" fstar-syntax-universe-id
+                                        "\\|u#([^)]*)\\)"))
 
 (defun fstar-find-id-maybe-type (bound must-find-type)
   "Find var:type pair between point and BOUND.
@@ -327,10 +338,13 @@ If MUST-FIND-TYPE is nil, the :type part is not necessary."
       (set-match-data `(,(1+ (match-beginning 0)) ,(1- end))))
     found))
 
+
 (defconst fstar-syntax-additional
   (let ((id fstar-syntax-id))
     `((,fstar-syntax-cs
        (0 'font-lock-type-face))
+      (,fstar-syntax-universe
+       (1 'fstar-universe-face))
       (,(concat "{\\(:" id "\\) *\\([^}]*\\)}")
        (1 'font-lock-builtin-face append)
        (2 'fstar-attribute-face append))
