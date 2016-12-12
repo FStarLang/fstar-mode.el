@@ -184,8 +184,8 @@ error."
               'symbols))
 
 (defconst fstar-syntax-preprocessor
-  (regexp-opt '("#set-options")
-              '("#reset-options")
+  (regexp-opt '("#set-options"
+                "#reset-options")
               'symbols))
 
 (defconst fstar-syntax-keywords
