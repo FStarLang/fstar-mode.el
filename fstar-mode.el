@@ -178,8 +178,8 @@ error."
   (regexp-opt '("begin" "end"
                 "let" "rec" "in" "val"
                 "kind" "type" "logic" "new" "abstract"
-                "irreducible" "unfoldable" "inline" "inline_for_extraction" "noeq"
-                "private" "opaque" "total" "default"
+                "irreducible" "inline_for_extraction" "noeq" "noextract"
+                "private" "opaque" "total" "default" "reifiable" "reflectable"
                 "open" "module")
               'symbols))
 
