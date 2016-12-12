@@ -271,13 +271,20 @@ error."
 (defconst fstar-syntax-cs (rx symbol-start
                          (any "A-Z") (* (or wordchar (syntax symbol)))
                          symbol-end))
+(defun ueval (form)
+  (eval (cadr form)))
 
-(defconst fstar-syntax-universe-id-unwrapped (rx "'u" (* (or wordchar (syntax symbol)))))
+(setq rx-constituents (cons '(ueval . (ueval 1 1)) rx-constituents))
 
-(defconst fstar-syntax-universe-id (concat "\\_<" fstar-syntax-universe-id-unwrapped "\\_>"))
+(defconst fstar-syntax-universe-id-unwrapped (rx-to-string `(: "'u" (* (or wordchar (syntax symbol))))))
 
-(defconst fstar-syntax-universe (concat "\\(" fstar-syntax-universe-id
-                                        "\\|u#([^)]*)\\)"))
+(defconst fstar-syntax-universe-id (rx-to-string `(: "\\_<"
+                                                     (ueval fstar-syntax-universe-id-unwrapped)
+                                                     "\\_>")))
+
+(defconst fstar-syntax-universe (rx-to-string `(or (ueval fstar-syntax-universe-id-unwrapped)
+                                                   (and "u#" (or (+ num)
+                                                                 (regexp "([^)]+)"))))))
 
 (defun fstar-find-id-maybe-type (bound must-find-type)
   "Find var:type pair between point and BOUND.
