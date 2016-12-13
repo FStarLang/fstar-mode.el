@@ -274,17 +274,21 @@ error."
 (defun ueval (form)
   (eval (cadr form)))
 
-(setq rx-constituents (cons '(ueval . (ueval 1 1)) rx-constituents))
+;; (setq rx-constituents (cons '(ueval . (ueval 1 1)) rx-constituents))
 
-(defconst fstar-syntax-universe-id-unwrapped (rx-to-string `(: "'u" (* (or wordchar (syntax symbol))))))
+(defmacro rx2 (&rest body)
+  `(let ((rx-constituents (cons '(ueval . (ueval 1 1)) rx-constituents)))
+     (rx-to-string '(: ,@body))))
 
-(defconst fstar-syntax-universe-id (rx-to-string `(: "\\_<"
-                                                     (ueval fstar-syntax-universe-id-unwrapped)
-                                                     "\\_>")))
+(defconst fstar-syntax-universe-id-unwrapped (rx2  "'u" (* (or wordchar (syntax symbol)))))
 
-(defconst fstar-syntax-universe (rx-to-string `(or (ueval fstar-syntax-universe-id-unwrapped)
-                                                   (and "u#" (or (+ num)
-                                                                 (regexp "([^)]+)"))))))
+(defconst fstar-syntax-universe-id (rx2  "\\_<"
+                                         (ueval fstar-syntax-universe-id-unwrapped)
+                                         "\\_>"))
+
+(defconst fstar-syntax-universe (rx2 (or (ueval fstar-syntax-universe-id-unwrapped)
+                                        (and "u#" (or (+ num)
+                                                      (regexp "([^)]+)"))))))
 
 (defun fstar-find-id-maybe-type (bound must-find-type)
   "Find var:type pair between point and BOUND.
@@ -352,7 +356,7 @@ If MUST-FIND-TYPE is nil, the :type part is not necessary."
     `((,fstar-syntax-cs
        (0 'font-lock-type-face))
       (,fstar-syntax-universe
-       (1 'fstar-universe-face))
+       (0 'fstar-universe-face))
       (,(concat "{\\(:" id "\\) *\\([^}]*\\)}")
        (1 'font-lock-builtin-face append)
        (2 'fstar-attribute-face append))
