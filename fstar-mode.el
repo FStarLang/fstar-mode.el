@@ -875,7 +875,7 @@ multiple arguments as one string will not work: you should use
 
 (defun fstar-subp-with-interactive-args (args)
   "Return ARGS precedeed by --in and optionally --fsi."
-  (append '("--in") (when (fstar-subp-is-interface-p) '("--fsi")) args))
+  (append `(,buffer-file-name "--in") (when (fstar-subp-is-interface-p) '("--fsi")) args))
 
 (defun fstar-subp-start ()
   "Start an F* subprocess attached to the current buffer, if none exists."
