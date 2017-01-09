@@ -869,13 +869,9 @@ multiple arguments as one string will not work: you should use
           ((stringp args) (list args))
           (t (user-error "Interpreting fstar-subp-prover-args led to invalid value [%s]" args)))))
 
-(defun fstar-subp-is-interface-p ()
-  "Check whether the current script needs --fsi."
-  (string-match-p "\\.fst?i\\'" buffer-file-name))
-
 (defun fstar-subp-with-interactive-args (args)
-  "Return ARGS precedeed by --in and optionally --fsi."
-  (append `(,buffer-file-name "--in") (when (fstar-subp-is-interface-p) '("--fsi")) args))
+  "Return ARGS precedeed by --in and the filename of the current buffer."
+  (append `(,buffer-file-name "--in") args))
 
 (defun fstar-subp-start ()
   "Start an F* subprocess attached to the current buffer, if none exists."
