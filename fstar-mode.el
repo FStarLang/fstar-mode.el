@@ -196,7 +196,8 @@ error."
                 "try" "match" "with"
                 "if" "then" "else"
                 "ALL" "All" "DIV" "Div" "EXN" "Ex" "Exn" "GHOST" "GTot" "Ghost"
-                "Lemma" "PURE" "Pure" "STL" "Stl" "ST" "STATE" "St" "Tot")
+                "Lemma" "PURE" "Pure" "Tot" "ST" "STATE" "St"
+                "Unsafe" "Stack" "Heap" "StackInline" "Inline")
               'symbols))
 
 (defconst fstar-syntax-builtins
