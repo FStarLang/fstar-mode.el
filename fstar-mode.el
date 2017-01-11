@@ -271,12 +271,12 @@ error."
 (defconst fstar-syntax-cs (rx symbol-start
                          (any "A-Z") (* (or wordchar (syntax symbol)))
                          symbol-end))
-(defun ueval (form)
-  (eval (cadr form)))
 
-;; (setq rx-constituents (cons '(ueval . (ueval 1 1)) rx-constituents))
+
+(defun ueval (form) (eval (cadr form)))
 
 (defmacro rx2 (&rest body)
+  "Adds a non-quoting evaluation instruction ueval to rx"
   `(let ((rx-constituents (cons '(ueval . (ueval 1 1)) rx-constituents)))
      (rx-to-string '(: ,@body))))
 
