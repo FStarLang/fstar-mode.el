@@ -196,7 +196,8 @@ error."
                 "try" "match" "with"
                 "if" "then" "else"
                 "ALL" "All" "DIV" "Div" "EXN" "Ex" "Exn" "GHOST" "GTot" "Ghost"
-                "Lemma" "PURE" "Pure" "STL" "Stl" "ST" "STATE" "St" "Tot")
+                "Lemma" "PURE" "Pure" "Tot" "ST" "STATE" "St"
+                "Unsafe" "Stack" "Heap" "StackInline" "Inline")
               'symbols))
 
 (defconst fstar-syntax-builtins
@@ -433,14 +434,29 @@ If MUST-FIND-TYPE is nil, the :type part is not necessary."
     ;; Comments and strings
     (modify-syntax-entry ?\\ "\\" table)
     (modify-syntax-entry ?\" "\"" table)
-    (modify-syntax-entry ?*  ". 23" table)
-    (modify-syntax-entry ?/  ". 12b" table)
-    (modify-syntax-entry ?\n  "> b" table)
-    (modify-syntax-entry ?\^m "> b" table)
-    (modify-syntax-entry ?\( "()1n" table)
-    (modify-syntax-entry ?\) ")(4n" table)
+    ;; ‘/’ is handled by a `syntax-propertize-function'.  For background on this
+    ;; see http://lists.gnu.org/archive/html/emacs-devel/2017-01/msg00144.html.
+    ;; The comment enders are left here, since they don't match the ‘(*’ openers.
+    ;; (modify-syntax-entry ?/ ". 12c" table)
+    (modify-syntax-entry ?\n  ">" table)
+    (modify-syntax-entry ?\^m ">" table)
+    (modify-syntax-entry ?\( "()1nb" table)
+    (modify-syntax-entry ?*  ". 23b" table)
+    (modify-syntax-entry ?\) ")(4nb" table)
     table)
   "Syntax table for F*.")
+
+(defconst fstar-mode-syntax-propertize-function
+  (let ((opener-1 (string-to-syntax ". 1"))
+        (opener-2 (string-to-syntax ". 2")))
+    (syntax-propertize-rules
+     ("//" (0 (let* ((pt (match-beginning 0))
+                     (state (syntax-ppss pt)))
+                (goto-char (match-end 0)) ;; syntax-ppss adjusts point
+                (unless (or (nth 3 state) (nth 4 state))
+                  (put-text-property pt (+ pt 1) 'syntax-table opener-1)
+                  (put-text-property (+ pt 1) (+ pt 2) 'syntax-table opener-2)
+                  (ignore (goto-char (point-at-eol))))))))))
 
 ;;; Mode map
 
@@ -880,16 +896,14 @@ multiple arguments as one string will not work: you should use
           ((stringp args) (list args))
           (t (user-error "Interpreting fstar-subp-prover-args led to invalid value [%s]" args)))))
 
-(defun fstar-subp-is-interface-p ()
-  "Check whether the current script needs --fsi."
-  (string-match-p "\\.fst?i\\'" buffer-file-name))
-
 (defun fstar-subp-with-interactive-args (args)
-  "Return ARGS precedeed by --in and optionally --fsi."
-  (append '("--in") (when (fstar-subp-is-interface-p) '("--fsi")) args))
+  "Return ARGS precedeed by --in and the filename of the current buffer."
+  (append `(,buffer-file-name "--in") args))
 
 (defun fstar-subp-start ()
   "Start an F* subprocess attached to the current buffer, if none exists."
+  (unless buffer-file-name
+    (error "Can't start F* subprocess without a file name (save this buffer first)"))
   (unless fstar-subp--process
     (let ((prog-abs (fstar-find-executable)))
       (fstar--init-compatibility-layer)
@@ -1240,7 +1254,8 @@ into blocks; process it as one large block instead."
   (setq-local comment-continue   " *")
   (setq-local comment-end        "*)")
   (setq-local comment-start-skip "\\(//+\\|(\\*+\\)[ \t]*")
-  (setq-local font-lock-syntactic-face-function #'fstar-syntactic-face-function))
+  (setq-local font-lock-syntactic-face-function #'fstar-syntactic-face-function)
+  (setq-local syntax-propertize-function fstar-mode-syntax-propertize-function))
 
 ;;; Main mode
 
