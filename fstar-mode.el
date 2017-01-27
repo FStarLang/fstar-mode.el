@@ -898,7 +898,13 @@ multiple arguments as one string will not work: you should use
 
 (defun fstar-subp-with-interactive-args (args)
   "Return ARGS precedeed by --in and the filename of the current buffer."
-  (append `(,buffer-file-name "--in") args))
+  (let ((file-name
+         (if (eq system-type 'cygwin)
+             (string-trim-right
+              (shell-command-to-string
+               (format "cygpath -w %s" buffer-file-name)))
+           buffer-file-name)))
+    (append `(,file-name "--in") args)))
 
 (defun fstar-subp-start ()
   "Start an F* subprocess attached to the current buffer, if none exists."
