@@ -567,9 +567,14 @@ If MUST-FIND-TYPE is nil, the :type part is not necessary."
   "Face used to highlight processed lax-checked sections of the buffer."
   :group 'fstar)
 
-(defface fstar-subp-overlay-issue-face
+(defface fstar-subp-overlay-error-face
   '((t :underline (:color "red" :style wave)))
-  "Face used to highlight processed sections of the buffer."
+  "Face used to highlight errors."
+  :group 'fstar)
+
+(defface fstar-subp-overlay-warning-face
+  '((t :underline (:color "orange" :style wave)))
+  "Face used to highlight warnings."
   :group 'fstar)
 
 (defvar fstar-subp-debug nil
@@ -669,7 +674,7 @@ With prefix argument ARG, kill all F* subprocesses."
 
 (defun fstar-subp-remove-issues-overlays ()
   "Remove all F* overlays in the current buffer."
-  (mapcar #'delete-overlay (fstar-subp-issues-overlays)))
+  (mapcar #'delete-overlay (fstar-subp-issue-overlays)))
 
 (defun fstar-subp-find-response (proc)
   "Find full response in PROC's buffer; handle it if found."
@@ -677,7 +682,8 @@ With prefix argument ARG, kill all F* subprocesses."
   (when (search-forward fstar-subp--done nil t)
     (let* ((status        (cond
                            ((looking-at fstar-subp--success) t)
-                           ((looking-at fstar-subp--failure) nil)))
+                           ((looking-at fstar-subp--failure) nil)
+                           (t 'unknown)))
            (resp-beg      (point-min))
            (resp-end      (point-at-bol))
            (resp-real-end (point-at-eol))
@@ -686,6 +692,10 @@ With prefix argument ARG, kill all F* subprocesses."
       (delete-region resp-beg resp-real-end)
       (when (fstar-subp-live-p proc)
         (fstar-subp-with-source-buffer proc
+          (unless (booleanp status)
+            (fstar-subp-kill)
+            (error "Unknown status [%s] from F* subprocess (response was [%s])"
+                   status response))
           (fstar-subp-process-response status response))))))
 
 (defun fstar-subp-clear-issues ()
@@ -694,27 +704,22 @@ With prefix argument ARG, kill all F* subprocesses."
            when (overlay-get ov 'fstar-subp-issue)
            do (delete-overlay ov)))
 
-(defun fstar-subp-process-response (status response)
-  "Process output STATUS and RESPONSE from F* subprocess."
+(defun fstar-subp-process-response (success response)
+  "Process SUCCESS and RESPONSE from F* subprocess."
   (let* ((overlay fstar-subp--busy-now))
     (unless overlay
       (fstar-subp-kill)
       (error "Invalid state: Received output, but no region was busy"))
     (setq fstar-subp--busy-now nil)
     (fstar-subp-clear-issues)
-    (pcase status
-      (`t   (fstar-subp-handle-success response overlay))
-      (`nil (fstar-subp-handle-failure response overlay))
-      (_    (fstar-subp-kill)
-            (error "Unknown status [%s] from F* subprocess (response was [%s])"
-                   status response)))))
-
-(defun fstar-subp-handle-success (response overlay)
-  "Process success RESPONSE from F* subprocess for OVERLAY."
-  (when (not (string= response ""))
-    (warn "Non-empty response despite prover success: [%s]" response))
-  (fstar-subp-set-status overlay 'processed)
-  (run-with-timer 0 nil #'fstar-subp-process-queue))
+    (fstar-subp-parse-and-highlight-issues success response overlay)
+    (pcase success
+      (`t
+       (fstar-subp-set-status overlay 'processed)
+       (run-with-timer 0 nil #'fstar-subp-process-queue))
+      (`nil
+       (fstar-subp-remove-unprocessed)
+       (process-send-string fstar-subp--process fstar-subp--cancel)))))
 
 (cl-defstruct fstar-issue
   level filename line-from line-to col-from col-to message)
@@ -724,10 +729,15 @@ With prefix argument ARG, kill all F* subprocesses."
 
 (defun fstar-subp-parse-issue (context)
   "Construct an issue object from the current match data and CONTEXT."
-  (pcase-let ((`(,filename ,line-from ,col-from ,line-to ,col-to ,message)
+  (pcase-let ((issue-level 'error)
+              (`(,filename ,line-from ,col-from ,line-to ,col-to ,message)
                (mapcar (lambda (num) (match-string-no-properties num context))
                        '(1 2 3 4 5 6))))
-    (make-fstar-issue :level "ERROR"
+    (let ((warning-marker "(Warning) "))
+      (when (string-prefix-p warning-marker message)
+        (setq issue-level 'warning)
+        (setq message (substring message (length warning-marker)))))
+    (make-fstar-issue :level issue-level
                       :filename filename
                       :line-from (string-to-number line-from)
                       :col-from (string-to-number col-from)
@@ -769,6 +779,21 @@ FIXME: This doesn't do error handling."
   "Remove OVERLAY."
   (delete-overlay overlay))
 
+(defun fstar-subp--help-echo (_window object pos)
+  "Concatenate -subp messages found at POS of OBJECT."
+  (-when-let* ((buf (cond ((bufferp object) object)
+                          ((overlayp object) (overlay-buffer object)))))
+    (with-current-buffer buf
+      (mapconcat (lambda (ov) (overlay-get ov 'fstar-subp-message))
+                 (fstar-subp-issue-overlays-at pos)
+                 "\n"))))
+
+(defun fstar-subp-issue-face (issue)
+  "Compute a face for ISSUE's overlay."
+  (pcase (fstar-issue-level issue)
+    (`error 'fstar-subp-overlay-error-face)
+    (`warning 'fstar-subp-overlay-warning-face)))
+
 (defun fstar-subp-highlight-issue (issue)
   "Highlight ISSUE in current buffer."
   (let* ((from (fstar-issue-offset (fstar-issue-line-from issue)
@@ -777,15 +802,15 @@ FIXME: This doesn't do error handling."
                             (fstar-issue-col-to issue)))
          (overlay (make-overlay from (max to (1+ from)) (current-buffer) t nil)))
     (overlay-put overlay 'fstar-subp-issue t)
-    (overlay-put overlay 'face 'fstar-subp-overlay-issue-face)
-    (overlay-put overlay 'help-echo (fstar-issue-message issue))
+    (overlay-put overlay 'face (fstar-subp-issue-face issue))
+    (overlay-put overlay 'help-echo #'fstar-subp--help-echo)
+    (overlay-put overlay 'fstar-subp-message (fstar-issue-message issue))
     (overlay-put overlay 'modification-hooks '(fstar-subp-remove-issue-overlay))
     (when (fboundp 'pulse-momentary-highlight-region)
       (pulse-momentary-highlight-region from to))))
 
 (defun fstar-subp-highlight-issues (issues)
-  "Highlight ISSUES whose name match that of the current buffer."
-  (fstar-assert issues)
+  "Highlight ISSUES."
   (mapcar #'fstar-subp-highlight-issue issues))
 
 (defun fstar-subp-jump-to-issue (issue)
@@ -793,22 +818,28 @@ FIXME: This doesn't do error handling."
   (goto-char (fstar-issue-offset (fstar-issue-line-from issue)
                             (fstar-issue-col-from issue))))
 
-(defun fstar-subp-handle-failure (response overlay)
-  "Process failure RESPONSE from F* subprocess for OVERLAY."
-  (let* ((issues (fstar-subp-parse-issues response))
-         (cleaned (mapcar (lambda (i) (fstar-subp-cleanup-issue i overlay)) issues))
-         (filtered (-filter (lambda (issue) (string= buffer-file-name (fstar-issue-filename issue))) cleaned)))
-    (fstar-subp-remove-unprocessed)
-    (process-send-string fstar-subp--process fstar-subp--cancel)
-    (cond ((null issues)
-           (warn "No issues found in response despite prover failure: [%s]" response))
-          ((null filtered)
-           (warn "F* checker reported issues in other files: [%s] (FIXME)" response))
-          (t
-           (fstar-subp-log "Highlighting issues: %s" issues)
-           (fstar-subp-jump-to-issue (car filtered))
-           (fstar-subp-highlight-issues filtered)
-           (display-local-help)))))
+(defun fstar-subp--local-issue-p (issue)
+  "Check if ISSUE came from the current buffer."
+  (string= (expand-file-name buffer-file-name)
+           (expand-file-name (fstar-issue-filename issue))))
+
+(defun fstar-subp-parse-and-highlight-issues (success response overlay)
+  "Parse issues (relative to OVERLAY) in RESPONSE and display them.
+Complain if SUCCESS is nil and RESPONSE doesn't contain issues."
+  (let* ((raw-issues (fstar-subp-parse-issues response))
+         (issues (mapcar (lambda (i) (fstar-subp-cleanup-issue i overlay)) raw-issues))
+         (partitioned (-group-by #'fstar-subp--local-issue-p issues))
+         (local-issues (cdr (assq t partitioned)))
+         (other-issues (cdr (assq nil partitioned))))
+    (unless (or success issues)
+      (warn "No issues found in response despite prover failure: [%s]" response))
+    (when other-issues
+      (message "F* reported issues in other files: [%S]" other-issues))
+    (fstar-subp-log "Highlighting issues: %s" issues)
+    (when local-issues
+      (fstar-subp-jump-to-issue (car local-issues))
+      (fstar-subp-highlight-issues local-issues)
+      (display-local-help))))
 
 (defun fstar-subp-status (overlay)
   "Get status of OVERLAY."
@@ -990,11 +1021,13 @@ If STATUS is nil, return all fstar-subp overlays."
   "Return non-nil if OVERLAY is an fstar-subp issue overlay."
   (overlay-get overlay 'fstar-subp-issue))
 
-(defun fstar-subp-issues-overlays ()
+(defun fstar-subp-issue-overlays ()
   "Find all -subp issues overlays in the current buffer."
-  (cl-loop for overlay being the overlays of (current-buffer)
-           when (fstar-subp-issue-overlay-p overlay)
-           collect overlay))
+  (-filter #'fstar-subp-issue-overlay-p (overlays-in (point-min) (point-max))))
+
+(defun fstar-subp-issue-overlays-at (pt)
+  "Find all -subp issues overlays at point PT."
+  (-filter #'fstar-subp-issue-overlay-p (overlays-at pt t)))
 
 (defun fstar-in-comment-p ()
   "Return non-nil if point is inside a comment."
