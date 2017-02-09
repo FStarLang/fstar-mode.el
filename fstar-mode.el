@@ -591,8 +591,13 @@ If MUST-FIND-TYPE is nil, the :type part is not necessary."
 
 FORMAT and ARGS are as in `message'."
   (declare (debug t))
-  `(when fstar-subp-debug
-     (message ,format ,@args)))
+  (let ((original-message (make-symbol "msg")))
+    `(when fstar-subp-debug
+       (let ((,original-message (current-message)))
+         (let ((inhibit-message t))
+           (message ,format ,@args))
+         (when ,original-message
+           (message "%s" ,original-message))))))
 
 (defmacro fstar-subp-with-process-buffer (proc &rest body)
   "If PROC is non-nil, move to PROC's buffer to eval BODY."
