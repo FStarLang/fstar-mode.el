@@ -897,8 +897,8 @@ multiple arguments as one string will not work: you should use
 
 (defun fstar-subp-start ()
   "Start an F* subprocess attached to the current buffer, if none exists."
-  (unless buffer-file-name
-    (error "Can't start F* subprocess without a file name (save this buffer first)"))
+  (unless (and buffer-file-name (file-exists-p buffer-file-name))
+    (error "Can't start F* subprocess without a backing file (save this buffer first)"))
   (unless fstar-subp--process
     (let ((prog-abs (fstar-find-executable)))
       (fstar--init-compatibility-layer)
