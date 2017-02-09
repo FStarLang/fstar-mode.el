@@ -454,6 +454,7 @@ If MUST-FIND-TYPE is nil, the :type part is not necessary."
 (defvar fstar-mode-map
   (let ((map (make-sparse-keymap)))
     (define-key map (kbd "RET") #'fstar-newline-and-indent)
+    (define-key map (kbd "C-h .") #'display-local-help) ;; For Emacs < 25
     map))
 
 (defun fstar-newline-and-indent (arg)
