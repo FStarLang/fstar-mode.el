@@ -82,6 +82,13 @@ See [fstar-subp-prover-args] for more documentation.
 
 [fstar-subp-prover-args]: https://github.com/FStarLang/fstar-mode.el/blob/master/fstar-mode.el#L779
 
+### Using F*'s bundled version of Z3
+
+F* looks for Z3 in your system path.  To use the version of Z3 included in F* binary releases instead, add the following to your `.emacs`:
+
+```
+(advice-add 'fstar-subp-start-process :around #'fstar-subp-adjust-path)
+```
 
 ## Font issues
 
