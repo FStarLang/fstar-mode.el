@@ -52,20 +52,21 @@
   `(when (fboundp 'cl-assert)
      (cl-assert ,@args)))
 
-(unless (featurep 'subr-x)
-  (defsubst string-trim-left (string)
-    "Remove leading whitespace from STRING."
-    (if (string-match "\\`[ \t\n\r]+" string)
-        (replace-match "" t t string)
-      string))
-  (defsubst string-trim-right (string)
-    "Remove trailing whitespace from STRING."
-    (if (string-match "[ \t\n\r]+\\'" string)
-        (replace-match "" t t string)
-      string))
-  (defsubst string-trim (string)
-    "Remove leading and trailing whitespace from STRING."
-    (string-trim-left (string-trim-right string))))
+(eval-and-compile
+  (unless (featurep 'subr-x)
+    (defsubst string-trim-left (string)
+      "Remove leading whitespace from STRING."
+      (if (string-match "\\`[ \t\n\r]+" string)
+          (replace-match "" t t string)
+        string))
+    (defsubst string-trim-right (string)
+      "Remove trailing whitespace from STRING."
+      (if (string-match "[ \t\n\r]+\\'" string)
+          (replace-match "" t t string)
+        string))
+    (defsubst string-trim (string)
+      "Remove leading and trailing whitespace from STRING."
+      (string-trim-left (string-trim-right string)))))
 
 ;;; Group
 
@@ -78,6 +79,7 @@
 (defcustom fstar-executable "fstar.exe"
   "Full path to the fstar.exe binary."
   :group 'fstar
+  :type 'file
   :risky t)
 
 ;;; Compatibility across F* versions
@@ -874,7 +876,8 @@ To debug unexpected behaviours with this variable, try
 evaluating (fstar-subp-get-prover-args).  Note that passing
 multiple arguments as one string will not work: you should use
 '(\"--aa\" \"--bb\"), not \"--aa --bb\""
-  :group 'fstar)
+  :group 'fstar
+  :type '(repeat string))
 
 (defun fstar-subp-get-prover-args ()
   "Compute prover arguments from `fstar-subp-prover-args'."
@@ -1035,7 +1038,7 @@ Modifications are only allowed if it is safe to retract up to the beginning of t
          (face-name (format "fstar-subp-overlay-%s-%sface" (symbol-name status)
                             (if (overlay-get overlay 'fstar-subp--lax) "lax-" ""))))
     (overlay-put overlay 'fstar-subp-status status)
-    (overlay-put overlay 'priority -1) ;;FIXME this is not an allowed value
+    (overlay-put overlay 'priority -1)
     (overlay-put overlay 'face (intern face-name))
     (overlay-put overlay 'insert-in-front-hooks '(fstar-subp-overlay-attempt-modification))
     (overlay-put overlay 'modification-hooks '(fstar-subp-overlay-attempt-modification))))
@@ -1088,9 +1091,10 @@ If NO-ERROR is set, do not report an error if the region is empty."
         (overlay-put overlay 'fstar-subp--lax fstar-subp--lax)
         (fstar-subp-process-queue)))))
 
-(defcustom fstar-subp-block-sep "\\(\\'\\|\\s-*\\(\n\\s-*\\)\\{3,\\}\\)" ;; FIXME add magic comment
+(defcustom fstar-subp-block-sep "\\(\\'\\|\\s-*\\(\n\\s-*\\)\\{3,\\}\\)"
   "Regular expression used when looking for source blocks."
-  :group 'fstar) ;; FIXME group fstar-interactive
+  :group 'fstar
+  :type 'string)
 
 (defun fstar-subp-skip-comments-and-whitespace ()
   "Skip over comments and whitespace."
