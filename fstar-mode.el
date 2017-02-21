@@ -282,25 +282,29 @@ error."
 (defconst fstar-syntax-universe (concat "\\(" fstar-syntax-universe-id
                                         "\\|u#([^)]*)\\)"))
 
+(defconst fstar-syntax-ids (concat "\\(" fstar-syntax-id "\\(?: +" fstar-syntax-id "\\)*\\)"))
+
+(defconst fstar-syntax-ids-and-type (concat fstar-syntax-ids " *:"))
+
 (defun fstar-find-id-maybe-type (bound must-find-type)
-  "Find var:type pair between point and BOUND.
+  "Find var:type or var1..varN:type pair between point and BOUND.
 
 If MUST-FIND-TYPE is nil, the :type part is not necessary."
-  (let ((found t) (rejected t))
+  (let ((found t) (rejected t)
+        (regexp (if must-find-type fstar-syntax-ids-and-type fstar-syntax-ids)))
     (while (and found rejected)
-      (setq found (re-search-forward (concat "\\(\\(?: *" fstar-syntax-id "\\)+\\) *\\(:\\)?") bound t))
+      (setq found (re-search-forward regexp bound t))
       (setq rejected (and found (or (eq (char-after) ?:) ; h :: t
-                                    (and must-find-type (not (match-beginning 2))) ; no type
                                     (save-excursion
                                       (goto-char (match-beginning 0))
                                       (skip-syntax-backward "-")
-                                      (or (eq (char-before) ?|) ; | X: int
+                                      (or (eq (char-before) ?|) ;; | X: int
                                           (save-match-data
                                             ;; val x : Y:int
-                                            (looking-back "\\_<\\(val\\|let\\)\\_>" (point-at-bol)))))))))
-    (when (and found (match-beginning 2))
+                                            (re-search-forward "\\_<\\(val\\|let\\)\\_>" (match-end 0) t))))))))
+    (when (and found must-find-type)
       (ignore-errors
-        (goto-char (match-end 2))
+        (goto-char (match-end 0))
         (forward-sexp)
         (let ((md (match-data)))
           (set-match-data `(,(car md) ,(point) ,@(cddr md))))))
