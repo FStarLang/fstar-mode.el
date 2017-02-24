@@ -193,7 +193,7 @@ error."
 (defconst fstar-syntax-keywords
   (regexp-opt '("and"
                 "forall" "exists"
-                "assert" "assume"
+                "assert" "assert_norm" "assume"
                 "fun" "function"
                 "try" "match" "with"
                 "if" "then" "else"
