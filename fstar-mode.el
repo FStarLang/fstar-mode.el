@@ -182,7 +182,7 @@ error."
                 "kind" "type" "logic" "new" "abstract"
                 "unfold" "irreducible" "inline_for_extraction" "noeq" "noextract"
                 "private" "opaque" "total" "default" "reifiable" "reflectable"
-                "open" "module")
+                "open" "module" "include")
               'symbols))
 
 (defconst fstar-syntax-preprocessor
