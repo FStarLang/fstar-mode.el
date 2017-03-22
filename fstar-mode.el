@@ -104,7 +104,7 @@ error."
 (defun fstar--init-compatibility-layer ()
   "Adjust compatibility settings based on `fstar-executable''s version number."
   (let* ((version-string (car (process-lines (fstar-find-executable) "--version"))))
-    (if (string-match "F\\* \\([- .[:alnum:]]*\\)" version-string)
+    (if (string-match "F\\* \\([- .[:alnum:]]+\\)" version-string)
         (setq fstar--vernum (match-string 1 version-string))
       (warn "Can't parse version number from %S" version-string)
       (setq fstar--vernum "unknown")))
