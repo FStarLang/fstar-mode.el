@@ -82,6 +82,22 @@
   :type 'file
   :risky t)
 
+(defconst fstar-known-modules
+  '((font-lock   . "Syntax highlighting")
+    (prettify    . "Unicode math (e.g. display forall as ∀; requires emacs 24.4 or later)")
+    (indentation . "Indentation (based on control points)")
+    (comments    . "Comment syntax and special comments ('(***', '(*+', etc.)")
+    (flycheck    . "Real-time verification (good for small files; requires the flycheck package)")
+    (interactive . "Interactive verification (à la Proof-General)")
+    (eldoc       . "Type annotations in the minibuffer."))
+  "Available components of F*-mode.")
+
+(defcustom fstar-enabled-modules '(font-lock prettify indentation comments interactive eldoc)
+  "Which F*-mode components to load."
+  :group 'fstar
+  :type `(set ,@(cl-loop for (mod . desc) in fstar-known-modules
+                         collect `(const :tag ,desc ,mod))))
+
 ;;; Compatibility across F* versions
 
 (defun fstar-find-executable ()
@@ -149,17 +165,17 @@ error."
 ;;; Prettify symbols
 
 (defcustom fstar-symbols-alist '(("exists" . ?∃) ("forall" . ?∀) ("fun" . ?λ)
-                            ("nat" . ?ℕ) ("int" . ?ℤ)
-                            ("True" . ?⊤) ("False" . ?⊥)
-                            ("*" . ?×) ("~>" . ?↝)
-                            ("<=" . ?≤) (">=" . ?≥) ("::" . ?⸬)
-                            ("/\\" . ?∧) ("\\/" . ?∨) ("~" . ?¬) ("<>" . ?≠)
-                            ;; ("&&" . ?∧) ("||" . ?∨) ("=!=" . ?≠)
-                            ("<==>" . ?⟺) ("==>" . ?⟹)
-                            ("=>" . ?⇒) ("->" . ?→)
-                            ;; ("(|" . 10629) ("|)" . 10630)
-                            ("'a" . ?α) ("'b" . ?β) ("'c" . ?γ)
-                            ("'d" . ?δ) ("'e" . ?ϵ))
+                                 ("nat" . ?ℕ) ("int" . ?ℤ)
+                                 ("True" . ?⊤) ("False" . ?⊥)
+                                 ("*" . ?×) ("~>" . ?↝)
+                                 ("<=" . ?≤) (">=" . ?≥) ("::" . ?⸬)
+                                 ("/\\" . ?∧) ("\\/" . ?∨) ("~" . ?¬) ("<>" . ?≠)
+                                 ;; ("&&" . ?∧) ("||" . ?∨) ("=!=" . ?≠)
+                                 ("<==>" . ?⟺) ("==>" . ?⟹)
+                                 ("=>" . ?⇒) ("->" . ?→)
+                                 ;; ("(|" . 10629) ("|)" . 10630)
+                                 ("'a" . ?α) ("'b" . ?β) ("'c" . ?γ)
+                                 ("'d" . ?δ) ("'e" . ?ϵ))
   "Fstar symbols."
   :group 'fstar
   :type 'alist)
@@ -266,14 +282,14 @@ error."
   (match-end (or bound-to 0)))
 
 (defconst fstar-syntax-id-unwrapped (rx (? (or "#" "'"))
-                                   (any "a-z_") (* (or wordchar (syntax symbol)))
-                                   (? "." (* (or wordchar (syntax symbol))))))
+                                        (any "a-z_") (* (or wordchar (syntax symbol)))
+                                        (? "." (* (or wordchar (syntax symbol))))))
 
 (defconst fstar-syntax-id (concat "\\_<" fstar-syntax-id-unwrapped "\\_>"))
 
 (defconst fstar-syntax-cs (rx symbol-start
-                         (any "A-Z") (* (or wordchar (syntax symbol)))
-                         symbol-end))
+                              (any "A-Z") (* (or wordchar (syntax symbol)))
+                              symbol-end))
 
 (defconst fstar-syntax-universe-id-unwrapped (rx "'u" (* (or wordchar (syntax symbol)))))
 
@@ -518,7 +534,7 @@ If MUST-FIND-TYPE is nil, the :type part is not necessary."
   (when (boundp 'electric-indent-inhibit) ; Emacs ≥ 24.4
     (setq-local electric-indent-inhibit t)))
 
-;;; Interaction with the server (interactive mode)
+;;; Interactive proofs (fstar-subp)
 
 (defconst fstar-subp--success "ok")
 (defconst fstar-subp--failure "nok")
@@ -621,12 +637,127 @@ FORMAT and ARGS are as in `message'."
      (with-current-buffer buf
        ,@body)))
 
+;;;; Utilities
+
+(defun fstar-in-comment-p ()
+  "Return non-nil if point is inside a comment."
+  (nth 4 (syntax-ppss)))
+
+(defun fstar-in-build-config-p ()
+  "Return non-nil if point is in build config comment."
+  (let ((state (syntax-ppss)))
+    (and (nth 4 state)
+         (save-excursion
+           (goto-char (nth 8 state))
+           (looking-at-p (regexp-quote fstar-build-config-header))))))
+
+;;;; Overlay classification
+
+(defun fstar-subp-issue-overlay-p (overlay)
+  "Return non-nil if OVERLAY is an fstar-subp issue overlay."
+  (overlay-get overlay 'fstar-subp-issue))
+
+(defun fstar-subp-issue-overlays ()
+  "Find all -subp issues overlays in the current buffer."
+  (-filter #'fstar-subp-issue-overlay-p (overlays-in (point-min) (point-max))))
+
+(defun fstar-subp-issue-overlays-at (pt)
+  "Find all -subp issues overlays at point PT."
+  (-filter #'fstar-subp-issue-overlay-p (overlays-at pt t)))
+
+(defun fstar-subp-tracking-overlay-p (overlay)
+  "Return non-nil if OVERLAY is an fstar-subp tracking overlay."
+  (fstar-subp-status overlay))
+
+(defun fstar-subp-tracking-overlays (&optional status)
+  "Find all -subp tracking overlays with status STATUS in the current buffer.
+
+If STATUS is nil, return all fstar-subp overlays."
+  (sort (cl-loop for overlay being the overlays of (current-buffer)
+                 when (fstar-subp-tracking-overlay-p overlay)
+                 when (or (not status) (fstar-subp-status-eq overlay status))
+                 collect overlay)
+        (lambda (o1 o2) (< (overlay-start o1) (overlay-start o2)))))
+
+(defun fstar-subp-remove-tracking-overlays ()
+  "Remove all F* overlays in the current buffer."
+  (mapcar #'delete-overlay (fstar-subp-tracking-overlays)))
+
+(defun fstar-subp-remove-issues-overlays ()
+  "Remove all F* overlays in the current buffer."
+  (mapcar #'delete-overlay (fstar-subp-issue-overlays)))
+
+;;;; Basic subprocess operations
+
 (defun fstar-subp-live-p (&optional proc)
   "Return t if the PROC is a live F* subprocess.
-
 If PROC is nil, use the current buffer's `fstar-subp--process'."
   (setq proc (or proc fstar-subp--process))
   (and proc (process-live-p proc)))
+
+
+(defun fstar-subp--query (query continuation)
+  "Send QUERY to F* subprocess; handle results with CONTINUATION."
+  (fstar-subp-log "QUERY [%s]" query)
+  (fstar-assert (not fstar-subp--continuation))
+  (setq fstar-subp--continuation continuation)
+  (fstar-subp-start)
+  (process-send-string fstar-subp--process query))
+
+(defun fstar-subp-find-response (proc)
+  "Find full response in PROC's buffer; handle it if found."
+  (goto-char (point-min))
+  (when (search-forward fstar-subp--done nil t)
+    (let* ((status        (cond
+                           ((looking-at fstar-subp--success) t)
+                           ((looking-at fstar-subp--failure) nil)
+                           (t 'unknown)))
+           (resp-beg      (point-min))
+           (resp-end      (point-at-bol))
+           (resp-real-end (point-at-eol))
+           (response      (string-trim (buffer-substring resp-beg resp-end))))
+      (fstar-subp-log "RESPONSE [%s] [%s]" status response)
+      (delete-region resp-beg resp-real-end)
+      (when (fstar-subp-live-p proc)
+        (fstar-subp-with-source-buffer proc
+          (unless (booleanp status)
+            (fstar-subp-kill)
+            (error "Unknown status [%s] from F* subprocess (response was [%s])"
+                   status response))
+          (fstar-subp-process-response status response))))))
+
+(defun fstar-subp-process-response (success response)
+  "Process SUCCESS and RESPONSE from F* subprocess."
+  (let* ((continuation fstar-subp--continuation))
+    (unless continuation
+      (fstar-subp-kill)
+      (error "Invalid state: Received output, but no continuation was registered"))
+    (setq fstar-subp--continuation nil)
+    (funcall continuation success response)))
+
+(defun fstar-subp-warn-unexpected-output (string)
+  "Warn user about unexpected output STRING."
+  (message "F*: received unexpected output from subprocess (%s)" string))
+
+(defun fstar-subp-filter (proc string)
+  "Handle PROC's output (STRING)."
+  (when string
+    (fstar-subp-log "OUTPUT [%s]" string)
+    (if (fstar-subp-live-p proc)
+        (fstar-subp-with-process-buffer proc
+          (goto-char (point-max))
+          (insert string)
+          (fstar-subp-find-response proc))
+      (run-with-timer 0 nil #'fstar-subp-warn-unexpected-output string))))
+
+(defun fstar-subp-sentinel (proc signal)
+  "Handle PROC's SIGNAL."
+  (fstar-subp-log "SENTINEL [%s] [%s]" signal (process-status proc))
+  (when (or (memq (process-status proc) '(exit signal))
+            (not (process-live-p proc)))
+    (message "F*: subprocess exited.")
+    (fstar-subp-with-source-buffer proc
+      (fstar-subp-killed))))
 
 (defun fstar-subp-killed ()
   "Clean up current source buffer."
@@ -669,63 +800,11 @@ With prefix argument ARG, kill all F* subprocesses."
       (fstar-assert (eq proc fstar-subp--process))
       (fstar-subp-kill))))
 
-(defun fstar-subp-sentinel (proc signal)
-  "Handle PROC's SIGNAL."
-  (fstar-subp-log "SENTINEL [%s] [%s]" signal (process-status proc))
-  (when (or (memq (process-status proc) '(exit signal))
-            (not (process-live-p proc)))
-    (message "F*: subprocess exited.")
-    (fstar-subp-with-source-buffer proc
-      (fstar-subp-killed))))
-
-(defun fstar-subp-remove-tracking-overlays ()
-  "Remove all F* overlays in the current buffer."
-  (mapcar #'delete-overlay (fstar-subp-tracking-overlays)))
-
-(defun fstar-subp-remove-issues-overlays ()
-  "Remove all F* overlays in the current buffer."
-  (mapcar #'delete-overlay (fstar-subp-issue-overlays)))
-
-(defun fstar-subp-find-response (proc)
-  "Find full response in PROC's buffer; handle it if found."
-  (goto-char (point-min))
-  (when (search-forward fstar-subp--done nil t)
-    (let* ((status        (cond
-                           ((looking-at fstar-subp--success) t)
-                           ((looking-at fstar-subp--failure) nil)
-                           (t 'unknown)))
-           (resp-beg      (point-min))
-           (resp-end      (point-at-bol))
-           (resp-real-end (point-at-eol))
-           (response      (string-trim (buffer-substring resp-beg resp-end))))
-      (fstar-subp-log "RESPONSE [%s] [%s]" status response)
-      (delete-region resp-beg resp-real-end)
-      (when (fstar-subp-live-p proc)
-        (fstar-subp-with-source-buffer proc
-          (unless (booleanp status)
-            (fstar-subp-kill)
-            (error "Unknown status [%s] from F* subprocess (response was [%s])"
-                   status response))
-          (fstar-subp-process-response status response))))))
-
-(defun fstar-subp-clear-issues ()
-  "Remove all issue overlays from current buffer."
-  (cl-loop for ov being the overlays of (current-buffer)
-           when (overlay-get ov 'fstar-subp-issue)
-           do (delete-overlay ov)))
-
-(defun fstar-subp-process-response (success response)
-  "Process SUCCESS and RESPONSE from F* subprocess."
-  (let* ((continuation fstar-subp--continuation))
-    (unless continuation
-      (fstar-subp-kill)
-      (error "Invalid state: Received output, but no continuation was registered"))
-    (setq fstar-subp--continuation nil)
-    (funcall continuation success response)))
+;;;; Parsing and display issues
 
 (defun fstar-subp--overlay-continuation (overlay success response)
   "Handle the results (SUCCESS and RESPONSE) of processing OVERLAY."
-  (fstar-subp-clear-issues)
+  (fstar-subp-remove-issues-overlays)
   (fstar-subp-parse-and-highlight-issues success response overlay)
   (pcase success
     (`t
@@ -811,9 +890,9 @@ FIXME: This doesn't do error handling."
 (defun fstar-subp-highlight-issue (issue)
   "Highlight ISSUE in current buffer."
   (let* ((from (fstar-issue-offset (fstar-issue-line-from issue)
-                              (fstar-issue-col-from issue)))
+                                   (fstar-issue-col-from issue)))
          (to (fstar-issue-offset (fstar-issue-line-to issue)
-                            (fstar-issue-col-to issue)))
+                                 (fstar-issue-col-to issue)))
          (overlay (make-overlay from (max to (1+ from)) (current-buffer) t nil)))
     (overlay-put overlay 'fstar-subp-issue t)
     (overlay-put overlay 'face (fstar-subp-issue-face issue))
@@ -830,7 +909,7 @@ FIXME: This doesn't do error handling."
 (defun fstar-subp-jump-to-issue (issue)
   "Jump to ISSUE in current buffer."
   (goto-char (fstar-issue-offset (fstar-issue-line-from issue)
-                            (fstar-issue-col-from issue))))
+                                 (fstar-issue-col-from issue))))
 
 (defun fstar-subp--local-issue-p (issue)
   "Check if ISSUE came from the current buffer."
@@ -855,6 +934,9 @@ Complain if SUCCESS is nil and RESPONSE doesn't contain issues."
       (fstar-subp-highlight-issues local-issues)
       (display-local-help))))
 
+
+;;;; Tracking and updating overlays
+
 (defun fstar-subp-status (overlay)
   "Get status of OVERLAY."
   (overlay-get overlay 'fstar-subp-status))
@@ -868,110 +950,6 @@ Complain if SUCCESS is nil and RESPONSE doesn't contain issues."
   (cl-loop for overlay in (fstar-subp-tracking-overlays)
            unless (fstar-subp-status-eq overlay 'processed)
            do (delete-overlay overlay)))
-
-(defun fstar-subp-warn-unexpected-output (string)
-  "Warn user about unexpected output STRING."
-  (message "F*: received unexpected output from subprocess (%s)" string))
-
-(defun fstar-subp-filter (proc string)
-  "Handle PROC's output (STRING)."
-  (when string
-    (fstar-subp-log "OUTPUT [%s]" string)
-    (if (fstar-subp-live-p proc)
-        (fstar-subp-with-process-buffer proc
-          (goto-char (point-max))
-          (insert string)
-          (fstar-subp-find-response proc))
-      (run-with-timer 0 nil #'fstar-subp-warn-unexpected-output string))))
-
-(defun fstar-subp-buffer-killed ()
-  "Kill F* process associated to current buffer."
-  (-when-let* ((proc (get-buffer-process (current-buffer))))
-    (run-with-timer 0 nil #'fstar-subp-kill-proc proc)))
-
-(defun fstar-subp-make-buffer ()
-  "Create a buffer for the F* subprocess."
-  (with-current-buffer (generate-new-buffer
-                        (format " *F* interactive for %s*" (buffer-name)))
-    (add-hook 'kill-buffer-hook #'fstar-subp-buffer-killed t t)
-    (buffer-disable-undo)
-    (current-buffer)))
-
-(defcustom fstar-subp-prover-args nil
-  "Used for computing arguments to pass to F* in interactive mode.
-
-If set to a string, that string is considered to be a single
-argument to pass to F*.  If set to a list of strings, each element
-of the list is passed to F*.  If set to a function, that function
-is called in the current buffer without arguments, and expected
-to produce a string or a list of strings.
-
-Some examples:
-
-- (setq fstar-subp-prover-args \"--ab\") results in F* being
-called as 'fstar.exe --in --ab'.
-
-- (setq fstar-subp-prover-args '(\"--ab\" \"--cd\")) results in
-F* being called as 'fstar.exe --in --ab --cd'.
-
-- (setq fstar-subp-prover-args (lambda () '(\"--ab\" \"--cd\")))
-results in F* being called as 'fstar.exe --in --ab --cd'.
-
-To debug unexpected behaviours with this variable, try
-evaluating (fstar-subp-get-prover-args).  Note that passing
-multiple arguments as one string will not work: you should use
-'(\"--aa\" \"--bb\"), not \"--aa --bb\""
-  :group 'fstar
-  :type '(repeat string))
-
-(defun fstar-subp-get-prover-args ()
-  "Compute prover arguments from `fstar-subp-prover-args'."
-  (let ((args (if (functionp fstar-subp-prover-args)
-                  (funcall fstar-subp-prover-args)
-                fstar-subp-prover-args)))
-    (cond ((listp args) args)
-          ((stringp args) (list args))
-          (t (user-error "Interpreting fstar-subp-prover-args led to invalid value [%s]" args)))))
-
-(defun fstar-subp-with-interactive-args (args)
-  "Return ARGS precedeed by --in and the filename of the current buffer."
-  (let ((file-name
-         (if (eq system-type 'cygwin)
-             (string-trim-right
-              (shell-command-to-string
-               (format "cygpath -w %s" buffer-file-name)))
-           buffer-file-name)))
-    (append `(,file-name "--in") args)))
-
-(defun fstar-subp-adjust-path (fn buf prog args)
-  "Run FN with PATH extended to contain directory of PROG.
-Forward BUF, PROG, and ARGS to FN."
-  (let* ((prog-dir (file-name-directory prog))
-         (path (concat prog-dir path-separator (getenv "PATH")))
-         (process-environment (cons (concat "PATH=" path) process-environment)))
-    (funcall fn buf prog args)))
-
-(defun fstar-subp-start-process (buf prog args)
-  "Start an F* subprocess PROG in BUF with ARGS."
-  (apply #'start-process "F* interactive" buf prog args))
-
-(defun fstar-subp-start ()
-  "Start an F* subprocess attached to the current buffer, if none exists."
-  (unless (and buffer-file-name (file-exists-p buffer-file-name))
-    (error "Can't start F* subprocess without a backing file (save this buffer first)"))
-  (unless fstar-subp--process
-    (let ((prog-abs (fstar-find-executable)))
-      (fstar--init-compatibility-layer)
-      (let* ((buf (fstar-subp-make-buffer))
-             (process-connection-type nil)
-             (args (fstar-subp-with-interactive-args (fstar-subp-get-prover-args)))
-             (proc (fstar-subp-start-process buf prog-abs args)))
-        (fstar-subp-log "Started F* interactive with arguments %S" args)
-        (set-process-query-on-exit-flag proc nil)
-        (set-process-filter proc #'fstar-subp-filter)
-        (set-process-sentinel proc #'fstar-subp-sentinel)
-        (process-put proc 'fstar-subp-source-buffer (current-buffer))
-        (setq fstar-subp--process proc)))))
 
 (defun fstar-subp-cleanup-region (buffer beg end)
   "Make a clean copy of range BEG..END in BUFFER before sending it to F*."
@@ -1006,14 +984,6 @@ With non-nil LAX, the region is to be processed in lax mode."
           (fstar-subp--column-number-at-pos pos)
           (if lax " #lax" "")))
 
-(defun fstar-subp--query (query continuation)
-  "Send QUERY to F* subprocess; handle results with CONTINUATION."
-  (fstar-subp-log "QUERY [%s]" query)
-  (fstar-assert (not fstar-subp--continuation))
-  (setq fstar-subp--continuation continuation)
-  (fstar-subp-start)
-  (process-send-string fstar-subp--process query))
-
 (defun fstar-subp-send-region (beg end lax continuation)
   "Send the region between BEG and END to the inferior F* process.
 With non-nil LAX, send region in lax mode.  Handle results with CONTINUATION."
@@ -1021,44 +991,6 @@ With non-nil LAX, send region in lax mode.  Handle results with CONTINUATION."
   (let* ((payload (fstar-subp-cleanup-region (current-buffer) beg end))
          (msg (concat (fstar-subp--push-header beg lax) "\n" payload fstar-subp--footer)))
     (fstar-subp--query msg continuation)))
-
-(defun fstar-subp-tracking-overlay-p (overlay)
-  "Return non-nil if OVERLAY is an fstar-subp tracking overlay."
-  (fstar-subp-status overlay))
-
-(defun fstar-subp-tracking-overlays (&optional status)
-  "Find all -subp tracking overlays with status STATUS in the current buffer.
-
-If STATUS is nil, return all fstar-subp overlays."
-  (sort (cl-loop for overlay being the overlays of (current-buffer)
-                 when (fstar-subp-tracking-overlay-p overlay)
-                 when (or (not status) (fstar-subp-status-eq overlay status))
-                 collect overlay)
-        (lambda (o1 o2) (< (overlay-start o1) (overlay-start o2)))))
-
-(defun fstar-subp-issue-overlay-p (overlay)
-  "Return non-nil if OVERLAY is an fstar-subp issue overlay."
-  (overlay-get overlay 'fstar-subp-issue))
-
-(defun fstar-subp-issue-overlays ()
-  "Find all -subp issues overlays in the current buffer."
-  (-filter #'fstar-subp-issue-overlay-p (overlays-in (point-min) (point-max))))
-
-(defun fstar-subp-issue-overlays-at (pt)
-  "Find all -subp issues overlays at point PT."
-  (-filter #'fstar-subp-issue-overlay-p (overlays-at pt t)))
-
-(defun fstar-in-comment-p ()
-  "Return non-nil if point is inside a comment."
-  (nth 4 (syntax-ppss)))
-
-(defun fstar-in-build-config-p ()
-  "Return non-nil if point is in build config comment."
-  (let ((state (syntax-ppss)))
-    (and (nth 4 state)
-         (save-excursion
-           (goto-char (nth 8 state))
-           (looking-at-p (regexp-quote fstar-build-config-header))))))
 
 (defun fstar-subp-overlay-attempt-modification (overlay &rest _args)
   "Allow or prevent attempts to modify OVERLAY.
@@ -1102,7 +1034,7 @@ Modifications are only allowed if it is safe to retract up to the beginning of t
   (fstar-subp-set-status overlay 'busy)
   (let ((lax (overlay-get overlay 'fstar-subp--lax)))
     (fstar-subp-send-region (overlay-start overlay) (overlay-end overlay) lax
-                       (apply-partially #'fstar-subp--overlay-continuation overlay))))
+                            (apply-partially #'fstar-subp--overlay-continuation overlay))))
 
 (defun fstar-subp-process-queue ()
   "Process the next pending overlay, if any."
@@ -1112,6 +1044,8 @@ Modifications are only allowed if it is safe to retract up to the beginning of t
         (progn (fstar-subp-log "Processing queue")
                (fstar-subp-process-overlay overlay))
       (fstar-subp-log "Queue is empty %S" (mapcar #'fstar-subp-status (fstar-subp-tracking-overlays))))))
+
+;;;; Advancing and retracting
 
 (defun fstar-subp-unprocessed-beginning ()
   "Find the beginning of the unprocessed buffer area."
@@ -1134,7 +1068,7 @@ If NO-ERROR is set, do not report an error if the region is empty."
   (let ((beg (fstar-subp-unprocessed-beginning))
         (end (fstar-skip-spaces-backwards-from end)))
     (fstar-assert (cl-loop for overlay in (overlays-in beg end)
-                      never (fstar-subp-tracking-overlay-p overlay)))
+                           never (fstar-subp-tracking-overlay-p overlay)))
     (if (<= end beg)
         (unless no-error
           (user-error "Nothing more to process!"))
@@ -1242,6 +1176,99 @@ into blocks; process it as one large block instead."
   (let ((fstar-subp--lax t))
     (fstar-subp-advance-or-retract-to-point arg)))
 
+;;;; Starting the F* subprocess
+
+(defun fstar-subp-buffer-killed ()
+  "Kill F* process associated to current buffer."
+  (-when-let* ((proc (get-buffer-process (current-buffer))))
+    (run-with-timer 0 nil #'fstar-subp-kill-proc proc)))
+
+(defun fstar-subp-make-buffer ()
+  "Create a buffer for the F* subprocess."
+  (with-current-buffer (generate-new-buffer
+                        (format " *F* interactive for %s*" (buffer-name)))
+    (add-hook 'kill-buffer-hook #'fstar-subp-buffer-killed t t)
+    (buffer-disable-undo)
+    (current-buffer)))
+
+(defcustom fstar-subp-prover-args nil
+  "Used for computing arguments to pass to F* in interactive mode.
+
+If set to a string, that string is considered to be a single
+argument to pass to F*.  If set to a list of strings, each element
+of the list is passed to F*.  If set to a function, that function
+is called in the current buffer without arguments, and expected
+to produce a string or a list of strings.
+
+Some examples:
+
+- (setq fstar-subp-prover-args \"--ab\") results in F* being
+called as 'fstar.exe --in --ab'.
+
+- (setq fstar-subp-prover-args '(\"--ab\" \"--cd\")) results in
+F* being called as 'fstar.exe --in --ab --cd'.
+
+- (setq fstar-subp-prover-args (lambda () '(\"--ab\" \"--cd\")))
+results in F* being called as 'fstar.exe --in --ab --cd'.
+
+To debug unexpected behaviours with this variable, try
+evaluating (fstar-subp-get-prover-args).  Note that passing
+multiple arguments as one string will not work: you should use
+'(\"--aa\" \"--bb\"), not \"--aa --bb\""
+  :group 'fstar
+  :type '(repeat string))
+
+(defun fstar-subp-get-prover-args ()
+  "Compute prover arguments from `fstar-subp-prover-args'."
+  (let ((args (if (functionp fstar-subp-prover-args)
+                  (funcall fstar-subp-prover-args)
+                fstar-subp-prover-args)))
+    (cond ((listp args) args)
+          ((stringp args) (list args))
+          (t (user-error "Interpreting fstar-subp-prover-args led to invalid value [%s]" args)))))
+
+(defun fstar-subp-with-interactive-args (args)
+  "Return ARGS precedeed by --in and the filename of the current buffer."
+  (let ((file-name
+         (if (eq system-type 'cygwin)
+             (string-trim-right
+              (shell-command-to-string
+               (format "cygpath -w %s" buffer-file-name)))
+           buffer-file-name)))
+    (append `(,file-name "--in") args)))
+
+(defun fstar-subp-adjust-path (fn buf prog args)
+  "Run FN with PATH extended to contain directory of PROG.
+Forward BUF, PROG, and ARGS to FN."
+  (let* ((prog-dir (file-name-directory prog))
+         (path (concat prog-dir path-separator (getenv "PATH")))
+         (process-environment (cons (concat "PATH=" path) process-environment)))
+    (funcall fn buf prog args)))
+
+(defun fstar-subp-start-process (buf prog args)
+  "Start an F* subprocess PROG in BUF with ARGS."
+  (apply #'start-process "F* interactive" buf prog args))
+
+(defun fstar-subp-start ()
+  "Start an F* subprocess attached to the current buffer, if none exists."
+  (unless (and buffer-file-name (file-exists-p buffer-file-name))
+    (error "Can't start F* subprocess without a backing file (save this buffer first)"))
+  (unless fstar-subp--process
+    (let ((prog-abs (fstar-find-executable)))
+      (fstar--init-compatibility-layer)
+      (let* ((buf (fstar-subp-make-buffer))
+             (process-connection-type nil)
+             (args (fstar-subp-with-interactive-args (fstar-subp-get-prover-args)))
+             (proc (fstar-subp-start-process buf prog-abs args)))
+        (fstar-subp-log "Started F* interactive with arguments %S" args)
+        (set-process-query-on-exit-flag proc nil)
+        (set-process-filter proc #'fstar-subp-filter)
+        (set-process-sentinel proc #'fstar-subp-sentinel)
+        (process-put proc 'fstar-subp-source-buffer (current-buffer))
+        (setq fstar-subp--process proc)))))
+
+;;;; Keybindings
+
 (defconst fstar-subp-keybindings-table
   '(("C-c C-n"        "C-S-n" fstar-subp-advance-next)
     ("C-c C-u"        "C-S-p" fstar-subp-retract-last)
@@ -1276,6 +1303,8 @@ into blocks; process it as one large block instead."
   :set #'fstar-subp-set-keybinding-style
   :type '(choice (const :tag "Proof-General style bindings" pg)
                  (const :tag "Atom-style bindings" atom)))
+
+;;;; Main entry point
 
 (defun fstar-setup-interactive ()
   "Setup interactive F* mode."
