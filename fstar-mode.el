@@ -1247,14 +1247,18 @@ nil and the corresponding continuation calls `eldoc-message'."
 
 (defun fstar-setup-eldoc ()
   "Set up eldoc support."
-  (add-function :before-until (local 'eldoc-documentation-function)
-                #'fstar-subp--eldoc-function)
+  ;; Incompatible with Emacs < 25
+  ;; (add-function :before-until (local 'eldoc-documentation-function)
+  ;;               #'fstar-subp--eldoc-function)
+  (setq-local eldoc-documentation-function #'fstar-subp--eldoc-function)
   (eldoc-mode))
 
 (defun fstar-teardown-eldoc ()
   "Tear down eldoc support."
-  (remove-function (local 'eldoc-documentation-function)
-                   #'fstar-subp--eldoc-function))
+  ;; Incompatible with Emacs < 25
+  ;; (remove-function (local 'eldoc-documentation-function)
+  ;;                  #'fstar-subp--eldoc-function)
+  (kill-local-variable 'eldoc-documentation-function))
 
 ;;;; Starting the F* subprocess
 
