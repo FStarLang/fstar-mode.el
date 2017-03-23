@@ -764,13 +764,14 @@ If PROC is nil, use the current buffer's `fstar-subp--process'."
 
 (defun fstar-subp-process-response (success response)
   "Process SUCCESS and RESPONSE from F* subprocess."
-  (let* ((continuation fstar-subp--continuation))
+  (let* ((source-buffer (current-buffer))
+         (continuation fstar-subp--continuation))
     (unless continuation
       (fstar-subp-kill)
       (error "Invalid state: Received output, but no continuation was registered"))
     (setq fstar-subp--continuation nil)
     (funcall continuation success response)
-    (run-with-timer 0 nil #'fstar-subp-process-queue)))
+    (run-with-timer 0 nil #'fstar-subp-process-queue source-buffer)))
 
 (defun fstar-subp-warn-unexpected-output (string)
   "Warn user about unexpected output STRING."
@@ -1066,14 +1067,15 @@ Modifications are only allowed if it is safe to retract up to the beginning of t
     (fstar-subp-send-region (overlay-start overlay) (overlay-end overlay) lax
                             (apply-partially #'fstar-subp--overlay-continuation overlay))))
 
-(defun fstar-subp-process-queue ()
-  "Process the next pending overlay, if any."
-  (fstar-subp-start)
-  (unless fstar-subp--continuation
-    (-if-let* ((overlay (car-safe (fstar-subp-tracking-overlays 'pending))))
-        (progn (fstar-subp-log "Processing queue")
-               (fstar-subp-process-overlay overlay))
-      (fstar-subp-log "Queue is empty %S" (mapcar #'fstar-subp-status (fstar-subp-tracking-overlays))))))
+(defun fstar-subp-process-queue (buffer)
+  "Process the next pending overlay of BUFFER, if any."
+  (with-current-buffer buffer
+    (fstar-subp-start)
+    (unless fstar-subp--continuation
+      (-if-let* ((overlay (car-safe (fstar-subp-tracking-overlays 'pending))))
+          (progn (fstar-subp-log "Processing queue")
+                 (fstar-subp-process-overlay overlay))
+        (fstar-subp-log "Queue is empty %S" (mapcar #'fstar-subp-status (fstar-subp-tracking-overlays)))))))
 
 ;;;; Advancing and retracting
 
@@ -1105,7 +1107,7 @@ If NO-ERROR is set, do not report an error if the region is empty."
       (let ((overlay (make-overlay beg end (current-buffer) nil nil)))
         (fstar-subp-set-status overlay 'pending)
         (overlay-put overlay 'fstar-subp--lax fstar-subp--lax)
-        (fstar-subp-process-queue)))))
+        (fstar-subp-process-queue (current-buffer))))))
 
 (defcustom fstar-subp-block-sep "\\(\\'\\|\\s-*\\(\n\\s-*\\)\\{3,\\}\\)"
   "Regular expression used when looking for source blocks."
