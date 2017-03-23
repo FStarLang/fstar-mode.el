@@ -722,6 +722,10 @@ If PROC is nil, use the current buffer's `fstar-subp--process'."
   (setq proc (or proc fstar-subp--process))
   (and proc (process-live-p proc)))
 
+(defun fstar-subp-available-p ()
+  "Return t if current `fstar-subp--process' is live and idle."
+  (and (fstar-subp-live-p fstar-subp--process)
+       (not fstar-subp--continuation)))
 
 (defun fstar-subp--query (query continuation)
   "Send QUERY to F* subprocess; handle results with CONTINUATION."
@@ -799,7 +803,7 @@ If PROC is nil, use the current buffer's `fstar-subp--process'."
 (defun fstar-subp-kill ()
   "Kill F* subprocess and clean up current buffer."
   (interactive)
-  (when (fstar-subp-live-p fstar-subp--process)
+  (when (fstar-subp-live-p)
     (kill-process fstar-subp--process)
     (accept-process-output fstar-subp--process 0.25 nil t))
   (fstar-subp-killed))
@@ -1143,8 +1147,7 @@ Ignores separators found in comments."
 
 (defun fstar-subp-pop-overlay (overlay)
   "Remove overlay OVERLAY and issue the corresponding #pop command."
-  (fstar-assert (not fstar-subp--continuation))
-  (fstar-assert (fstar-subp-live-p))
+  (fstar-assert (fstar-subp-available-p))
   (if (fstar-sub-overlay-contains-build-config overlay)
       (fstar-subp-kill)
     (fstar-subp--query fstar-subp--cancel nil))
