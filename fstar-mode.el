@@ -41,6 +41,7 @@
 
 (require 'dash)
 (require 'cl-lib)
+(require 'eldoc)
 (require 'help-at-pt)
 (require 'flycheck nil t)
 
@@ -678,6 +679,10 @@ FORMAT and ARGS are as in `message'."
            (goto-char (nth 8 state))
            (looking-at-p (regexp-quote fstar-build-config-header))))))
 
+(defun fstar-subp--column-number-at-pos (pos)
+  "Return column number at POS."
+  (save-excursion (goto-char pos) (- (point) (point-at-bol))))
+
 ;;;; Overlay classification
 
 (defun fstar-subp-issue-overlay-p (overlay)
@@ -1001,10 +1006,6 @@ Complain if SUCCESS is nil and RESPONSE doesn't contain issues."
                 (insert replacement)))))))
     (buffer-substring-no-properties (point-min) (point-max))))
 
-(defun fstar-subp--column-number-at-pos (pos)
-  "Return column number at POS."
-  (save-excursion (goto-char pos) (- (point) (point-at-bol))))
-
 (defun fstar-subp--push-header (pos lax)
   "Prepare a header for a region starting at POS.
 With non-nil LAX, the region is to be processed in lax mode."
@@ -1204,6 +1205,51 @@ into blocks; process it as one large block instead."
   (let ((fstar-subp--lax t))
     (fstar-subp-advance-or-retract-to-point arg)))
 
+;;;; Info queries
+
+(defun fstar-subp--info-query (pos)
+  "Prepare a header for an info query at POS."
+  (format "#info <input> %S %S\n"
+          (line-number-at-pos pos)
+          (fstar-subp--column-number-at-pos pos)))
+
+(defconst fstar-subp--info-response-regex
+  "^(defined at \\(.+?\\)(\\([0-9]+\\),\\([0-9]+\\)-\\([0-9]+\\),\\([0-9]+\\)))")
+
+(defun fstar-subp--info-continuation (continuation pos success response)
+  "Handle the results (SUCCESS and RESPONSE) of an #info query at POS.
+If response is valid, forward results (only type information for
+now) to CONTINUATION."
+  (when (and success
+             (eq (point) pos) ;; Point didn't move since request
+             (string-match fstar-subp--info-response-regex response))
+    (funcall continuation (string-trim (substring response (match-end 0))))))
+
+(defun fstar-subp--eldoc-continuation (info)
+  "Display INFO as an eldoc message."
+  (eldoc-message (fstar-highlight-string info)))
+
+(defun fstar-subp--eldoc-function ()
+  "Issue a #info query for current point.
+Results are displayed asynchronously, so this function returns
+nil and the corresponding continuation calls `eldoc-message'."
+  (when (fstar-subp-available-p)
+    (fstar-subp--query (fstar-subp--info-query (point))
+                  (apply-partially #'fstar-subp--info-continuation
+                                   #'fstar-subp--eldoc-continuation (point)))
+    nil))
+
+(defun fstar-setup-eldoc ()
+  "Set up eldoc support."
+  (add-function :before-until (local 'eldoc-documentation-function)
+                #'fstar-subp--eldoc-function)
+  (eldoc-mode))
+
+(defun fstar-teardown-eldoc ()
+  "Tear down eldoc support."
+  (remove-function (local 'eldoc-documentation-function)
+                   #'fstar-subp--eldoc-function))
+
 ;;;; Starting the F* subprocess
 
 (defun fstar-subp-buffer-killed ()
@@ -1288,7 +1334,7 @@ Forward BUF, PROG, and ARGS to FN."
              (process-connection-type nil)
              (args (fstar-subp-with-interactive-args (fstar-subp-get-prover-args)))
              (proc (fstar-subp-start-process buf prog-abs args)))
-        (fstar-subp-log "Started F* interactive with arguments %S" args)
+        (fstar-subp-log "Started F* interactive: %S" (cons prog-abs args))
         (set-process-query-on-exit-flag proc nil)
         (set-process-filter proc #'fstar-subp-filter)
         (set-process-sentinel proc #'fstar-subp-sentinel)
@@ -1385,10 +1431,11 @@ Forward BUF, PROG, and ARGS to FN."
     (indentation . "Indentation (based on control points)")
     (comments    . "Comment syntax and special comments ('(***', '(*+', etc.)")
     (flycheck    . "Real-time verification (good for small files; requires the flycheck package)")
-    (interactive . "Interactive verification (à la Proof-General; requires a recent F* build)"))
+    (interactive . "Interactive verification (à la Proof-General)")
+    (eldoc       . "Type annotations in the minibuffer."))
   "Available components of F*-mode.")
 
-(defcustom fstar-enabled-modules '(font-lock prettify indentation comments interactive)
+(defcustom fstar-enabled-modules '(font-lock prettify indentation comments interactive eldoc)
   "Which F*-mode components to load."
   :group 'fstar
   :type `(set ,@(cl-loop for (mod . desc) in fstar-known-modules
