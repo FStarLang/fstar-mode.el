@@ -403,6 +403,31 @@ If MUST-FIND-TYPE is nil, the :type part is not necessary."
        (1 '(face nil invisible 'fstar-subscripts) prepend)
        (2 '(face fstar-subscript-face display (raise -0.3)) append)))))
 
+(defconst fstar--scratchpad-name " *%s-scratchpad*")
+
+(defvar-local fstar--scratchpad nil
+  "Temporary buffer used to highlight strings.")
+
+(defun fstar--init-scratchpad ()
+  "Get or create scratchpad buffer of current F* buffer."
+  (unless fstar--scratchpad
+    (setq fstar--scratchpad
+          (get-buffer-create (format fstar--scratchpad-name (buffer-name))))
+    (with-current-buffer fstar--scratchpad
+      (setq-local fstar-enabled-modules '(font-lock prettify))
+      (fstar-mode))))
+
+(defun fstar-highlight-string (str)
+  "Highlight STR as F* code."
+  (fstar--init-scratchpad)
+  (with-current-buffer fstar--scratchpad
+    (erase-buffer)
+    (insert str)
+    (if (fboundp 'font-lock-ensure)
+        (font-lock-ensure)
+      (with-no-warnings (font-lock-fontify-buffer)))
+    (buffer-string)))
+
 (defun fstar-setup-font-lock ()
   "Setup font-lock for use with F*."
   (font-lock-mode -1)
@@ -423,7 +448,9 @@ If MUST-FIND-TYPE is nil, the :type part is not necessary."
 
 (defun fstar-teardown-font-lock ()
   "Disable F*-related font-locking."
-  (remove-from-invisibility-spec 'fstar-subscripts))
+  (remove-from-invisibility-spec 'fstar-subscripts)
+  (when (buffer-live-p fstar--scratchpad)
+    (kill-buffer fstar--scratchpad)))
 
 ;;; Syntax table
 
