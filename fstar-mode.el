@@ -532,8 +532,8 @@ If MUST-FIND-TYPE is nil, the :type part is not necessary."
 (defvar-local fstar-subp--process nil
   "Interactive F* process running in the background.")
 
-(defvar-local fstar-subp--busy-now nil
-  "Indicates which overlay the F* subprocess is currently processing, if any.")
+(defvar-local fstar-subp--continuation nil
+  "Indicates which continuation to run on next output from F* subprocess.")
 
 (defvar fstar-subp--lax nil
   "Whether to process newly sent regions in lax mode.")
@@ -634,7 +634,7 @@ If PROC is nil, use the current buffer's `fstar-subp--process'."
     (kill-buffer))
   (fstar-subp-remove-tracking-overlays)
   (fstar-subp-remove-issues-overlays)
-  (setq fstar-subp--busy-now nil
+  (setq fstar-subp--continuation nil
         fstar-subp--process nil))
 
 (defun fstar-subp-kill ()
@@ -716,20 +716,24 @@ With prefix argument ARG, kill all F* subprocesses."
 
 (defun fstar-subp-process-response (success response)
   "Process SUCCESS and RESPONSE from F* subprocess."
-  (let* ((overlay fstar-subp--busy-now))
-    (unless overlay
+  (let* ((continuation fstar-subp--continuation))
+    (unless continuation
       (fstar-subp-kill)
-      (error "Invalid state: Received output, but no region was busy"))
-    (setq fstar-subp--busy-now nil)
-    (fstar-subp-clear-issues)
-    (fstar-subp-parse-and-highlight-issues success response overlay)
-    (pcase success
-      (`t
-       (fstar-subp-set-status overlay 'processed)
-       (run-with-timer 0 nil #'fstar-subp-process-queue))
-      (`nil
-       (fstar-subp-remove-unprocessed)
-       (process-send-string fstar-subp--process fstar-subp--cancel)))))
+      (error "Invalid state: Received output, but no continuation was registered"))
+    (setq fstar-subp--continuation nil)
+    (funcall continuation success response)))
+
+(defun fstar-subp--overlay-continuation (overlay success response)
+  "Handle the results (SUCCESS and RESPONSE) of processing OVERLAY."
+  (fstar-subp-clear-issues)
+  (fstar-subp-parse-and-highlight-issues success response overlay)
+  (pcase success
+    (`t
+     (fstar-subp-set-status overlay 'processed)
+     (run-with-timer 0 nil #'fstar-subp-process-queue))
+    (`nil
+     (fstar-subp-remove-unprocessed)
+     (fstar-subp--query fstar-subp--cancel nil))))
 
 (cl-defstruct fstar-issue
   level filename line-from line-to col-from col-to message)
@@ -969,13 +973,13 @@ Forward BUF, PROG, and ARGS to FN."
         (process-put proc 'fstar-subp-source-buffer (current-buffer))
         (setq fstar-subp--process proc)))))
 
-(defun fstar-subp-prepare-message (msg)
-  "Cleanup MSG before sending it to the F* process."
+(defun fstar-subp-cleanup-region (buffer beg end)
+  "Make a clean copy of range BEG..END in BUFFER before sending it to F*."
   (with-temp-buffer
     (set-syntax-table fstar-syntax-table)
     (fstar-setup-comments)
     (comment-normalize-vars)
-    (insert msg)
+    (insert-buffer-substring buffer beg end)
     (goto-char (point-min))
     (let (start)
       (while (setq start (comment-search-forward nil t))
@@ -994,7 +998,7 @@ Forward BUF, PROG, and ARGS to FN."
   "Return column number at POS."
   (save-excursion (goto-char pos) (- (point) (point-at-bol))))
 
-(defun fstar-subp--header (pos lax)
+(defun fstar-subp--push-header (pos lax)
   "Prepare a header for a region starting at POS.
 With non-nil LAX, the region is to be processed in lax mode."
   (format "#push %d %d%s"
@@ -1002,16 +1006,21 @@ With non-nil LAX, the region is to be processed in lax mode."
           (fstar-subp--column-number-at-pos pos)
           (if lax " #lax" "")))
 
-(defun fstar-subp-send-region (beg end lax)
-  "Send the region between BEG and END to the inferior F* process.
-With non-nil LAX, send region in lax mode."
-  (interactive "r")
+(defun fstar-subp--query (query continuation)
+  "Send QUERY to F* subprocess; handle results with CONTINUATION."
+  (fstar-subp-log "QUERY [%s]" query)
+  (fstar-assert (not fstar-subp--continuation))
+  (setq fstar-subp--continuation continuation)
   (fstar-subp-start)
-  (let* ((body (buffer-substring-no-properties beg end))
-         (payload (fstar-subp-prepare-message body))
-         (msg (concat (fstar-subp--header beg lax) "\n" payload fstar-subp--footer)))
-    (fstar-subp-log "QUERY [%s]" msg)
-    (process-send-string fstar-subp--process msg)))
+  (process-send-string fstar-subp--process query))
+
+(defun fstar-subp-send-region (beg end lax continuation)
+  "Send the region between BEG and END to the inferior F* process.
+With non-nil LAX, send region in lax mode.  Handle results with CONTINUATION."
+  (interactive "r")
+  (let* ((payload (fstar-subp-cleanup-region (current-buffer) beg end))
+         (msg (concat (fstar-subp--push-header beg lax) "\n" payload fstar-subp--footer)))
+    (fstar-subp--query msg continuation)))
 
 (defun fstar-subp-tracking-overlay-p (overlay)
   "Return non-nil if OVERLAY is an fstar-subp tracking overlay."
@@ -1064,7 +1073,7 @@ Modifications are only allowed if it is safe to retract up to the beginning of t
           (fstar-subp-kill)))
        ;; Allow modifications (after retracting) in pending overlays, and in
        ;; processed overlays provided that F* isn't busy
-       ((or (not fstar-subp--busy-now)
+       ((or (not fstar-subp--continuation)
             (fstar-subp-status-eq overlay 'pending))
         (fstar-subp-retract-until (overlay-start overlay)))
        ;; Disallow modifications in processed overlays when F* is busy
@@ -1088,17 +1097,17 @@ Modifications are only allowed if it is safe to retract up to the beginning of t
 
 (defun fstar-subp-process-overlay (overlay)
   "Send the contents of OVERLAY to the underlying F* process."
-  (fstar-assert (not fstar-subp--busy-now))
+  (fstar-assert (not fstar-subp--continuation))
   (fstar-subp-start)
   (fstar-subp-set-status overlay 'busy)
-  (setq fstar-subp--busy-now overlay)
   (let ((lax (overlay-get overlay 'fstar-subp--lax)))
-    (fstar-subp-send-region (overlay-start overlay) (overlay-end overlay) lax)))
+    (fstar-subp-send-region (overlay-start overlay) (overlay-end overlay) lax
+                       (apply-partially #'fstar-subp--overlay-continuation overlay))))
 
 (defun fstar-subp-process-queue ()
   "Process the next pending overlay, if any."
   (fstar-subp-start)
-  (unless fstar-subp--busy-now
+  (unless fstar-subp--continuation
     (-if-let* ((overlay (car-safe (fstar-subp-tracking-overlays 'pending))))
         (progn (fstar-subp-log "Processing queue")
                (fstar-subp-process-overlay overlay))
@@ -1175,11 +1184,11 @@ Ignores separators found in comments."
 
 (defun fstar-subp-pop-overlay (overlay)
   "Remove overlay OVERLAY and issue the corresponding #pop command."
-  (fstar-assert (not fstar-subp--busy-now))
+  (fstar-assert (not fstar-subp--continuation))
   (fstar-assert (fstar-subp-live-p))
   (if (fstar-sub-overlay-contains-build-config overlay)
       (fstar-subp-kill)
-    (process-send-string fstar-subp--process fstar-subp--cancel))
+    (fstar-subp--query fstar-subp--cancel nil))
   (delete-overlay overlay))
 
 (defun fstar-subp-retract-one (overlay)
