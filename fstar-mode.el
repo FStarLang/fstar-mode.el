@@ -733,7 +733,8 @@ If PROC is nil, use the current buffer's `fstar-subp--process'."
       (fstar-subp-kill)
       (error "Invalid state: Received output, but no continuation was registered"))
     (setq fstar-subp--continuation nil)
-    (funcall continuation success response)))
+    (funcall continuation success response)
+    (run-with-timer 0 nil #'fstar-subp-process-queue)))
 
 (defun fstar-subp-warn-unexpected-output (string)
   "Warn user about unexpected output STRING."
@@ -806,13 +807,10 @@ With prefix argument ARG, kill all F* subprocesses."
   "Handle the results (SUCCESS and RESPONSE) of processing OVERLAY."
   (fstar-subp-remove-issues-overlays)
   (fstar-subp-parse-and-highlight-issues success response overlay)
-  (pcase success
-    (`t
-     (fstar-subp-set-status overlay 'processed)
-     (run-with-timer 0 nil #'fstar-subp-process-queue))
-    (`nil
-     (fstar-subp-remove-unprocessed)
-     (fstar-subp--query fstar-subp--cancel nil))))
+  (if success
+      (fstar-subp-set-status overlay 'processed)
+    (fstar-subp-remove-unprocessed)
+    (fstar-subp--query fstar-subp--cancel nil)))
 
 (cl-defstruct fstar-issue
   level filename line-from line-to col-from col-to message)
