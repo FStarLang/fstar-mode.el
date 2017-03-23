@@ -115,8 +115,11 @@ error."
 (defvar fstar--vernum nil
   "F*'s version number.")
 
-(defvar fstar--error-messages-use-absolute-linums nil
+(defvar fstar-compat--error-messages-use-absolute-linums nil
   "F* > 0.9.3.0-beta1 uses absolute line numbers in error messages.")
+
+(defvar fstar-compat--can-use-info nil
+  "F* >= 0.9.4.1 supports #info queries.")
 
 (defun fstar--init-compatibility-layer ()
   "Adjust compatibility settings based on `fstar-executable''s version number."
@@ -126,7 +129,8 @@ error."
       (warn "Can't parse version number from %S" version-string)
       (setq fstar--vernum "unknown")))
   (let ((v (if (string-match-p "unknown" fstar--vernum) "1000" fstar--vernum)))
-    (setq fstar--error-messages-use-absolute-linums (version< "0.9.3.0-beta1" v))))
+    (setq fstar-compat--error-messages-use-absolute-linums (version< "0.9.3.0-beta1" v))
+    (setq fstar-compat--can-use-info (version<= "0.9.4.1" v))))
 
 ;;; Flycheck
 
@@ -884,7 +888,7 @@ With prefix argument ARG, kill all F* subprocesses."
   "Fixup ISSUE: include a file name, and adjust line numbers wrt OV."
   (when (member (fstar-issue-filename issue) '("unknown" "<input>"))
     (setf (fstar-issue-filename issue) (buffer-file-name))) ;; FIXME ensure we have a file name?
-  (unless fstar--error-messages-use-absolute-linums
+  (unless fstar-compat--error-messages-use-absolute-linums
     (let ((linum (1- (line-number-at-pos (overlay-start ov)))))
       (setf (fstar-issue-line-from issue) (+ (fstar-issue-line-from issue) linum))
       (setf (fstar-issue-line-to issue) (+ (fstar-issue-line-to issue) linum))))
@@ -1235,7 +1239,7 @@ now) to CONTINUATION."
   "Issue a #info query for current point.
 Results are displayed asynchronously, so this function returns
 nil and the corresponding continuation calls `eldoc-message'."
-  (when (fstar-subp-available-p)
+  (when (and fstar-compat--can-use-info (fstar-subp-available-p))
     (fstar-subp--query (fstar-subp--info-query (point))
                   (apply-partially #'fstar-subp--info-continuation
                                    #'fstar-subp--eldoc-continuation (point)))
