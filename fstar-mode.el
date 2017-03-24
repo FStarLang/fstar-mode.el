@@ -507,6 +507,7 @@ If MUST-FIND-TYPE is nil, the :type part is not necessary."
   (let ((map (make-sparse-keymap)))
     (define-key map (kbd "RET") #'fstar-newline-and-indent)
     (define-key map (kbd "C-h .") #'display-local-help) ;; For Emacs < 25
+    (define-key map (kbd "M-.") #'fstar-jump-to-definition)
     map))
 
 (defun fstar-newline-and-indent (arg)
@@ -1276,6 +1277,40 @@ nil and the corresponding continuation calls `eldoc-message'."
   ;; (remove-function (local 'eldoc-documentation-function)
   ;;                  #'fstar--eldoc-function)
   (kill-local-variable 'eldoc-documentation-function))
+
+;;; xref-like features
+
+(defun fstar--save-point ()
+  "Save current position in mark ring and xref stack."
+  (push-mark nil t)
+  (when (fboundp 'xref-push-marker-stack)
+    (xref-push-marker-stack)))
+
+(defun fstar--jump-to-definition-continuation (info)
+  "Jump to position in INFO."
+  (pcase-let* ((target-fname (fstar-pos-info-source-file info))
+               (`(,target-row . ,target-col) (fstar-pos-info-def-start info)))
+    (fstar--save-point)
+    (unless (equal target-fname "<input>")
+      (unless (file-exists-p target-fname)
+        (error "File not found: %S" target-fname))
+      (find-file target-fname))
+    (fstar--goto target-row target-col)
+    (recenter)
+    (pulse-momentary-highlight-one-line (point))))
+
+(defun fstar-jump-to-definition ()
+  "Jump to definition of identifier at point, if any."
+  (interactive)
+  (cond
+   ((not fstar-compat--can-use-info)
+    (user-error "This feature isn't available in F* < 0.9.4.1"))
+   ((not (fstar-subp-available-p))
+    (user-error "F* seems busy; please wait until processing is complete"))
+   (t (fstar-subp--query (fstar-subp--info-query (point))
+                    (apply-partially #'fstar-subp--info-continuation
+                                     #'fstar--jump-to-definition-continuation
+                                     (point))))))
 
 ;;;; Starting the F* subprocess
 
