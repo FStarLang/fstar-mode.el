@@ -934,9 +934,9 @@ With prefix argument ARG, kill all F* subprocesses."
 (defun fstar-subp-highlight-issue (issue)
   "Highlight ISSUE in current buffer."
   (let* ((from (fstar--row-col-offset (fstar-issue-line-from issue)
-                                 (fstar-issue-col-from issue)))
+                                      (fstar-issue-col-from issue)))
          (to (fstar--row-col-offset (fstar-issue-line-to issue)
-                               (fstar-issue-col-to issue)))
+                                    (fstar-issue-col-to issue)))
          (overlay (make-overlay from (max to (1+ from)) (current-buffer) t nil)))
     (overlay-put overlay 'fstar-subp-issue t)
     (overlay-put overlay 'face (fstar-subp-issue-face issue))
@@ -953,7 +953,7 @@ With prefix argument ARG, kill all F* subprocesses."
 (defun fstar-subp-jump-to-issue (issue)
   "Jump to ISSUE in current buffer."
   (goto-char (fstar--row-col-offset (fstar-issue-line-from issue)
-                               (fstar-issue-col-from issue))))
+                                    (fstar-issue-col-from issue))))
 
 (defun fstar-subp--local-issue-p (issue)
   "Check if ISSUE came from the current buffer."
@@ -1227,6 +1227,9 @@ into blocks; process it as one large block instead."
 (defconst fstar-subp--info-response-regex
   "^(defined at \\(.+?\\)(\\([0-9]+\\),\\([0-9]+\\)-\\([0-9]+\\),\\([0-9]+\\)))")
 
+(cl-defstruct fstar-pos-info
+  source-file def-start def-end type)
+
 (defun fstar-subp--info-continuation (continuation pos success response)
   "Handle the results (SUCCESS and RESPONSE) of an #info query at POS.
 If response is valid, forward results (only type information for
@@ -1234,35 +1237,44 @@ now) to CONTINUATION."
   (when (and success
              (eq (point) pos) ;; Point didn't move since request
              (string-match fstar-subp--info-response-regex response))
-    (funcall continuation (string-trim (substring response (match-end 0))))))
+    (funcall continuation
+             (make-fstar-pos-info
+              :source-file (match-string 1 response)
+              :def-start (cons (string-to-number (match-string 2 response))
+                               (string-to-number (match-string 3 response)))
+              :def-end (cons (string-to-number (match-string 4 response))
+                             (string-to-number (match-string 5 response)))
+              :type (string-trim (substring response (match-end 0)))))))
 
-(defun fstar-subp--eldoc-continuation (info)
+(defun fstar--eldoc-continuation (info)
   "Display INFO as an eldoc message."
-  (eldoc-message (fstar-highlight-string info)))
+  (eldoc-message (fstar-highlight-string (fstar-pos-info-type info))))
 
-(defun fstar-subp--eldoc-function ()
+(defun fstar--eldoc-function ()
   "Issue a #info query for current point.
 Results are displayed asynchronously, so this function returns
 nil and the corresponding continuation calls `eldoc-message'."
   (when (and fstar-compat--can-use-info (fstar-subp-available-p))
     (fstar-subp--query (fstar-subp--info-query (point))
                   (apply-partially #'fstar-subp--info-continuation
-                                   #'fstar-subp--eldoc-continuation (point)))
+                                   #'fstar--eldoc-continuation
+                                   (point)))
+    ;; FIXME: use pos-tip for errors, or show errors in eldoc
     nil))
 
 (defun fstar-setup-eldoc ()
   "Set up eldoc support."
   ;; Incompatible with Emacs < 25
   ;; (add-function :before-until (local 'eldoc-documentation-function)
-  ;;               #'fstar-subp--eldoc-function)
-  (setq-local eldoc-documentation-function #'fstar-subp--eldoc-function)
+  ;;               #'fstar--eldoc-function)
+  (setq-local eldoc-documentation-function #'fstar--eldoc-function)
   (eldoc-mode))
 
 (defun fstar-teardown-eldoc ()
   "Tear down eldoc support."
   ;; Incompatible with Emacs < 25
   ;; (remove-function (local 'eldoc-documentation-function)
-  ;;                  #'fstar-subp--eldoc-function)
+  ;;                  #'fstar--eldoc-function)
   (kill-local-variable 'eldoc-documentation-function))
 
 ;;;; Starting the F* subprocess
