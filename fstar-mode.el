@@ -687,6 +687,23 @@ FORMAT and ARGS are as in `message'."
   "Return column number at POS."
   (save-excursion (goto-char pos) (- (point) (point-at-bol))))
 
+(defun fstar--goto (line column)
+  "Go to position indicated by LINE, COLUMN."
+  (goto-char (point-min))
+  (forward-line (1- line))
+  ;; min makes sure that we don't spill to the next line.
+  (forward-char (min (- (point-at-eol) (point-at-bol)) column)))
+
+(defun fstar--row-col-offset (line column)
+  "Convert a (LINE, COLUMN) pair into a buffer offset.
+
+FIXME: This would be much easier if the interactive mode returned
+an offset instead of a line an column.
+FIXME: This doesn't do error handling."
+  (save-excursion
+    (fstar--goto line column)
+    (point)))
+
 ;;;; Overlay classification
 
 (defun fstar-subp-issue-overlay-p (overlay)
@@ -894,19 +911,6 @@ With prefix argument ARG, kill all F* subprocesses."
       (setf (fstar-issue-line-to issue) (+ (fstar-issue-line-to issue) linum))))
   issue)
 
-(defun fstar-issue-offset (line column)
-  "Convert a (LINE, COLUMN) pair into a buffer offset.
-
-FIXME: This would be much easier if the interactive mode returned
-an offset instead of a line an column.
-FIXME: This doesn't do error handling."
-  (save-excursion
-    (goto-char (point-min))
-    (forward-line (1- line))
-    ;; min makes sure that we don't spill to the next line.
-    (forward-char (min (- (point-at-eol) (point-at-bol)) column))
-    (point)))
-
 (defun fstar-subp-remove-issue-overlay (overlay &rest _args)
   "Remove OVERLAY."
   (delete-overlay overlay))
@@ -928,10 +932,10 @@ FIXME: This doesn't do error handling."
 
 (defun fstar-subp-highlight-issue (issue)
   "Highlight ISSUE in current buffer."
-  (let* ((from (fstar-issue-offset (fstar-issue-line-from issue)
-                                   (fstar-issue-col-from issue)))
-         (to (fstar-issue-offset (fstar-issue-line-to issue)
-                                 (fstar-issue-col-to issue)))
+  (let* ((from (fstar--row-col-offset (fstar-issue-line-from issue)
+                                 (fstar-issue-col-from issue)))
+         (to (fstar--row-col-offset (fstar-issue-line-to issue)
+                               (fstar-issue-col-to issue)))
          (overlay (make-overlay from (max to (1+ from)) (current-buffer) t nil)))
     (overlay-put overlay 'fstar-subp-issue t)
     (overlay-put overlay 'face (fstar-subp-issue-face issue))
@@ -947,8 +951,8 @@ FIXME: This doesn't do error handling."
 
 (defun fstar-subp-jump-to-issue (issue)
   "Jump to ISSUE in current buffer."
-  (goto-char (fstar-issue-offset (fstar-issue-line-from issue)
-                                 (fstar-issue-col-from issue))))
+  (goto-char (fstar--row-col-offset (fstar-issue-line-from issue)
+                               (fstar-issue-col-from issue))))
 
 (defun fstar-subp--local-issue-p (issue)
   "Check if ISSUE came from the current buffer."
