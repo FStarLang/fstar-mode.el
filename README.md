@@ -32,6 +32,20 @@ Setup MELPA as described above, then install the dependencies and clone the repo
 (require 'fstar-mode "~/.emacs.d/lisp/fstar-mode.el/fstar-mode.el")
 ```
 
+If you're using emacs on windows with cygwin, you should also install [windows-path.el](https://www.emacswiki.org/emacs/windows-path.el)
+
+The short version is to do:
+
+```
+$ wget https://www.emacswiki.org/emacs/download/windows-path.el
+```
+
+Then, in your .emacs
+```elisp
+(require 'windows-path "<path to windows-path.el>")
+(windows-path-activate)
+```
+
 ## Using the interactive mode
 
 Please be aware of the [current restrictions](https://github.com/FStarLang/FStar/wiki/Dealing-with-F%E2%98%85-dependencies#when-invoking-f-in-interactive-mode) on the interactive-mode.
