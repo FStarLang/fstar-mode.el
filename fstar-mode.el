@@ -791,8 +791,9 @@ If PROC is nil, use the current buffer's `fstar-subp--process'."
       (fstar-subp-kill)
       (error "Invalid state: Received output, but no continuation was registered"))
     (setq fstar-subp--continuation nil)
-    (funcall continuation success response)
-    (run-with-timer 0 nil #'fstar-subp-process-queue source-buffer)))
+    (unwind-protect
+        (funcall continuation success response)
+      (run-with-timer 0 nil #'fstar-subp-process-queue source-buffer))))
 
 (defun fstar-subp-warn-unexpected-output (string)
   "Warn user about unexpected output STRING."
