@@ -1291,13 +1291,15 @@ nil and the corresponding continuation calls `eldoc-message'."
   (pcase-let* ((target-fname (fstar-pos-info-source-file info))
                (`(,target-row . ,target-col) (fstar-pos-info-def-start info)))
     (fstar--save-point)
-    (unless (equal target-fname "<input>")
-      (unless (file-exists-p target-fname)
-        (error "File not found: %S" target-fname))
-      (find-file target-fname))
-    (fstar--goto target-row target-col)
-    (recenter)
-    (pulse-momentary-highlight-one-line (point))))
+    (catch 'not-found
+      (unless (equal target-fname "<input>")
+        (unless (file-exists-p target-fname)
+          (message "File not found: %S" target-fname)
+          (throw 'not-found nil))
+        (find-file target-fname))
+      (fstar--goto target-row target-col)
+      (recenter)
+      (pulse-momentary-highlight-one-line (point)))))
 
 (defun fstar-jump-to-definition ()
   "Jump to definition of identifier at point, if any."
@@ -1305,8 +1307,10 @@ nil and the corresponding continuation calls `eldoc-message'."
   (cond
    ((not fstar-compat--can-use-info)
     (user-error "This feature isn't available in F* < 0.9.4.1"))
-   ((not (fstar-subp-available-p))
+   (fstar-subp--continuation
     (user-error "F* seems busy; please wait until processing is complete"))
+   ((not (fstar-subp-live-p))
+    (user-error "Please start F* before jumping to a definition"))
    (t (fstar-subp--query (fstar-subp--info-query (point))
                     (apply-partially #'fstar-subp--info-continuation
                                      #'fstar--jump-to-definition-continuation
