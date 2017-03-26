@@ -1500,22 +1500,6 @@ Forward BUF, PROG, and ARGS to FN."
 
 ;;; Main mode
 
-(defconst fstar-known-modules
-  '((font-lock   . "Syntax highlighting")
-    (prettify    . "Unicode math (e.g. display forall as ∀; requires emacs 24.4 or later)")
-    (indentation . "Indentation (based on control points)")
-    (comments    . "Comment syntax and special comments ('(***', '(*+', etc.)")
-    (flycheck    . "Real-time verification (good for small files; requires the flycheck package)")
-    (interactive . "Interactive verification (à la Proof-General)")
-    (eldoc       . "Type annotations in the minibuffer."))
-  "Available components of F*-mode.")
-
-(defcustom fstar-enabled-modules '(font-lock prettify indentation comments interactive eldoc)
-  "Which F*-mode components to load."
-  :group 'fstar
-  :type `(set ,@(cl-loop for (mod . desc) in fstar-known-modules
-                         collect `(const :tag ,desc ,mod))))
-
 (defun fstar-setup-hooks ()
   "Setup hooks required by F*-mode."
   (add-hook 'before-revert-hook #'fstar-subp-kill nil t))
