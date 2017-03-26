@@ -170,17 +170,17 @@ error."
 ;;; Prettify symbols
 
 (defcustom fstar-symbols-alist '(("exists" . ?∃) ("forall" . ?∀) ("fun" . ?λ)
-                                 ("nat" . ?ℕ) ("int" . ?ℤ)
-                                 ("True" . ?⊤) ("False" . ?⊥)
-                                 ("*" . ?×) ("~>" . ?↝)
-                                 ("<=" . ?≤) (">=" . ?≥) ("::" . ?⸬)
-                                 ("/\\" . ?∧) ("\\/" . ?∨) ("~" . ?¬) ("<>" . ?≠)
-                                 ;; ("&&" . ?∧) ("||" . ?∨) ("=!=" . ?≠)
-                                 ("<==>" . ?⟺) ("==>" . ?⟹)
-                                 ("=>" . ?⇒) ("->" . ?→)
-                                 ;; ("(|" . 10629) ("|)" . 10630)
-                                 ("'a" . ?α) ("'b" . ?β) ("'c" . ?γ)
-                                 ("'d" . ?δ) ("'e" . ?ϵ))
+                            ("nat" . ?ℕ) ("int" . ?ℤ)
+                            ("True" . ?⊤) ("False" . ?⊥)
+                            ("*" . ?×) ("~>" . ?↝)
+                            ("<=" . ?≤) (">=" . ?≥) ("::" . ?⸬)
+                            ("/\\" . ?∧) ("\\/" . ?∨) ("~" . ?¬) ("<>" . ?≠)
+                            ;; ("&&" . ?∧) ("||" . ?∨) ("=!=" . ?≠)
+                            ("<==>" . ?⟺) ("==>" . ?⟹)
+                            ("=>" . ?⇒) ("->" . ?→)
+                            ;; ("(|" . 10629) ("|)" . 10630)
+                            ("'a" . ?α) ("'b" . ?β) ("'c" . ?γ)
+                            ("'d" . ?δ) ("'e" . ?ϵ))
   "Fstar symbols."
   :group 'fstar
   :type 'alist)
@@ -287,21 +287,21 @@ error."
   (match-end (or bound-to 0)))
 
 (defconst fstar-syntax-id-unwrapped (rx (? (or "#" "'"))
-                                        (any "a-z_") (* (or wordchar (syntax symbol)))
-                                        (? "." (* (or wordchar (syntax symbol))))))
+                                   (any "a-z_") (* (or wordchar (syntax symbol)))
+                                   (? "." (* (or wordchar (syntax symbol))))))
 
 (defconst fstar-syntax-id (concat "\\_<" fstar-syntax-id-unwrapped "\\_>"))
 
 (defconst fstar-syntax-cs (rx symbol-start
-                              (any "A-Z") (* (or wordchar (syntax symbol)))
-                              symbol-end))
+                         (any "A-Z") (* (or wordchar (syntax symbol)))
+                         symbol-end))
 
 (defconst fstar-syntax-universe-id-unwrapped (rx "'u" (* (or wordchar (syntax symbol)))))
 
 (defconst fstar-syntax-universe-id (concat "\\_<" fstar-syntax-universe-id-unwrapped "\\_>"))
 
 (defconst fstar-syntax-universe (concat "\\(" fstar-syntax-universe-id
-                                        "\\|u#([^)]*)\\)"))
+                                   "\\|u#([^)]*)\\)"))
 
 (defconst fstar-syntax-ids (concat "\\(" fstar-syntax-id "\\(?: +" fstar-syntax-id "\\)*\\)"))
 
@@ -935,9 +935,9 @@ With prefix argument ARG, kill all F* subprocesses."
 (defun fstar-subp-highlight-issue (issue)
   "Highlight ISSUE in current buffer."
   (let* ((from (fstar--row-col-offset (fstar-issue-line-from issue)
-                                      (fstar-issue-col-from issue)))
+                                 (fstar-issue-col-from issue)))
          (to (fstar--row-col-offset (fstar-issue-line-to issue)
-                                    (fstar-issue-col-to issue)))
+                               (fstar-issue-col-to issue)))
          (overlay (make-overlay from (max to (1+ from)) (current-buffer) t nil)))
     (overlay-put overlay 'fstar-subp-issue t)
     (overlay-put overlay 'face (fstar-subp-issue-face issue))
@@ -954,7 +954,7 @@ With prefix argument ARG, kill all F* subprocesses."
 (defun fstar-subp-jump-to-issue (issue)
   "Jump to ISSUE in current buffer."
   (goto-char (fstar--row-col-offset (fstar-issue-line-from issue)
-                                    (fstar-issue-col-from issue))))
+                               (fstar-issue-col-from issue))))
 
 (defun fstar-subp--local-issue-p (issue)
   "Check if ISSUE came from the current buffer."
@@ -1075,7 +1075,7 @@ Modifications are only allowed if it is safe to retract up to the beginning of t
   (fstar-subp-set-status overlay 'busy)
   (let ((lax (overlay-get overlay 'fstar-subp--lax)))
     (fstar-subp-send-region (overlay-start overlay) (overlay-end overlay) lax
-                            (apply-partially #'fstar-subp--overlay-continuation overlay))))
+                       (apply-partially #'fstar-subp--overlay-continuation overlay))))
 
 (defun fstar-subp-process-queue (buffer)
   "Process the next pending overlay of BUFFER, if any."
@@ -1110,7 +1110,7 @@ If NO-ERROR is set, do not report an error if the region is empty."
   (let ((beg (fstar-subp-unprocessed-beginning))
         (end (fstar-skip-spaces-backwards-from end)))
     (fstar-assert (cl-loop for overlay in (overlays-in beg end)
-                           never (fstar-subp-tracking-overlay-p overlay)))
+                      never (fstar-subp-tracking-overlay-p overlay)))
     (if (<= end beg)
         (unless no-error
           (user-error "Nothing more to process!"))
