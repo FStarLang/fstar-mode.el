@@ -5,7 +5,7 @@
 ;; URL: https://github.com/FStarLang/fstar.el
 
 ;; Created: 27 Aug 2015
-;; Version: 0.3
+;; Version: 0.4
 ;; Package-Requires: ((emacs "24.3") (dash "2.11"))
 ;; Keywords: convenience, languages
 
@@ -98,6 +98,36 @@
   :group 'fstar
   :type `(set ,@(cl-loop for (mod . desc) in fstar-known-modules
                          collect `(const :tag ,desc ,mod))))
+
+;;; Debugging
+
+(defvar fstar-debug nil
+  "If non-nil, print debuging information in interactive mode.")
+
+(defun fstar-toggle-debug ()
+  "Toggle `fstar-debug'."
+  (interactive)
+  (message "F*: Debugging %s."
+           (if (setq-default fstar-debug (not fstar-debug)) "enabled" "disabled")))
+
+(define-obsolete-variable-alias 'fstar-subp-debug 'fstar-debug "0.4")
+(define-obsolete-function-alias 'fstar-subp-toggle-debug 'fstar-toggle-debug "0.4")
+
+(defun fstar--log (format &rest args)
+  "Log a message, conditional on `fstar-debug'.
+
+FORMAT and ARGS are as in `message'."
+  (with-current-buffer (get-buffer-create "*fstar-debug*")
+    (goto-char (point-max))
+    (insert (apply #'format format args) "\n")))
+
+(defmacro fstar-log (format &rest args)
+  "Log a message, conditional on `fstar-debug'.
+
+FORMAT and ARGS are as in `message'."
+  (declare (debug t))
+  `(when fstar-debug
+     (fstar--log ,format ,@args)))
 
 ;;; Compatibility across F* versions
 
@@ -631,27 +661,6 @@ If MUST-FIND-TYPE is nil, the :type part is not necessary."
   "Face used to highlight warnings."
   :group 'fstar)
 
-(defvar fstar-subp-debug nil
-  "If non-nil, print debuging information in interactive mode.")
-
-(defun fstar-subp-toggle-debug ()
-  "Toggle `fstar-subp-debug'."
-  (interactive)
-  (message "F*: Debugging set to %s." (setq-local fstar-subp-debug (not fstar-subp-debug))))
-
-(defmacro fstar-subp-log (format &rest args)
-  "Log a message, conditional on fstar-subp-debug.
-
-FORMAT and ARGS are as in `message'."
-  (declare (debug t))
-  (let ((original-message (make-symbol "msg")))
-    `(when fstar-subp-debug
-       (let ((,original-message (current-message)))
-         (let ((inhibit-message t))
-           (message ,format ,@args))
-         (when ,original-message
-           (message "%s" ,original-message))))))
-
 (defmacro fstar-subp-with-process-buffer (proc &rest body)
   "If PROC is non-nil, move to PROC's buffer to eval BODY."
   (declare (indent defun) (debug t))
@@ -756,7 +765,7 @@ If PROC is nil, use the current buffer's `fstar-subp--process'."
 
 (defun fstar-subp--query (query continuation)
   "Send QUERY to F* subprocess; handle results with CONTINUATION."
-  (fstar-subp-log "QUERY [%s]" query)
+  (fstar-log "QUERY [%s]" query)
   (fstar-assert (not fstar-subp--continuation))
   (setq fstar-subp--continuation continuation)
   (fstar-subp-start)
@@ -774,7 +783,7 @@ If PROC is nil, use the current buffer's `fstar-subp--process'."
            (resp-end      (point-at-bol))
            (resp-real-end (point-at-eol))
            (response      (string-trim (buffer-substring resp-beg resp-end))))
-      (fstar-subp-log "RESPONSE [%s] [%s]" status response)
+      (fstar-log "RESPONSE [%s] [%s]" status response)
       (delete-region resp-beg resp-real-end)
       (when (fstar-subp-live-p proc)
         (fstar-subp-with-source-buffer proc
@@ -803,7 +812,7 @@ If PROC is nil, use the current buffer's `fstar-subp--process'."
 (defun fstar-subp-filter (proc string)
   "Handle PROC's output (STRING)."
   (when string
-    (fstar-subp-log "OUTPUT [%s]" string)
+    (fstar-log "OUTPUT [%s]" string)
     (if (fstar-subp-live-p proc)
         (fstar-subp-with-process-buffer proc
           (goto-char (point-max))
@@ -813,7 +822,7 @@ If PROC is nil, use the current buffer's `fstar-subp--process'."
 
 (defun fstar-subp-sentinel (proc signal)
   "Handle PROC's SIGNAL."
-  (fstar-subp-log "SENTINEL [%s] [%s]" signal (process-status proc))
+  (fstar-log "SENTINEL [%s] [%s]" signal (process-status proc))
   (when (or (memq (process-status proc) '(exit signal))
             (not (process-live-p proc)))
     (message "F*: subprocess exited.")
@@ -973,7 +982,7 @@ Complain if SUCCESS is nil and RESPONSE doesn't contain issues."
       (warn "No issues found in response despite prover failure: [%s]" response))
     (when other-issues
       (message "F* reported issues in other files: [%S]" other-issues))
-    (fstar-subp-log "Highlighting issues: %s" issues)
+    (fstar-log "Highlighting issues: %s" issues)
     (when local-issues
       (fstar-subp-jump-to-issue (car local-issues))
       (fstar-subp-highlight-issues local-issues)
@@ -1083,9 +1092,9 @@ Modifications are only allowed if it is safe to retract up to the beginning of t
     (fstar-subp-start)
     (unless fstar-subp--continuation
       (-if-let* ((overlay (car-safe (fstar-subp-tracking-overlays 'pending))))
-          (progn (fstar-subp-log "Processing queue")
+          (progn (fstar-log "Processing queue")
                  (fstar-subp-process-overlay overlay))
-        (fstar-subp-log "Queue is empty %S" (mapcar #'fstar-subp-status (fstar-subp-tracking-overlays)))))))
+        (fstar-log "Queue is empty %S" (mapcar #'fstar-subp-status (fstar-subp-tracking-overlays)))))))
 
 ;;;; Advancing and retracting
 
@@ -1400,7 +1409,7 @@ Forward BUF, PROG, and ARGS to FN."
              (process-connection-type nil)
              (args (fstar-subp-with-interactive-args (fstar-subp-get-prover-args)))
              (proc (fstar-subp-start-process buf prog-abs args)))
-        (fstar-subp-log "Started F* interactive: %S" (cons prog-abs args))
+        (fstar-log "Started F* interactive: %S" (cons prog-abs args))
         (set-process-query-on-exit-flag proc nil)
         (set-process-filter proc #'fstar-subp-filter)
         (set-process-sentinel proc #'fstar-subp-sentinel)
