@@ -1347,7 +1347,7 @@ nil and the corresponding continuation calls `eldoc-message'."
           (fstar--goto target-row target-col)
           (recenter)
           (pulse-momentary-highlight-one-line (point))))
-    (error "No definition found")))
+    (message "No definition found")))
 
 (defun fstar-jump-to-definition ()
   "Jump to definition of identifier at point, if any."
