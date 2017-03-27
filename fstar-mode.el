@@ -731,6 +731,18 @@ FIXME: This doesn't do error handling."
   "Get (match-string-no-properties ID STR) for each ID in IDS."
   (mapcar (lambda (num) (match-string-no-properties num str)) ids))
 
+(defconst fstar--fqn-at-point-syntax-table
+  (let ((tbl (make-syntax-table fstar-syntax-table)))
+    (modify-syntax-entry ?. "_" tbl)
+    tbl))
+
+(defun fstar--fqn-at-point (pos)
+  "Return symbol at POS."
+  (with-syntax-table fstar--fqn-at-point-syntax-table
+    (save-excursion
+      (goto-char pos)
+      (symbol-name (symbol-at-point)))))
+
 ;;;; Overlay classification
 
 (defun fstar-subp-issue-overlay-p (overlay)
@@ -1263,9 +1275,10 @@ into blocks; process it as one large block instead."
 
 ;;;; Info queries
 
-(defun fstar-subp--info-query (pos)
+(defun fstar-subp--positional-info-query (pos)
   "Prepare a header for an info query at POS."
-  (format "#info <input> %S %S\n"
+  (format "#info %s <input> %d %d\n"
+          (or (fstar--fqn-at-point pos) "")
           (line-number-at-pos pos)
           (fstar-subp--column-number-at-pos pos)))
 
@@ -1278,7 +1291,7 @@ into blocks; process it as one large block instead."
 (defun fstar-subp--info-continuation (continuation pos success response)
   "Handle the results (SUCCESS and RESPONSE) of an #info query at POS.
 If response is valid, forward results to CONTINUATION.  With nil
-POS, this function can also handle results of #info-fqn queries."
+POS, this function can also handle results of position-less #info queries."
   (if (and success
            (or (null pos) (eq (point) pos)) ;; Point didn't move since request
            (string-match fstar-subp--info-response-regex response))
@@ -1302,10 +1315,10 @@ POS, this function can also handle results of #info-fqn queries."
 Results are displayed asynchronously, so this function returns
 nil and the corresponding continuation calls `eldoc-message'."
   (when (and fstar-compat--can-use-info (fstar-subp-available-p))
-    (fstar-subp--query (fstar-subp--info-query (point))
-                       (apply-partially #'fstar-subp--info-continuation
-                                        #'fstar--eldoc-continuation
-                                        (point)))
+    (fstar-subp--query (fstar-subp--positional-info-query (point))
+                  (apply-partially #'fstar-subp--info-continuation
+                                   #'fstar--eldoc-continuation
+                                   (point)))
     ;; FIXME: use pos-tip for errors, or show errors in eldoc
     nil))
 
@@ -1355,17 +1368,12 @@ nil and the corresponding continuation calls `eldoc-message'."
   (fstar-subp--ensure-available #'user-error)
   (unless fstar-compat--can-use-info
     (user-error "This feature isn't available in F* < 0.9.4.1"))
-  (fstar-subp--query (fstar-subp--info-query (point))
+  (fstar-subp--query (fstar-subp--positional-info-query (point))
                 (apply-partially #'fstar-subp--info-continuation
                                  #'fstar--jump-to-definition-continuation
                                  (point))))
 
 ;;;; Company
-
-(defconst fstar--company-syntax-table
-  (let ((tbl (make-syntax-table fstar-syntax-table)))
-    (modify-syntax-entry ?. "_" tbl)
-    tbl))
 
 (defun fstar-subp--completion-query (prefix)
   "Prepare a #completions query from PREFIX."
@@ -1400,9 +1408,9 @@ CALLBACK is the company-mode asynchronous candidates callback."
                                      callback))
     (funcall callback nil)))
 
-(defun fstar-subp--info-fqn-query (fqn)
-  "Prepare an #info-fqn query for FQN."
-  (format "#info-fqn %s\n" fqn))
+(defun fstar-subp--positionless-info-query (fqn)
+  "Prepare a header for an info query for FQN."
+  (format "#info %s\n" fqn))
 
 (defun fstar-subp-company--candidate-fqn (candidate)
   "Compute the fully qualified name of CANDIDATE."
@@ -1414,8 +1422,9 @@ CALLBACK is the company-mode asynchronous candidates callback."
   "Pass info about CANDIDATE to CONTINUATION.
 If F* is busy, call CONTINUATION directly with BUSY."
   (if (fstar-subp-available-p)
-      (fstar-subp--query (fstar-subp--info-fqn-query (fstar-subp-company--candidate-fqn candidate))
-                    (apply-partially #'fstar-subp--info-continuation continuation nil))
+      (fstar-subp--query
+       (fstar-subp--positionless-info-query (fstar-subp-company--candidate-fqn candidate))
+       (apply-partially #'fstar-subp--info-continuation continuation nil))
     (funcall continuation 'busy)))
 
 (defun fstar-subp-company--meta-continuation (callback info)
@@ -1489,7 +1498,7 @@ COMMAND, ARG: see `company-backends'."
     (`interactive
      (company-begin-backend #'fstar-subp-company-backend))
     (`prefix
-     (with-syntax-table fstar--company-syntax-table
+     (with-syntax-table fstar--fqn-at-point-syntax-table
        (-when-let* ((prefix (company-grab-symbol)))
          (substring-no-properties prefix))))
     (`candidates
