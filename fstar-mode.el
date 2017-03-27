@@ -88,7 +88,7 @@
     (prettify    . "Unicode math (e.g. display forall as ∀; requires emacs 24.4 or later)")
     (indentation . "Indentation (based on control points)")
     (comments    . "Comment syntax and special comments ('(***', '(*+', etc.)")
-    (flycheck    . "Real-time verification (good for small files; requires the flycheck package)")
+    (flycheck    . "Real-time verification (good for small files; requires Flycheck)")
     (interactive . "Interactive verification (à la Proof-General)")
     (eldoc       . "Type annotations in the minibuffer."))
   "Available components of F*-mode.")
@@ -299,12 +299,17 @@ error."
 
 (defface fstar-braces-face
   '((t))
-  "Face used to use for { and }."
+  "Face to use for { and }."
+  :group 'fstar)
+
+(defface fstar-dereference-face
+  '((t :inherit font-lock-negation-char-face))
+  "Face to use for !."
   :group 'fstar)
 
 (defface fstar-ambiguous-face
   '((t :inherit font-lock-negation-char-face))
-  "Face used to use for /\\ and \//."
+  "Face to use for /\\ and \//."
   :group 'fstar)
 
 (defface fstar-universe-face
@@ -433,6 +438,8 @@ If MUST-FIND-TYPE is nil, the :type part is not necessary."
        (1 'font-lock-preprocessor-face prepend))
       (,fstar-syntax-ambiguous
        (0 'fstar-ambiguous-face append))
+      ("!"
+       (0 'fstar-dereference-face))
       ("[{}]"
        (0 'fstar-braces-face append))
       (,(concat "\\_<" fstar-syntax-id-unwrapped "\\(_\\)\\([0-9]+\\)\\_>")
