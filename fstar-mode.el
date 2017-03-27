@@ -1447,6 +1447,38 @@ CALLBACK is the company-mode asynchronous meta callback."
   (fstar-subp-company--async-info
    candidate (apply-partially #'fstar-subp-company--location-continuation callback)))
 
+(defun fstar-subp-company-candidates (prefix)
+  "Compute candidates for PREFIX.
+Briefly tries to get results synchronously to reduce flicker (see
+URL https://github.com/company-mode/company-mode/issues/654), and
+then returns an :async cons, as required by company-mode."
+  (let ((company-callback nil)
+        (results-received nil)
+        (completion-results nil)
+        (max-synchronous-delay 0.03)
+        (start (current-time)))
+    ;; Launch completion immediately, storing results in a shared reference.
+    (fstar-subp-company--async-candidates
+     prefix (lambda (results)
+              (setq results-received t)
+              (setq completion-results results)
+              (when company-callback (funcall company-callback results))))
+    ;; Wait for a bit, hoping to get candidates quickly.  We need a loop,
+    ;; because output may come in chunks.  If `--async-candidates' returns early
+    ;; (i.e. if subprocess isn't available), results-received will be t.
+    (while (and (not results-received)
+                (< (float-time (time-since start)) max-synchronous-delay))
+      (accept-process-output fstar-subp--process 0.01 nil 0))
+    ;; Check for results
+    (cond
+     (results-received ;; Got results in time!
+      (fstar-log "Fetching %d completions for %S took %.2fms"
+            (length completion-results) prefix (* 1000 (float-time (time-since start))))
+      completion-results)
+     (t ;; Results are late.  Set callback to company-supplied one.
+      (fstar-log "Completions for %S are late" prefix)
+      `(:async . ,(lambda (cb) (setq company-callback cb)))))))
+
 (defun fstar-subp-company-backend (command &optional arg &rest _)
   "Company backend for F*.
 Candidates are provided by the F* subprocess.
@@ -1458,9 +1490,10 @@ COMMAND, ARG: see `company-backends'."
      (company-begin-backend #'fstar-subp-company-backend))
     (`prefix
      (with-syntax-table fstar--company-syntax-table
-       (company-grab-symbol)))
+       (-when-let* ((prefix (company-grab-symbol)))
+         (substring-no-properties prefix))))
     (`candidates
-     `(:async . ,(apply-partially #'fstar-subp-company--async-candidates arg)))
+     (fstar-subp-company-candidates arg))
     (`meta
      `(:async . ,(apply-partially #'fstar-subp-company--async-meta arg)))
     (`location
