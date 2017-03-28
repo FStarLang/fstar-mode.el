@@ -1517,11 +1517,13 @@ COMMAND, ARG: see `company-backends'."
   "Set up Company support."
   (setq-local company-backends
               (cons #'fstar-subp-company-backend company-backends))
+  (setq-local company-tooltip-align-annotations t)
   (company-mode))
 
 (defun fstar-teardown-company ()
   "Tear down Company support."
   (kill-local-variable 'company-backends)
+  (kill-local-variable 'company-tooltip-align-annotations)
   (company-mode -1))
 
 ;;;; Starting the F* subprocess
