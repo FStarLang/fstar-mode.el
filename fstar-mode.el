@@ -956,6 +956,60 @@ With prefix argument ARG, kill all F* subprocesses."
       (fstar-assert (eq proc fstar-subp--process))
       (fstar-subp-kill))))
 
+(defconst fstar--ps-line-regexp
+  "^ *\\([0-9]+\\) +\\([0-9]+\\) +\\([^ ]+\\) +\\(.+\\) *$")
+
+(defun fstar--ps-processes ()
+  "Collect all running processes using `ps'.
+Each return value is a list (PID PARENT-PID CMD)."
+  (mapcar (lambda (line)
+            (if (string-match fstar--ps-line-regexp line)
+                (list (string-to-number (match-string 1 line))
+                      (string-to-number (match-string 2 line))
+                      (match-string 3 line)
+                      (match-string 4 line))
+              (error "Unexpected line in PS output: %S" line)))
+          (cdr (process-lines "ps" "-ax" "-o" "pid,ppid,comm,args"))))
+
+(defun fstar--elisp-process-attributes (pid)
+  "Get attributes of process PID, or nil."
+  (let* ((attrs (process-attributes pid)))
+    (when attrs
+      (list pid
+            (cdr (assq 'ppid attrs))
+            (cdr (assq 'comm attrs))
+            (cdr (assq 'args attrs))))))
+
+(defun fstar--elisp-processes ()
+  "Collect all running processes using `system-processes'.
+Each return value is a list (PID PPID CMD ARGS).  Return nil if
+`list-system-processes' or `process-attributes' is unsupported."
+  (delq nil (mapcar #'fstar--elisp-process-attributes (list-system-processes))))
+
+(defun fstar--system-processes ()
+  "Collect all running processes.
+Each return value is a list (PID PPID CMD ARGS).  Uses
+`list-processes' when available, and `ps' otherwise."
+  (or (fstar--elisp-processes) (fstar--ps-processes)))
+
+(defun fstar-subp-kill-z3 (all)
+  "Kill Z3 subprocesses associated with the current F* process.
+With non-nil ALL (interactively, with prefix argument), kill all
+Z3 processes.  If F* isn't busy and ALL is nil this function
+returns without doing anything."
+  (interactive "P")
+  (when (and (not all) (fstar-subp-available-p))
+    (user-error "No busy F* process to interrupt"))
+  (let ((parent-live (fstar-subp-live-p fstar-subp--process)))
+    (unless (or all parent-live)
+      (user-error "No F* process in this buffer"))
+    (let ((subp-pid (and parent-live (process-id fstar-subp--process))))
+      (pcase-dolist (`(,pid ,ppid ,cmd ,args) (fstar--system-processes))
+        (when (and (or all (eq ppid subp-pid))
+                   (member cmd '("z3" "z3.exe")))
+          (signal-process pid 'int)
+          (message "Sent SIGINT to %S" args))))))
+
 ;;;; Parsing and display issues
 
 (defun fstar-subp--overlay-continuation (overlay success response)
@@ -1666,7 +1720,8 @@ Forward BUF, PROG, and ARGS to FN."
     ("C-c RET"        "C-S-i" fstar-subp-advance-or-retract-to-point)
     ("C-c <C-return>" "C-S-i" fstar-subp-advance-or-retract-to-point)
     ("C-c C-l"        "C-S-l" fstar-subp-advance-or-retract-to-point-lax)
-    ("C-c C-x"        "C-M-c" fstar-subp-kill-one-or-many))
+    ("C-c C-x"        "C-M-c" fstar-subp-kill-one-or-many)
+    ("C-c C-c"        "C-M-S-c" fstar-subp-kill-z3))
   "Proof-General and Atom bindings table.")
 
 (defun fstar-subp-refresh-keybinding (bind target unbind)
