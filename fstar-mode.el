@@ -119,6 +119,7 @@
 FORMAT and ARGS are as in `message'."
   (with-current-buffer (get-buffer-create "*fstar-debug*")
     (goto-char (point-max))
+    (setq-local window-point-insertion-type t)
     (insert (apply #'format format args) "\n")))
 
 (defmacro fstar-log (format &rest args)
