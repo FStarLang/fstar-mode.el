@@ -1445,19 +1445,23 @@ asynchronously after the fact)."
                                 (apply-partially #'fstar--eldoc-continuation #'eldoc-message)
                                 (point))))))))
 
+(defun fstar--eldoc-truncate-message (fn &rest args)
+  "Forward ARGS to FN within scope of binding for `message-truncate-lines'."
+  (if (derived-mode-p 'fstar-mode)
+      (let ((message-truncate-lines t))
+        (apply fn args))
+    (apply fn args)))
+
 (defun fstar-setup-eldoc ()
   "Set up eldoc support."
-  ;; Incompatible with Emacs < 25
-  ;; (add-function :before-until (local 'eldoc-documentation-function)
-  ;;               #'fstar--eldoc-function)
+  ;; Add-function doesn't work on 'eldoc-documentation-function in Emacs < 25,
+  ;; due to the default value being nil instead of `ignore'.
   (setq-local eldoc-documentation-function #'fstar--eldoc-function)
+  (advice-add 'eldoc-message :around #'fstar--eldoc-truncate-message)
   (eldoc-mode))
 
 (defun fstar-teardown-eldoc ()
   "Tear down eldoc support."
-  ;; Incompatible with Emacs < 25
-  ;; (remove-function (local 'eldoc-documentation-function)
-  ;;                  #'fstar--eldoc-function)
   (kill-local-variable 'eldoc-documentation-function))
 
 ;;;; xref-like features
