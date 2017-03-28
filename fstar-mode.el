@@ -155,16 +155,24 @@ error."
 (defvar-local fstar-compat--can-use-info nil
   "F* >= 0.9.4.1 supports #info queries.")
 
+(defvar-local fstar-compat--info-includes-symbol nil
+  "F* >= 0.9.4.2 includes the name of the symbol at point in #info queries.")
+
+(defvar-local fstar-compat--can-use-completion nil
+  "F* >= 0.9.4.2 includes the name of the current symbol in #info queries.")
+
 (defun fstar--init-compatibility-layer ()
   "Adjust compatibility settings based on `fstar-executable''s version number."
   (let* ((version-string (car (process-lines (fstar-find-executable) "--version"))))
     (if (string-match "F\\* \\([- .[:alnum:]]+\\)" version-string)
         (setq fstar--vernum (match-string 1 version-string))
-      (warn "Can't parse version number from %S" version-string)
+      (message "F*: Can't parse version number from %S" version-string)
       (setq fstar--vernum "unknown")))
   (let ((v (if (string-match-p "unknown" fstar--vernum) "1000" fstar--vernum)))
     (setq fstar-compat--error-messages-use-absolute-linums (version< "0.9.3.0-beta1" v))
-    (setq fstar-compat--can-use-info (version<= "0.9.4.1" v))))
+    (setq fstar-compat--can-use-info (version<= "0.9.4.1" v))
+    (setq fstar-compat--info-includes-symbol (version<= "0.9.4.2" v))
+    (setq fstar-compat--can-use-completion (version<= "0.9.4.2" v))))
 
 ;;; Flycheck
 
@@ -1277,10 +1285,14 @@ into blocks; process it as one large block instead."
 
 (defun fstar-subp--positional-info-query (pos)
   "Prepare a header for an info query at POS."
-  (format "#info %s <input> %d %d\n"
-          (or (fstar--fqn-at-point pos) "")
-          (line-number-at-pos pos)
-          (fstar-subp--column-number-at-pos pos)))
+  (if fstar-compat--info-includes-symbol
+      (format "#info %s <input> %d %d\n"
+              (or (fstar--fqn-at-point pos) "")
+              (line-number-at-pos pos)
+              (fstar-subp--column-number-at-pos pos))
+    (format "#info <input> %d %d\n"
+            (line-number-at-pos pos)
+            (fstar-subp--column-number-at-pos pos))))
 
 (defconst fstar-subp--info-response-regex
   "^(defined at \\(.+?\\)(\\([0-9]+\\),\\([0-9]+\\)-\\([0-9]+\\),\\([0-9]+\\)))")
@@ -1494,24 +1506,25 @@ Candidates are provided by the F* subprocess.
 COMMAND, ARG: see `company-backends'."
   (interactive '(interactive))
   ;; (fstar-log "fstar-subp-company-backend: %S %S" command arg)
-  (pcase command
-    (`interactive
-     (company-begin-backend #'fstar-subp-company-backend))
-    (`prefix
-     (with-syntax-table fstar--fqn-at-point-syntax-table
-       (-when-let* ((prefix (company-grab-symbol)))
-         (substring-no-properties prefix))))
-    (`candidates
-     (fstar-subp-company-candidates arg))
-    (`meta
-     `(:async . ,(apply-partially #'fstar-subp-company--async-meta arg)))
-    (`location
-     `(:async . ,(apply-partially #'fstar-subp-company--async-location arg)))
-    (`sorted t)
-    (`no-cache t)
-    (`duplicates nil)
-    (`match (get-text-property 0 'match arg))
-    (`annotation (get-text-property 0 'ns arg))))
+  (when fstar-compat--can-use-completion
+    (pcase command
+      (`interactive
+       (company-begin-backend #'fstar-subp-company-backend))
+      (`prefix
+       (with-syntax-table fstar--fqn-at-point-syntax-table
+         (-when-let* ((prefix (company-grab-symbol)))
+           (substring-no-properties prefix))))
+      (`candidates
+       (fstar-subp-company-candidates arg))
+      (`meta
+       `(:async . ,(apply-partially #'fstar-subp-company--async-meta arg)))
+      (`location
+       `(:async . ,(apply-partially #'fstar-subp-company--async-location arg)))
+      (`sorted t)
+      (`no-cache t)
+      (`duplicates nil)
+      (`match (get-text-property 0 'match arg))
+      (`annotation (get-text-property 0 'ns arg)))))
 
 (defun fstar-setup-company ()
   "Set up Company support."
