@@ -1359,22 +1359,30 @@ POS, this function can also handle results of position-less #info queries."
                 :type (string-trim (substring response (match-end 0)))))
     (funcall continuation nil)))
 
-(defun fstar--eldoc-continuation (info)
-  "Display INFO as an eldoc message."
+(defun fstar--eldoc-continuation (continuation info)
+  "Pass highlighted type information from INFO to CONTINUATION."
   (when info
-    (eldoc-message (fstar-highlight-string (fstar-pos-info-type info)))))
+    (funcall continuation (fstar-highlight-string (fstar-pos-info-type info)))))
 
 (defun fstar--eldoc-function ()
-  "Issue a #info query for current point.
-Results are displayed asynchronously, so this function returns
-nil and the corresponding continuation calls `eldoc-message'."
+  "Compute an eldoc string for current point.
+Briefly tries to get results synchronously to reduce flicker, and
+then returns nil (in that case, results are displayed
+asynchronously after the fact)."
   (when (and fstar-compat--can-use-info (fstar-subp-available-p))
-    (fstar-subp--query (fstar-subp--positional-info-query (point))
-                  (apply-partially #'fstar-subp--info-continuation
-                                   #'fstar--eldoc-continuation
-                                   (point)))
-    ;; FIXME: use pos-tip for errors, or show errors in eldoc
-    nil))
+    (let* ((query (fstar-subp--positional-info-query (point)))
+           (retv (fstar-subp--query-and-wait query 0.01)))
+      ;; FIXME: use pos-tip for errors, or show errors in eldoc
+      (pcase retv
+        (`(t . (,success ,results))
+         (fstar-subp--info-continuation
+          (apply-partially #'fstar--eldoc-continuation #'identity)
+          (point) success results))
+        (`(needs-callback . ,_)
+         (setf (cdr retv)
+               (apply-partially #'fstar-subp--info-continuation
+                                (apply-partially #'fstar--eldoc-continuation #'eldoc-message)
+                                (point))))))))
 
 (defun fstar-setup-eldoc ()
   "Set up eldoc support."
