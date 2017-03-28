@@ -6,7 +6,7 @@
 
 ;; Created: 27 Aug 2015
 ;; Version: 0.4
-;; Package-Requires: ((emacs "24.3") (dash "2.11"))
+;; Package-Requires: ((emacs "24.3") (dash "2.11") (company "0.8.12"))
 ;; Keywords: convenience, languages
 
 ;; This file is not part of GNU Emacs.
@@ -43,6 +43,7 @@
 (require 'cl-lib)
 (require 'eldoc)
 (require 'help-at-pt)
+(require 'company)
 (require 'flycheck nil t)
 
 ;;; Compatibility
@@ -90,10 +91,12 @@
     (comments    . "Comment syntax and special comments ('(***', '(*+', etc.)")
     (flycheck    . "Real-time verification (good for small files; requires Flycheck)")
     (interactive . "Interactive verification (à la Proof-General)")
-    (eldoc       . "Type annotations in the minibuffer."))
+    (eldoc       . "Type annotations in the minibuffer.")
+    (company     . "Completion with company-mode."))
   "Available components of F*-mode.")
 
-(defcustom fstar-enabled-modules '(font-lock prettify indentation comments interactive eldoc)
+(defcustom fstar-enabled-modules
+  '(font-lock prettify indentation comments interactive eldoc company)
   "Which F*-mode components to load."
   :group 'fstar
   :type `(set ,@(cl-loop for (mod . desc) in fstar-known-modules
@@ -152,16 +155,24 @@ error."
 (defvar-local fstar-compat--can-use-info nil
   "F* >= 0.9.4.1 supports #info queries.")
 
+(defvar-local fstar-compat--info-includes-symbol nil
+  "F* >= 0.9.4.2 includes the name of the symbol at point in #info queries.")
+
+(defvar-local fstar-compat--can-use-completion nil
+  "F* >= 0.9.4.2 includes the name of the current symbol in #info queries.")
+
 (defun fstar--init-compatibility-layer ()
   "Adjust compatibility settings based on `fstar-executable''s version number."
   (let* ((version-string (car (process-lines (fstar-find-executable) "--version"))))
     (if (string-match "F\\* \\([- .[:alnum:]]+\\)" version-string)
         (setq fstar--vernum (match-string 1 version-string))
-      (warn "Can't parse version number from %S" version-string)
+      (message "F*: Can't parse version number from %S" version-string)
       (setq fstar--vernum "unknown")))
   (let ((v (if (string-match-p "unknown" fstar--vernum) "1000" fstar--vernum)))
     (setq fstar-compat--error-messages-use-absolute-linums (version< "0.9.3.0-beta1" v))
-    (setq fstar-compat--can-use-info (version<= "0.9.4.1" v))))
+    (setq fstar-compat--can-use-info (version<= "0.9.4.1" v))
+    (setq fstar-compat--info-includes-symbol (version<= "0.9.4.2" v))
+    (setq fstar-compat--can-use-completion (version<= "0.9.4.2" v))))
 
 ;;; Flycheck
 
@@ -504,15 +515,16 @@ If MUST-FIND-TYPE is nil, the :type part is not necessary."
     (modify-syntax-entry ?# "_" table)
     (modify-syntax-entry ?_ "_" table)
     (modify-syntax-entry ?' "_" table)
-    ;; None of these is part of symbols (cf. c-populate-syntax-table)
-    (modify-syntax-entry ?+  "."     table)
-    (modify-syntax-entry ?-  "."     table)
-    (modify-syntax-entry ?=  "."     table)
-    (modify-syntax-entry ?%  "."     table)
-    (modify-syntax-entry ?<  "."     table)
-    (modify-syntax-entry ?>  "."     table)
-    (modify-syntax-entry ?&  "."     table)
-    (modify-syntax-entry ?|  "."     table)
+    ;; Punctuation
+    (modify-syntax-entry ?. "." table)
+    (modify-syntax-entry ?+ "." table)
+    (modify-syntax-entry ?- "." table)
+    (modify-syntax-entry ?= "." table)
+    (modify-syntax-entry ?% "." table)
+    (modify-syntax-entry ?< "." table)
+    (modify-syntax-entry ?> "." table)
+    (modify-syntax-entry ?& "." table)
+    (modify-syntax-entry ?| "." table)
     ;; Comments and strings
     (modify-syntax-entry ?\\ "\\" table)
     (modify-syntax-entry ?\" "\"" table)
@@ -727,6 +739,18 @@ FIXME: This doesn't do error handling."
   "Get (match-string-no-properties ID STR) for each ID in IDS."
   (mapcar (lambda (num) (match-string-no-properties num str)) ids))
 
+(defconst fstar--fqn-at-point-syntax-table
+  (let ((tbl (make-syntax-table fstar-syntax-table)))
+    (modify-syntax-entry ?. "_" tbl)
+    tbl))
+
+(defun fstar--fqn-at-point (pos)
+  "Return symbol at POS."
+  (with-syntax-table fstar--fqn-at-point-syntax-table
+    (save-excursion
+      (goto-char pos)
+      (symbol-name (symbol-at-point)))))
+
 ;;;; Overlay classification
 
 (defun fstar-subp-issue-overlay-p (overlay)
@@ -775,6 +799,13 @@ If PROC is nil, use the current buffer's `fstar-subp--process'."
   "Return t if current `fstar-subp--process' is live and idle."
   (and (fstar-subp-live-p fstar-subp--process)
        (not fstar-subp--continuation)))
+
+(defun fstar-subp--ensure-available (error-fn)
+  "Raise an error with ERROR-FN if F* isn't available."
+  (when fstar-subp--continuation
+    (funcall error-fn "F* seems busy; please wait until processing is complete"))
+  (unless (fstar-subp-live-p)
+    (funcall error-fn "Please start F* before jumping to a definition")))
 
 (defun fstar-subp--query (query continuation)
   "Send QUERY to F* subprocess; handle results with CONTINUATION."
@@ -1252,11 +1283,16 @@ into blocks; process it as one large block instead."
 
 ;;;; Info queries
 
-(defun fstar-subp--info-query (pos)
+(defun fstar-subp--positional-info-query (pos)
   "Prepare a header for an info query at POS."
-  (format "#info <input> %S %S\n"
-          (line-number-at-pos pos)
-          (fstar-subp--column-number-at-pos pos)))
+  (if fstar-compat--info-includes-symbol
+      (format "#info %s <input> %d %d\n"
+              (or (fstar--fqn-at-point pos) "")
+              (line-number-at-pos pos)
+              (fstar-subp--column-number-at-pos pos))
+    (format "#info <input> %d %d\n"
+            (line-number-at-pos pos)
+            (fstar-subp--column-number-at-pos pos))))
 
 (defconst fstar-subp--info-response-regex
   "^(defined at \\(.+?\\)(\\([0-9]+\\),\\([0-9]+\\)-\\([0-9]+\\),\\([0-9]+\\)))")
@@ -1266,33 +1302,35 @@ into blocks; process it as one large block instead."
 
 (defun fstar-subp--info-continuation (continuation pos success response)
   "Handle the results (SUCCESS and RESPONSE) of an #info query at POS.
-If response is valid, forward results (only type information for
-now) to CONTINUATION."
-  (when (and success
-             (eq (point) pos) ;; Point didn't move since request
-             (string-match fstar-subp--info-response-regex response))
-    (funcall continuation
-             (make-fstar-pos-info
-              :source-file (match-string 1 response)
-              :def-start (cons (string-to-number (match-string 2 response))
-                               (string-to-number (match-string 3 response)))
-              :def-end (cons (string-to-number (match-string 4 response))
-                             (string-to-number (match-string 5 response)))
-              :type (string-trim (substring response (match-end 0)))))))
+If response is valid, forward results to CONTINUATION.  With nil
+POS, this function can also handle results of position-less #info queries."
+  (if (and success
+           (or (null pos) (eq (point) pos)) ;; Point didn't move since request
+           (string-match fstar-subp--info-response-regex response))
+      (funcall continuation
+               (make-fstar-pos-info
+                :source-file (match-string 1 response)
+                :def-start (cons (string-to-number (match-string 2 response))
+                                 (string-to-number (match-string 3 response)))
+                :def-end (cons (string-to-number (match-string 4 response))
+                               (string-to-number (match-string 5 response)))
+                :type (string-trim (substring response (match-end 0)))))
+    (funcall continuation nil)))
 
 (defun fstar--eldoc-continuation (info)
   "Display INFO as an eldoc message."
-  (eldoc-message (fstar-highlight-string (fstar-pos-info-type info))))
+  (when info
+    (eldoc-message (fstar-highlight-string (fstar-pos-info-type info)))))
 
 (defun fstar--eldoc-function ()
   "Issue a #info query for current point.
 Results are displayed asynchronously, so this function returns
 nil and the corresponding continuation calls `eldoc-message'."
   (when (and fstar-compat--can-use-info (fstar-subp-available-p))
-    (fstar-subp--query (fstar-subp--info-query (point))
-                       (apply-partially #'fstar-subp--info-continuation
-                                        #'fstar--eldoc-continuation
-                                        (point)))
+    (fstar-subp--query (fstar-subp--positional-info-query (point))
+                  (apply-partially #'fstar-subp--info-continuation
+                                   #'fstar--eldoc-continuation
+                                   (point)))
     ;; FIXME: use pos-tip for errors, or show errors in eldoc
     nil))
 
@@ -1311,7 +1349,7 @@ nil and the corresponding continuation calls `eldoc-message'."
   ;;                  #'fstar--eldoc-function)
   (kill-local-variable 'eldoc-documentation-function))
 
-;;; xref-like features
+;;;; xref-like features
 
 (defun fstar--save-point ()
   "Save current position in mark ring and xref stack."
@@ -1321,33 +1359,185 @@ nil and the corresponding continuation calls `eldoc-message'."
 
 (defun fstar--jump-to-definition-continuation (info)
   "Jump to position in INFO."
-  (pcase-let* ((target-fname (fstar-pos-info-source-file info))
-               (`(,target-row . ,target-col) (fstar-pos-info-def-start info)))
-    (fstar--save-point)
-    (catch 'not-found
-      (unless (equal target-fname "<input>")
-        (unless (file-exists-p target-fname)
-          (message "File not found: %S" target-fname)
-          (throw 'not-found nil))
-        (find-file target-fname))
-      (fstar--goto target-row target-col)
-      (recenter)
-      (pulse-momentary-highlight-one-line (point)))))
+  (if info
+      (pcase-let* ((target-fname (fstar-pos-info-source-file info))
+                   (`(,target-row . ,target-col) (fstar-pos-info-def-start info)))
+        (fstar--save-point)
+        (catch 'not-found
+          (unless (equal target-fname "<input>")
+            (unless (file-exists-p target-fname)
+              (message "File not found: %S" target-fname)
+              (throw 'not-found nil))
+            (find-file target-fname))
+          (fstar--goto target-row target-col)
+          (recenter)
+          (pulse-momentary-highlight-one-line (point))))
+    (message "No definition found")))
 
 (defun fstar-jump-to-definition ()
   "Jump to definition of identifier at point, if any."
   (interactive)
-  (cond
-   ((not fstar-compat--can-use-info)
+  (fstar-subp--ensure-available #'user-error)
+  (unless fstar-compat--can-use-info
     (user-error "This feature isn't available in F* < 0.9.4.1"))
-   (fstar-subp--continuation
-    (user-error "F* seems busy; please wait until processing is complete"))
-   ((not (fstar-subp-live-p))
-    (user-error "Please start F* before jumping to a definition"))
-   (t (fstar-subp--query (fstar-subp--info-query (point))
-                         (apply-partially #'fstar-subp--info-continuation
-                                          #'fstar--jump-to-definition-continuation
-                                          (point))))))
+  (fstar-subp--query (fstar-subp--positional-info-query (point))
+                (apply-partially #'fstar-subp--info-continuation
+                                 #'fstar--jump-to-definition-continuation
+                                 (point))))
+
+;;;; Company
+
+(defun fstar-subp--completion-query (prefix)
+  "Prepare a #completions query from PREFIX."
+  (fstar-assert (not (string-match-p " " prefix)))
+  (format "#completions %s #\n" prefix))
+
+(defun fstar-subp-company--parse-candidate (line)
+  "Extract a candidate from LINE."
+  (unless (string= line "")
+    (pcase-let ((`(,match-end ,ns ,candidate) (split-string line " ")))
+      (setq match-end (string-to-number match-end))
+      (add-text-properties 0 (length candidate) `(match ,match-end ns ,ns) candidate)
+      candidate)))
+
+(defun fstar-subp-company--candidates-continuation (callback success response)
+  "Handle the results (SUCCESS and RESPONSE) of a #completion query for PREFIX.
+CALLBACK is the company-mode asynchronous candidates callback."
+  (when success
+    (save-match-data
+      (let* ((lines (split-string response "\n"))
+             (candidates (mapcar #'fstar-subp-company--parse-candidate lines)))
+        (funcall callback (delq nil candidates))))))
+
+(defun fstar-subp-company--async-candidates (prefix callback)
+  "Find completions for PREFIX and pass them to CALLBACK."
+  (fstar-log "fstar-subp-company--async-candidates: %S" prefix)
+  ;; (unless fstar-compat--can-use-info ;; FIXME
+  ;;   (user-error "This feature isn't available in F* < ???"))
+  (if (fstar-subp-available-p)
+      (fstar-subp--query (fstar-subp--completion-query prefix)
+                    (apply-partially #'fstar-subp-company--candidates-continuation
+                                     callback))
+    (funcall callback nil)))
+
+(defun fstar-subp--positionless-info-query (fqn)
+  "Prepare a header for an info query for FQN."
+  (format "#info %s\n" fqn))
+
+(defun fstar-subp-company--candidate-fqn (candidate)
+  "Compute the fully qualified name of CANDIDATE."
+  (let* ((ns (get-text-property 0 'ns candidate)))
+    (if (string= ns "") candidate
+      (concat ns "." candidate))))
+
+(defun fstar-subp-company--async-info (candidate continuation)
+  "Pass info about CANDIDATE to CONTINUATION.
+If F* is busy, call CONTINUATION directly with BUSY."
+  (if (fstar-subp-available-p)
+      (fstar-subp--query
+       (fstar-subp--positionless-info-query (fstar-subp-company--candidate-fqn candidate))
+       (apply-partially #'fstar-subp--info-continuation continuation nil))
+    (funcall continuation 'busy)))
+
+(defun fstar-subp-company--meta-continuation (callback info)
+  "Forward type INFO to CALLBACK.
+CALLBACK is the company-mode asynchronous meta callback."
+  (funcall callback (pcase info
+                      (`nil nil)
+                      (`busy "F* subprocess unavailable")
+                      (_ (fstar-highlight-string (fstar-pos-info-type info))))))
+
+(defun fstar-subp-company--async-meta (candidate callback)
+  "Find type of CANDIDATE and pass it to CALLBACK."
+  (fstar-subp-company--async-info
+   candidate (apply-partially #'fstar-subp-company--meta-continuation callback)))
+
+(defun fstar-subp-company--location-continuation (callback info)
+  "Forward type INFO to CALLBACK.
+CALLBACK is the company-mode asynchronous meta callback."
+  (pcase info
+    ((or `nil `busy) (funcall callback nil))
+    (_ (pcase-let* ((fname (fstar-pos-info-source-file info))
+                    (`(,row . ,col) (fstar-pos-info-def-start info)))
+         (funcall callback (if (string= fname "<input>")
+                               (cons (current-buffer) (fstar--row-col-offset row col))
+                             (cons fname row)))))))
+
+(defun fstar-subp-company--async-location (candidate callback)
+  "Find location of CANDIDATE and pass it to CALLBACK."
+  (fstar-subp-company--async-info
+   candidate (apply-partially #'fstar-subp-company--location-continuation callback)))
+
+(defun fstar-subp-company-candidates (prefix)
+  "Compute candidates for PREFIX.
+Briefly tries to get results synchronously to reduce flicker (see
+URL https://github.com/company-mode/company-mode/issues/654), and
+then returns an :async cons, as required by company-mode."
+  (let ((company-callback nil)
+        (results-received nil)
+        (completion-results nil)
+        (max-synchronous-delay 0.03)
+        (start (current-time)))
+    ;; Launch completion immediately, storing results in a shared reference.
+    (fstar-subp-company--async-candidates
+     prefix (lambda (results)
+              (setq results-received t)
+              (setq completion-results results)
+              (when company-callback (funcall company-callback results))))
+    ;; Wait for a bit, hoping to get candidates quickly.  We need a loop,
+    ;; because output may come in chunks.  If `--async-candidates' returns early
+    ;; (i.e. if subprocess isn't available), results-received will be t.
+    (while (and (not results-received)
+                (< (float-time (time-since start)) max-synchronous-delay))
+      (accept-process-output fstar-subp--process 0.01 nil 0))
+    ;; Check for results
+    (cond
+     (results-received ;; Got results in time!
+      (fstar-log "Fetching %d completions for %S took %.2fms"
+            (length completion-results) prefix (* 1000 (float-time (time-since start))))
+      completion-results)
+     (t ;; Results are late.  Set callback to company-supplied one.
+      (fstar-log "Completions for %S are late" prefix)
+      `(:async . ,(lambda (cb) (setq company-callback cb)))))))
+
+(defun fstar-subp-company-backend (command &optional arg &rest _)
+  "Company backend for F*.
+Candidates are provided by the F* subprocess.
+COMMAND, ARG: see `company-backends'."
+  (interactive '(interactive))
+  ;; (fstar-log "fstar-subp-company-backend: %S %S" command arg)
+  (when fstar-compat--can-use-completion
+    (pcase command
+      (`interactive
+       (company-begin-backend #'fstar-subp-company-backend))
+      (`prefix
+       (with-syntax-table fstar--fqn-at-point-syntax-table
+         (-when-let* ((prefix (company-grab-symbol)))
+           (substring-no-properties prefix))))
+      (`candidates
+       (fstar-subp-company-candidates arg))
+      (`meta
+       `(:async . ,(apply-partially #'fstar-subp-company--async-meta arg)))
+      (`location
+       `(:async . ,(apply-partially #'fstar-subp-company--async-location arg)))
+      (`sorted t)
+      (`no-cache t)
+      (`duplicates nil)
+      (`match (get-text-property 0 'match arg))
+      (`annotation (get-text-property 0 'ns arg)))))
+
+(defun fstar-setup-company ()
+  "Set up Company support."
+  (setq-local company-backends
+              (cons #'fstar-subp-company-backend company-backends))
+  (setq-local company-tooltip-align-annotations t)
+  (company-mode))
+
+(defun fstar-teardown-company ()
+  "Tear down Company support."
+  (kill-local-variable 'company-backends)
+  (kill-local-variable 'company-tooltip-align-annotations)
+  (company-mode -1))
 
 ;;;; Starting the F* subprocess
 
