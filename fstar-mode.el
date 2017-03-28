@@ -1,7 +1,7 @@
 ;;; fstar-mode.el --- Support for F* programming -*- lexical-binding: t -*-
 
-;; Copyright (C) 2015 Clément Pit-Claudel
-;; Author: Clément Pit--Claudel <clement.pitclaudel@live.com>
+;; Copyright (C) 2015-2017 Clément Pit-Claudel
+;; Author: Clément Pit-Claudel <clement.pitclaudel@live.com>
 ;; URL: https://github.com/FStarLang/fstar.el
 
 ;; Created: 27 Aug 2015
@@ -30,8 +30,10 @@
 ;; * Syntax highlighting
 ;; * Unicode math (with prettify-symbols-mode)
 ;; * Indentation
-;; * Real-time verification (requires the Flycheck package)
+;; * Type hints (Eldoc)
+;; * Autocompletion (Company)
 ;; * Interactive proofs (à la Proof-General)
+;; * Whole-buffer verification (Flycheck)
 ;;
 ;; See https://github.com/FStarLang/fstar-mode.el for setup and usage tips.
 
