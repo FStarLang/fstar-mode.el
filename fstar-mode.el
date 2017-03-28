@@ -1019,6 +1019,11 @@ With prefix argument ARG, kill all F* subprocesses."
       (setf (fstar-issue-line-to issue) (+ (fstar-issue-line-to issue) linum))))
   issue)
 
+(defun fstar-subp--in-issue-p (pt)
+  "Check if PT is covered by an F* issue overlay."
+  (or (get-char-property pt 'fstar-subp-issue)
+      (and (> pt (point-min)) (get-char-property (1- pt) 'fstar-subp-issue))))
+
 (defun fstar-subp-remove-issue-overlay (overlay &rest _args)
   "Remove OVERLAY."
   (delete-overlay overlay))
@@ -1369,10 +1374,10 @@ POS, this function can also handle results of position-less #info queries."
 Briefly tries to get results synchronously to reduce flicker, and
 then returns nil (in that case, results are displayed
 asynchronously after the fact)."
-  (when (and fstar-compat--can-use-info (fstar-subp-available-p))
+  (when (and fstar-compat--can-use-info (fstar-subp-available-p)
+             (not (fstar-subp--in-issue-p (point))))
     (let* ((query (fstar-subp--positional-info-query (point)))
            (retv (fstar-subp--query-and-wait query 0.01)))
-      ;; FIXME: use pos-tip for errors, or show errors in eldoc
       (pcase retv
         (`(t . (,success ,results))
          (fstar-subp--info-continuation
