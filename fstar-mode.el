@@ -822,7 +822,7 @@ If PROC is nil, use the current buffer's `fstar-subp--process'."
 Results are passed to CONTINUATION, which should set (car
 RESULTS-CELL) to t when invoked."
   (if (not (fstar-subp-available-p))
-      (funcall continuation nil)
+      (funcall continuation nil nil)
     ;; Issue query immediately, storing results in a shared reference.
     (fstar-subp--query query continuation)
     ;; Wait for a bit, hoping to get candidates quickly.  We need a loop,
