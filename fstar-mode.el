@@ -143,13 +143,13 @@ error."
       (user-error "F* executable not executable; please check the value of `fstar-executable'"))
     prog-abs))
 
-(defvar fstar--vernum nil
+(defvar-local fstar--vernum nil
   "F*'s version number.")
 
-(defvar fstar-compat--error-messages-use-absolute-linums nil
+(defvar-local fstar-compat--error-messages-use-absolute-linums nil
   "F* > 0.9.3.0-beta1 uses absolute line numbers in error messages.")
 
-(defvar fstar-compat--can-use-info nil
+(defvar-local fstar-compat--can-use-info nil
   "F* >= 0.9.4.1 supports #info queries.")
 
 (defun fstar--init-compatibility-layer ()
