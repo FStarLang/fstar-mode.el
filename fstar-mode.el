@@ -201,18 +201,18 @@ error."
 ;;; Prettify symbols
 
 (defcustom fstar-symbols-alist '(("exists" . ?∃) ("forall" . ?∀) ("fun" . ?λ)
-                            ("nat" . ?ℕ) ("int" . ?ℤ)
-                            ("True" . ?⊤) ("False" . ?⊥)
-                            ("*" . ?×) (":=" . ?≔) ("::" . ?⸬)
-                            ("<=" . ?≤) (">=" . ?≥) ("<>" . ?≠)
-                            ("/\\" . ?∧) ("\\/" . ?∨) ("~" . ?¬)
-                            ("<==>" . ?⟺) ("==>" . ?⟹) ;; ("<==" . ?⟸)
-                            ("->" . ?→) ("~>" . ?↝) ("=>" . ?⇒)
-                            ("<<" . ?≪) ;; (">>" . ?≫)
-                            ("<|" . ?◃) ("|>" . ?▹) ;; ("<||" . ?⧏) ("||>" . ?⧐)
-                            ;; ("(|" . ?⦅) ("|)" . ?⦆)
-                            ("'a" . ?α) ("'b" . ?β) ("'c" . ?γ)
-                            ("'d" . ?δ) ("'e" . ?ε))
+                                 ("nat" . ?ℕ) ("int" . ?ℤ)
+                                 ("True" . ?⊤) ("False" . ?⊥)
+                                 ("*" . ?×) (":=" . ?≔) ("::" . ?⸬)
+                                 ("<=" . ?≤) (">=" . ?≥) ("<>" . ?≠)
+                                 ("/\\" . ?∧) ("\\/" . ?∨) ("~" . ?¬)
+                                 ("<==>" . ?⟺) ("==>" . ?⟹) ;; ("<==" . ?⟸)
+                                 ("->" . ?→) ("~>" . ?↝) ("=>" . ?⇒)
+                                 ("<<" . ?≪) ;; (">>" . ?≫)
+                                 ("<|" . ?◃) ("|>" . ?▹) ;; ("<||" . ?⧏) ("||>" . ?⧐)
+                                 ;; ("(|" . ?⦅) ("|)" . ?⦆)
+                                 ("'a" . ?α) ("'b" . ?β) ("'c" . ?γ)
+                                 ("'d" . ?δ) ("'e" . ?ε))
   "Fstar symbols."
   :group 'fstar
   :type 'alist)
@@ -324,21 +324,21 @@ error."
   (match-end (or bound-to 0)))
 
 (defconst fstar-syntax-id-unwrapped (rx (? (or "#" "'"))
-                                   (any "a-z_") (* (or wordchar (syntax symbol)))
-                                   (? "." (* (or wordchar (syntax symbol))))))
+                                        (any "a-z_") (* (or wordchar (syntax symbol)))
+                                        (? "." (* (or wordchar (syntax symbol))))))
 
 (defconst fstar-syntax-id (concat "\\_<" fstar-syntax-id-unwrapped "\\_>"))
 
 (defconst fstar-syntax-cs (rx symbol-start
-                         (any "A-Z") (* (or wordchar (syntax symbol)))
-                         symbol-end))
+                              (any "A-Z") (* (or wordchar (syntax symbol)))
+                              symbol-end))
 
 (defconst fstar-syntax-universe-id-unwrapped (rx "'u" (* (or wordchar (syntax symbol)))))
 
 (defconst fstar-syntax-universe-id (concat "\\_<" fstar-syntax-universe-id-unwrapped "\\_>"))
 
 (defconst fstar-syntax-universe (concat "\\(" fstar-syntax-universe-id
-                                   "\\|u#([^)]*)\\)"))
+                                        "\\|u#([^)]*)\\)"))
 
 (defconst fstar-syntax-ids (concat "\\(" fstar-syntax-id "\\(?: +" fstar-syntax-id "\\)*\\)"))
 
@@ -723,6 +723,10 @@ FIXME: This doesn't do error handling."
     (fstar--goto line column)
     (point)))
 
+(defun fstar--match-strings-no-properties (ids str)
+  "Get (match-string-no-properties ID STR) for each ID in IDS."
+  (mapcar (lambda (num) (match-string-no-properties num str)) ids))
+
 ;;;; Overlay classification
 
 (defun fstar-subp-issue-overlay-p (overlay)
@@ -893,19 +897,30 @@ With prefix argument ARG, kill all F* subprocesses."
 (cl-defstruct fstar-issue
   level filename line-from line-to col-from col-to message)
 
+(defconst fstar-subp-issue-location-regexp
+  "\\(.*?\\)(\\([[:digit:]]+\\),\\([[:digit:]]+\\)-\\([[:digit:]]+\\),\\([[:digit:]]+\\))")
+
 (defconst fstar-subp-issue-regexp
-  "\\(.*?\\)(\\([[:digit:]]+\\),\\([[:digit:]]+\\)-\\([[:digit:]]+\\),\\([[:digit:]]+\\))\\s-*:\\s-*\\(.*\\)")
+  (concat "^" fstar-subp-issue-location-regexp "\\s-*:\\s-*\\(.*\\)"))
+
+(defconst fstar-subp-also-see-regexp
+  (concat "(Also see: " fstar-subp-issue-location-regexp ")"))
 
 (defun fstar-subp-parse-issue (context)
   "Construct an issue object from the current match data and CONTEXT."
-  (pcase-let ((issue-level 'error)
-              (`(,filename ,line-from ,col-from ,line-to ,col-to ,message)
-               (mapcar (lambda (num) (match-string-no-properties num context))
-                       '(1 2 3 4 5 6))))
-    (let ((warning-marker "(Warning) "))
-      (when (string-prefix-p warning-marker message)
-        (setq issue-level 'warning)
-        (setq message (substring message (length warning-marker)))))
+  (pcase-let* ((issue-level 'error)
+               (message (match-string-no-properties 6 context))
+               (`(,filename ,line-from ,col-from ,line-to ,col-to)
+                (or (save-match-data
+                      (when (string-match fstar-subp-also-see-regexp message)
+                        (prog1 (fstar--match-strings-no-properties '(1 2 3 4 5) message)
+                          (setq message (substring message 0 (match-beginning 0))))))
+                    (fstar--match-strings-no-properties '(1 2 3 4 5) context))))
+    (pcase-dolist (`(,marker . ,level) '(("(Warning) " . warning)
+                                         ("(Error) " . error)))
+      (when (string-prefix-p marker message)
+        (setq issue-level level)
+        (setq message (substring message (length marker)))))
     (make-fstar-issue :level issue-level
                       :filename filename
                       :line-from (string-to-number line-from)
@@ -953,9 +968,9 @@ With prefix argument ARG, kill all F* subprocesses."
 (defun fstar-subp-highlight-issue (issue)
   "Highlight ISSUE in current buffer."
   (let* ((from (fstar--row-col-offset (fstar-issue-line-from issue)
-                                 (fstar-issue-col-from issue)))
+                                      (fstar-issue-col-from issue)))
          (to (fstar--row-col-offset (fstar-issue-line-to issue)
-                               (fstar-issue-col-to issue)))
+                                    (fstar-issue-col-to issue)))
          (overlay (make-overlay from (max to (1+ from)) (current-buffer) t nil)))
     (overlay-put overlay 'fstar-subp-issue t)
     (overlay-put overlay 'face (fstar-subp-issue-face issue))
@@ -972,7 +987,7 @@ With prefix argument ARG, kill all F* subprocesses."
 (defun fstar-subp-jump-to-issue (issue)
   "Jump to ISSUE in current buffer."
   (goto-char (fstar--row-col-offset (fstar-issue-line-from issue)
-                               (fstar-issue-col-from issue))))
+                                    (fstar-issue-col-from issue))))
 
 (defun fstar-subp--local-issue-p (issue)
   "Check if ISSUE came from the current buffer."
@@ -1093,7 +1108,7 @@ Modifications are only allowed if it is safe to retract up to the beginning of t
   (fstar-subp-set-status overlay 'busy)
   (let ((lax (overlay-get overlay 'fstar-subp--lax)))
     (fstar-subp-send-region (overlay-start overlay) (overlay-end overlay) lax
-                       (apply-partially #'fstar-subp--overlay-continuation overlay))))
+                            (apply-partially #'fstar-subp--overlay-continuation overlay))))
 
 (defun fstar-subp-process-queue (buffer)
   "Process the next pending overlay of BUFFER, if any."
@@ -1128,7 +1143,7 @@ If NO-ERROR is set, do not report an error if the region is empty."
   (let ((beg (fstar-subp-unprocessed-beginning))
         (end (fstar-skip-spaces-backwards-from end)))
     (fstar-assert (cl-loop for overlay in (overlays-in beg end)
-                      never (fstar-subp-tracking-overlay-p overlay)))
+                           never (fstar-subp-tracking-overlay-p overlay)))
     (if (<= end beg)
         (unless no-error
           (user-error "Nothing more to process!"))
@@ -1275,9 +1290,9 @@ Results are displayed asynchronously, so this function returns
 nil and the corresponding continuation calls `eldoc-message'."
   (when (and fstar-compat--can-use-info (fstar-subp-available-p))
     (fstar-subp--query (fstar-subp--info-query (point))
-                  (apply-partially #'fstar-subp--info-continuation
-                                   #'fstar--eldoc-continuation
-                                   (point)))
+                       (apply-partially #'fstar-subp--info-continuation
+                                        #'fstar--eldoc-continuation
+                                        (point)))
     ;; FIXME: use pos-tip for errors, or show errors in eldoc
     nil))
 
@@ -1330,9 +1345,9 @@ nil and the corresponding continuation calls `eldoc-message'."
    ((not (fstar-subp-live-p))
     (user-error "Please start F* before jumping to a definition"))
    (t (fstar-subp--query (fstar-subp--info-query (point))
-                    (apply-partially #'fstar-subp--info-continuation
-                                     #'fstar--jump-to-definition-continuation
-                                     (point))))))
+                         (apply-partially #'fstar-subp--info-continuation
+                                          #'fstar--jump-to-definition-continuation
+                                          (point))))))
 
 ;;;; Starting the F* subprocess
 
