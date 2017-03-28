@@ -815,6 +815,48 @@ If PROC is nil, use the current buffer's `fstar-subp--process'."
   (fstar-subp-start)
   (process-send-string fstar-subp--process query))
 
+(defun fstar-subp--query-and-wait-1 (start query results-cell max-delay continuation)
+  "Issues QUERY and wait for an answer for up to MAX-DELAY after START.
+Results are passed to CONTINUATION, which should set (car
+RESULTS-CELL) to t when invoked."
+  (if (not (fstar-subp-available-p))
+      (funcall continuation nil)
+    ;; Issue query immediately, storing results in a shared reference.
+    (fstar-subp--query query continuation)
+    ;; Wait for a bit, hoping to get candidates quickly.  We need a loop,
+    ;; because output may come in chunks.
+    (while (and (not (car results-cell))
+                (< (float-time (time-since start)) max-delay))
+      (accept-process-output fstar-subp--process 0.005 nil 0))))
+
+(defun fstar-subp--query-and-wait (query max-sync-delay)
+  "Issue QUERY and try to return RESULTS synchronously.
+Wait for MAX-SYNC-DELAY seconds at most.  If results were
+received while waiting return a cons (t . (SUCCESS RESULTS)).
+Otherwise, return a cons ('needs-callback . _).  In the latter
+case, the caller should write a callback to the `cdr' of the
+return value."
+  (let* ((start (current-time))
+         (results-cell (cons nil nil))
+         (callback-cell (cons 'needs-callback nil)))
+    ;; Issue query immediately and wait for a bit
+    (fstar-subp--query-and-wait-1
+     start query results-cell max-sync-delay
+     (lambda (success results)
+       (setf (car results-cell) t)
+       (setf (cdr results-cell) (list success results))
+       (when (cdr callback-cell)
+         (apply (cdr callback-cell) (cdr results-cell)))))
+    ;; Check for results
+    (cond
+     ((car results-cell) ;; Got results in time!
+      (fstar-log "Fetching results for %S took %.2fms"
+            query (* 1000 (float-time (time-since start))))
+      results-cell)
+     (t ;; Results are late.  Set callback to company-supplied one.
+      (fstar-log "Results for %S are late" query)
+      callback-cell))))
+
 (defun fstar-subp-find-response (proc)
   "Find full response in PROC's buffer; handle it if found."
   (goto-char (point-min))
@@ -1402,23 +1444,12 @@ nil and the corresponding continuation calls `eldoc-message'."
 
 (defun fstar-subp-company--candidates-continuation (callback success response)
   "Handle the results (SUCCESS and RESPONSE) of a #completion query for PREFIX.
-CALLBACK is the company-mode asynchronous candidates callback."
+Return (CALLBACK CANDIDATES)."
   (when success
     (save-match-data
       (let* ((lines (split-string response "\n"))
              (candidates (mapcar #'fstar-subp-company--parse-candidate lines)))
         (funcall callback (delq nil candidates))))))
-
-(defun fstar-subp-company--async-candidates (prefix callback)
-  "Find completions for PREFIX and pass them to CALLBACK."
-  (fstar-log "fstar-subp-company--async-candidates: %S" prefix)
-  ;; (unless fstar-compat--can-use-info ;; FIXME
-  ;;   (user-error "This feature isn't available in F* < ???"))
-  (if (fstar-subp-available-p)
-      (fstar-subp--query (fstar-subp--completion-query prefix)
-                    (apply-partially #'fstar-subp-company--candidates-continuation
-                                     callback))
-    (funcall callback nil)))
 
 (defun fstar-subp--positionless-info-query (fqn)
   "Prepare a header for an info query for FQN."
@@ -1473,32 +1504,15 @@ CALLBACK is the company-mode asynchronous meta callback."
 Briefly tries to get results synchronously to reduce flicker (see
 URL https://github.com/company-mode/company-mode/issues/654), and
 then returns an :async cons, as required by company-mode."
-  (let ((company-callback nil)
-        (results-received nil)
-        (completion-results nil)
-        (max-synchronous-delay 0.03)
-        (start (current-time)))
-    ;; Launch completion immediately, storing results in a shared reference.
-    (fstar-subp-company--async-candidates
-     prefix (lambda (results)
-              (setq results-received t)
-              (setq completion-results results)
-              (when company-callback (funcall company-callback results))))
-    ;; Wait for a bit, hoping to get candidates quickly.  We need a loop,
-    ;; because output may come in chunks.  If `--async-candidates' returns early
-    ;; (i.e. if subprocess isn't available), results-received will be t.
-    (while (and (not results-received)
-                (< (float-time (time-since start)) max-synchronous-delay))
-      (accept-process-output fstar-subp--process 0.01 nil 0))
-    ;; Check for results
-    (cond
-     (results-received ;; Got results in time!
-      (fstar-log "Fetching %d completions for %S took %.2fms"
-            (length completion-results) prefix (* 1000 (float-time (time-since start))))
-      completion-results)
-     (t ;; Results are late.  Set callback to company-supplied one.
-      (fstar-log "Completions for %S are late" prefix)
-      `(:async . ,(lambda (cb) (setq company-callback cb)))))))
+  (let ((retv (fstar-subp--query-and-wait (fstar-subp--completion-query prefix) 0.03)))
+    (pcase retv
+      (`(t . (,success ,results))
+       (fstar-subp-company--candidates-continuation #'identity success results))
+      (`(needs-callback . ,_)
+       `(:async . ,(lambda (cb)
+                     (setf (cdr retv)
+                           (apply-partially
+                            #'fstar-subp-company--candidates-continuation cb))))))))
 
 (defun fstar-subp-company-backend (command &optional arg &rest _)
   "Company backend for F*.
