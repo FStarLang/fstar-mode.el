@@ -1680,9 +1680,10 @@ COMMAND, ARG: see `company-backends'."
       (`interactive
        (company-begin-backend #'fstar-subp-company-backend))
       (`prefix
-       (with-syntax-table fstar--fqn-at-point-syntax-table
-         (-when-let* ((prefix (company-grab-symbol)))
-           (substring-no-properties prefix))))
+       (when (fstar-subp-available-p)
+         (with-syntax-table fstar--fqn-at-point-syntax-table
+           (-when-let* ((prefix (company-grab-symbol)))
+             (substring-no-properties prefix)))))
       (`candidates
        (fstar-subp-company-candidates arg))
       (`meta
