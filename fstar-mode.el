@@ -87,18 +87,20 @@
   :risky t)
 
 (defconst fstar-known-modules
-  '((font-lock   . "Syntax highlighting")
-    (prettify    . "Unicode math (e.g. display forall as ∀; requires emacs 24.4 or later)")
-    (indentation . "Indentation (based on control points)")
-    (comments    . "Comment syntax and special comments ('(***', '(*+', etc.)")
-    (flycheck    . "Real-time verification (good for small files; requires Flycheck)")
-    (interactive . "Interactive verification (à la Proof-General)")
-    (eldoc       . "Type annotations in the minibuffer.")
-    (company     . "Completion with company-mode."))
+  '((font-lock      . "Syntax highlighting")
+    (prettify       . "Unicode math (e.g. display forall as ∀; requires emacs 24.4 or later)")
+    (indentation    . "Indentation (based on control points)")
+    (comments       . "Comment syntax and special comments ('(***', '(*+', etc.)")
+    (flycheck       . "Real-time verification (good for small files; requires Flycheck)")
+    (interactive    . "Interactive verification (à la Proof-General)")
+    (eldoc          . "Type annotations in the minibuffer.")
+    (company        . "Completion with company-mode.")
+    (overlay-legend . "Show a legend in the modeline when hovering an F* overlay."))
   "Available components of F*-mode.")
 
 (defcustom fstar-enabled-modules
-  '(font-lock prettify indentation comments interactive eldoc company)
+  '(font-lock prettify indentation comments interactive
+              eldoc company overlay-legend)
   "Which F*-mode components to load."
   :group 'fstar
   :type `(set ,@(cl-loop for (mod . desc) in fstar-known-modules
@@ -793,6 +795,70 @@ If STATUS is nil, return all fstar-subp overlays."
   "Remove all F* overlays in the current buffer."
   (mapcar #'delete-overlay (fstar-subp-issue-overlays)))
 
+;;;; Overlay status legend in modeline
+
+(defconst fstar-subp--overlay-legend-mode-line
+  (let ((sp (propertize " " 'display '(space :width 1.5)))
+        (it (propertize " " 'display '(space :width 0.3))))
+    `(,(propertize " " 'display '(space :align-to 0)) ;; 'face 'fringe
+      ,(propertize "Legend: " 'face nil)
+      ,(mapconcat
+        (pcase-lambda (`(,label . ,face))
+          (propertize (concat "​" sp "​" label "​" sp "​")
+                      'face face))
+        `(("pending" . (fstar-subp-overlay-pending-face))
+          ("busy" . (fstar-subp-overlay-busy-face))
+          ("processed" . (fstar-subp-overlay-processed-face))
+          (,(concat "lax-checked" it) . (fstar-subp-overlay-lax-face (:box -1))))
+        "")
+      " ")))
+
+(defconst fstar-subp--overlay-legend-str
+  (format-mode-line fstar-subp--overlay-legend-mode-line))
+
+(defvar fstar-subp--overlay-legend-buffer nil
+  "Buffer currently showing legend in modeline.")
+
+(defun fstar-subp--hide-overlay-legend-mode-line ()
+  "Hide legend of overlay statuses."
+  (when (buffer-live-p fstar-subp--overlay-legend-buffer)
+    (with-current-buffer fstar-subp--overlay-legend-buffer
+      (setq fstar-subp--overlay-legend-buffer nil)
+      (when (eq (car mode-line-format) fstar-subp--overlay-legend-mode-line)
+        (pop mode-line-format)))))
+
+(defun fstar-subp--show-overlay-legend-mode-line ()
+  "Update modeline to contain legend of overlay statuses."
+  (make-variable-buffer-local 'mode-line-format)
+  (fstar-subp--hide-overlay-legend-mode-line)
+  (setq fstar-subp--overlay-legend-buffer (current-buffer))
+  (push fstar-subp--overlay-legend-mode-line mode-line-format))
+
+(defun fstar-subp--overlay-legend-help-function (fn help-string)
+  "Show legend of overlay statuses in buffer indicated by HELP-STRING.
+If HELP-STRING doesn't have `fstar--subp-legend' property, call
+FN instead."
+  (-if-let* ((buf (and help-string
+                       (get-text-property 0 'fstar--subp-legend help-string))))
+      (when (buffer-live-p buf)
+        (with-current-buffer buf
+          (fstar-subp--show-overlay-legend-mode-line)))
+    (fstar-subp--hide-overlay-legend-mode-line)
+    (funcall fn help-string)))
+
+(defun fstar-setup-overlay-legend ()
+  "Enable overlay legends in modeline."
+  (tooltip-mode 1)
+  ;; Must use advice, because tooltip mode aggressively resets
+  ;; `show-help-function' to `tooltip-show-help'.
+  (dolist (fn '(tooltip-show-help tooltip-show-help-non-mode))
+    (advice-add fn :around #'fstar-subp--overlay-legend-help-function)))
+
+(defun fstar-teardown-overlay-legend ()
+  "Disable overlay legends in modeline."
+  (dolist (fn '(tooltip-show-help tooltip-show-help-non-mode))
+    (advice-remove fn #'fstar-subp--overlay-legend-help-function)))
+
 ;;;; Basic subprocess operations
 
 (defun fstar-subp-live-p (&optional proc)
@@ -1227,15 +1293,21 @@ Modifications are only allowed if it is safe to retract up to the beginning of t
        ((fstar-subp-status-eq overlay 'busy)
         (user-error "Cannot retract a busy section"))))))
 
+(defun fstar-subp--status-face (status lax)
+  "Get face for STATUS, optionally with LAX modifier."
+  (intern (format "fstar-subp-overlay-%s-%sface" (symbol-name status)
+                  (if lax "lax-" ""))))
+
 (defun fstar-subp-set-status (overlay status)
   "Set status of OVERLAY to STATUS."
   (fstar-assert (memq status fstar-subp-statuses))
   (let* ((inhibit-read-only t)
-         (face-name (format "fstar-subp-overlay-%s-%sface" (symbol-name status)
-                            (if (overlay-get overlay 'fstar-subp--lax) "lax-" ""))))
+         (lax (overlay-get overlay 'fstar-subp--lax))
+         (help-echo (propertize " " 'fstar--subp-legend (current-buffer))))
     (overlay-put overlay 'fstar-subp-status status)
     (overlay-put overlay 'priority -1)
-    (overlay-put overlay 'face (intern face-name))
+    (overlay-put overlay 'help-echo help-echo)
+    (overlay-put overlay 'face (fstar-subp--status-face status lax))
     (overlay-put overlay 'insert-in-front-hooks '(fstar-subp-overlay-attempt-modification))
     (overlay-put overlay 'modification-hooks '(fstar-subp-overlay-attempt-modification))))
 
@@ -1246,7 +1318,7 @@ Modifications are only allowed if it is safe to retract up to the beginning of t
   (fstar-subp-set-status overlay 'busy)
   (let ((lax (overlay-get overlay 'fstar-subp--lax)))
     (fstar-subp-send-region (overlay-start overlay) (overlay-end overlay) lax
-                            (apply-partially #'fstar-subp--overlay-continuation overlay))))
+                       (apply-partially #'fstar-subp--overlay-continuation overlay))))
 
 (defun fstar-subp-process-queue (buffer)
   "Process the next pending overlay of BUFFER, if any."
@@ -1540,7 +1612,7 @@ Return (CALLBACK CANDIDATES)."
 
 (defun fstar-subp-company--async-info (candidate continuation)
   "Pass info about CANDIDATE to CONTINUATION.
-If F* is busy, call CONTINUATION directly with BUSY."
+If F* is busy, call CONTINUATION directly with symbol `busy'."
   (if (fstar-subp-available-p)
       (fstar-subp--query
        (fstar-subp--positionless-info-query (fstar-subp-company--candidate-fqn candidate))
