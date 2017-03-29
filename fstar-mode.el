@@ -1939,11 +1939,15 @@ Forward BUF, PROG, and ARGS to FN."
 
 (defun fstar-setup-hooks ()
   "Setup hooks required by F*-mode."
-  (add-hook 'before-revert-hook #'fstar-subp-kill nil t))
+  (add-hook 'before-revert-hook #'fstar-subp-kill nil t)
+  (add-hook 'before-revert-hook #'fstar-mode-unload-function nil t)
+  (add-hook 'kill-buffer-hook #'fstar-mode-unload-function nil t))
 
 (defun fstar-teardown-hooks ()
   "Remove hooks required by F*-mode."
-  (remove-hook 'before-revert-hook #'fstar-subp-kill))
+  (remove-hook 'before-revert-hook #'fstar-subp-kill t)
+  (remove-hook 'before-revert-hook #'fstar-mode-unload-function t)
+  (remove-hook 'kill-buffer-hook #'fstar-mode-unload-function t))
 
 (defun fstar-enable-disable (enable)
   "ENABLE or disable F* mode components."
