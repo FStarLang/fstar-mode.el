@@ -244,7 +244,7 @@ error."
 
 (defconst fstar-syntax-structure
   (regexp-opt '("begin" "end"
-                "let" "rec" "in" "val"
+                "let" "rec" "in" "val" "and"
                 "kind" "type" "logic" "new" "abstract"
                 "unfold" "irreducible" "inline_for_extraction" "noeq" "noextract"
                 "private" "opaque" "total" "default" "reifiable" "reflectable"
@@ -257,7 +257,7 @@ error."
               'symbols))
 
 (defconst fstar-syntax-keywords
-  (regexp-opt '("and"
+  (regexp-opt '("of"
                 "forall" "exists"
                 "assert" "assert_norm" "assume"
                 "fun" "function"
@@ -427,7 +427,7 @@ If MUST-FIND-TYPE is nil, the :type part is not necessary."
       (,(concat "{\\(:" id "\\) *\\([^}]*\\)}")
        (1 'font-lock-builtin-face append)
        (2 'fstar-attribute-face append))
-      (,(concat "\\_<\\(let\\(?: +rec\\_>\\)?\\)\\(\\(?: +" id "\\)?\\)")
+      (,(concat "\\_<\\(let\\(?: +rec\\)?\\|and\\)\\(\\(?: +" id "\\)?\\)")
        (1 'fstar-structure-face)
        (2 'font-lock-function-name-face))
       (,(concat "\\_<\\(type\\|kind\\)\\( +" id "\\)")
