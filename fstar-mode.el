@@ -95,12 +95,13 @@
     (interactive    . "Interactive verification (à la Proof-General)")
     (eldoc          . "Type annotations in the minibuffer.")
     (company        . "Completion with company-mode.")
+    (spinner        . "Blink the modeline while F* is busy.")
     (overlay-legend . "Show a legend in the modeline when hovering an F* overlay."))
   "Available components of F*-mode.")
 
 (defcustom fstar-enabled-modules
   '(font-lock prettify indentation comments interactive
-              eldoc company overlay-legend)
+              eldoc company spinner overlay-legend)
   "Which F*-mode components to load."
   :group 'fstar
   :type `(set ,@(cl-loop for (mod . desc) in fstar-known-modules
@@ -1701,6 +1702,59 @@ COMMAND, ARG: see `company-backends'."
   (kill-local-variable 'company-backends)
   (kill-local-variable 'company-tooltip-align-annotations)
   (company-mode -1))
+
+;;;; Busy spinner
+
+(defvar-local fstar--spin-timer nil)
+
+(defvar-local fstar--spin-counter 0)
+
+(defcustom fstar-spin-theme
+  "⍟✪"
+  "Which theme to use in indicating that F* is busy."
+  :type '(choice (const "⍟✪")
+                 (const "●✪")
+                 (const "☆★")
+                 (const "●○")
+                 (const "❂✪")
+                 (const "🌠✪")
+                 (const "✩✭✮")
+                 (const "🟀🟄🟉✶🟎✹")
+                 (const "🟃🟇🟍✵🟑🟔")
+                 (const "🟃🟀🟇🟄🟍✶✵🟎🟔🟓")
+                 (string :tag "Custom string")))
+
+(defun fstar--spin-cancel ()
+  "Cancel spin timer."
+  (when fstar--spin-timer
+    (cancel-timer fstar--spin-timer)
+    (setq-local fstar--spin-timer nil)))
+
+(defun fstar--spin-tick (buffer)
+  "Update fstar-mode's mode-line indicator in BUFFER."
+  (with-current-buffer buffer
+    (let ((icon nil))
+      (cond
+       ((and fstar--spin-timer (fstar-subp--busy-p))
+        (setq fstar--spin-counter (mod (1+ fstar--spin-counter) (length fstar-spin-theme)))
+        (setq icon (substring fstar-spin-theme
+                              fstar--spin-counter (1+ fstar--spin-counter))))
+       (t
+        (setq fstar--spin-counter -1)
+        (setq icon "✪")))
+      ;; (print icon)
+      (setq icon (compose-string icon 0 1 (format "\t%c\t" (aref icon 0))))
+      (setq-local mode-name `("F" ,icon))
+      (force-mode-line-update))))
+
+(defun fstar-setup-spinner ()
+  "Enable dynamic F* icon."
+  (setq-local fstar--spin-timer
+              (run-with-timer 0 0.5 #'fstar--spin-tick (current-buffer))))
+
+(defun fstar-teardown-spinner ()
+  "Disable dynamic F* icon."
+  (fstar--spin-cancel))
 
 ;;;; Starting the F* subprocess
 
