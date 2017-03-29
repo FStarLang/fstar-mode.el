@@ -640,6 +640,11 @@ If MUST-FIND-TYPE is nil, the :type part is not necessary."
 (defvar fstar-subp--lax nil
   "Whether to process newly sent regions in lax mode.")
 
+(defface fstar-subp-overlay-lax-face
+  '((t :slant italic))
+  "Face used to highlight lax-checked sections of the buffer."
+  :group 'fstar)
+
 (defface fstar-subp-overlay-pending-face
   '((((background light)) :background "#AD7FA8")
     (((background dark))  :background "#5C3566"))
@@ -647,8 +652,8 @@ If MUST-FIND-TYPE is nil, the :type part is not necessary."
   :group 'fstar)
 
 (defface fstar-subp-overlay-pending-lax-face
-  '((t :inherit fstar-subp-overlay-pending-face))
-  "Face used to highlight pending lax sections of the buffer."
+  '((t :inherit (fstar-subp-overlay-pending-face fstar-subp-overlay-lax-face)))
+  "Face used to highlight pending lax-checked sections of the buffer."
   :group 'fstar)
 
 (defface fstar-subp-overlay-busy-face
@@ -658,8 +663,8 @@ If MUST-FIND-TYPE is nil, the :type part is not necessary."
   :group 'fstar)
 
 (defface fstar-subp-overlay-busy-lax-face
-  '((t :inherit fstar-subp-overlay-busy-face))
-  "Face used to highlight busy lax sections of the buffer."
+  '((t :inherit (fstar-subp-overlay-busy-face fstar-subp-overlay-lax-face)))
+  "Face used to highlight busy lax-checked sections of the buffer."
   :group 'fstar)
 
 (defface fstar-subp-overlay-processed-face
@@ -669,8 +674,7 @@ If MUST-FIND-TYPE is nil, the :type part is not necessary."
   :group 'fstar)
 
 (defface fstar-subp-overlay-processed-lax-face
-  '((((background light)) :background "#E5E7E9")
-    (((background dark))  :background "lightgrey"))
+  '((t :inherit (fstar-subp-overlay-processed-face fstar-subp-overlay-lax-face)))
   "Face used to highlight processed lax-checked sections of the buffer."
   :group 'fstar)
 
