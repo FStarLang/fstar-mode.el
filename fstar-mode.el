@@ -868,6 +868,11 @@ If PROC is nil, use the current buffer's `fstar-subp--process'."
   (setq proc (or proc fstar-subp--process))
   (and proc (process-live-p proc)))
 
+(defun fstar-subp--busy-p ()
+  "Return t if current `fstar-subp--process' is live and busy."
+  (and (fstar-subp-live-p fstar-subp--process)
+       fstar-subp--continuation))
+
 (defun fstar-subp-available-p ()
   "Return t if current `fstar-subp--process' is live and idle."
   (and (fstar-subp-live-p fstar-subp--process)
@@ -875,7 +880,7 @@ If PROC is nil, use the current buffer's `fstar-subp--process'."
 
 (defun fstar-subp--ensure-available (error-fn)
   "Raise an error with ERROR-FN if F* isn't available."
-  (when fstar-subp--continuation
+  (when (fstar-subp--busy-p)
     (funcall error-fn "F* seems busy; please wait until processing is complete"))
   (unless (fstar-subp-live-p)
     (funcall error-fn "Please start F* before jumping to a definition")))
@@ -1284,7 +1289,7 @@ Modifications are only allowed if it is safe to retract up to the beginning of t
           (fstar-subp-kill)))
        ;; Allow modifications (after retracting) in pending overlays, and in
        ;; processed overlays provided that F* isn't busy
-       ((or (not fstar-subp--continuation)
+       ((or (not (fstar-subp--busy-p))
             (fstar-subp-status-eq overlay 'pending))
         (fstar-subp-retract-until (overlay-start overlay)))
        ;; Disallow modifications in processed overlays when F* is busy
@@ -1314,7 +1319,7 @@ Modifications are only allowed if it is safe to retract up to the beginning of t
 
 (defun fstar-subp-process-overlay (overlay)
   "Send the contents of OVERLAY to the underlying F* process."
-  (fstar-assert (not fstar-subp--continuation))
+  (fstar-assert (not (fstar-subp--busy-p)))
   (fstar-subp-start)
   (fstar-subp-set-status overlay 'busy)
   (let ((lax (overlay-get overlay 'fstar-subp--lax)))
@@ -1325,7 +1330,7 @@ Modifications are only allowed if it is safe to retract up to the beginning of t
   "Process the next pending overlay of BUFFER, if any."
   (with-current-buffer buffer
     (fstar-subp-start)
-    (unless fstar-subp--continuation
+    (unless (fstar-subp--busy-p)
       (-if-let* ((overlay (car-safe (fstar-subp-tracking-overlays 'pending))))
           (progn (fstar-log "Processing queue")
                  (fstar-subp-process-overlay overlay))
