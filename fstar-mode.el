@@ -774,7 +774,7 @@ FIXME: This doesn't do error handling."
 
 (defun fstar-subp-issue-overlays-at (pt)
   "Find all -subp issues overlays at point PT."
-  (-filter #'fstar-subp-issue-overlay-p (overlays-at pt t)))
+  (-filter #'fstar-subp-issue-overlay-p (overlays-at pt)))
 
 (defun fstar-subp-tracking-overlay-p (overlay)
   "Return non-nil if OVERLAY is an fstar-subp tracking overlay."
@@ -806,9 +806,9 @@ If STATUS is nil, return all fstar-subp overlays."
     `(,(propertize " " 'display '(space :align-to 0)) ;; 'face 'fringe
       ,(propertize "Legend: " 'face nil)
       ,(mapconcat
-        (pcase-lambda (`(,label . ,face))
-          (propertize (concat "​" sp "​" label "​" sp "​")
-                      'face face))
+        (lambda (label-face)
+          (propertize (concat "​" sp "​" (car label-face) "​" sp "​")
+                      'face (cdr label-face)))
         `(("pending" . (fstar-subp-overlay-pending-face))
           ("busy" . (fstar-subp-overlay-busy-face))
           ("processed" . (fstar-subp-overlay-processed-face))
@@ -832,7 +832,6 @@ If STATUS is nil, return all fstar-subp overlays."
 
 (defun fstar-subp--show-overlay-legend-mode-line ()
   "Update modeline to contain legend of overlay statuses."
-  (make-variable-buffer-local 'mode-line-format)
   (fstar-subp--hide-overlay-legend-mode-line)
   (setq fstar-subp--overlay-legend-buffer (current-buffer))
   (push fstar-subp--overlay-legend-mode-line mode-line-format))
@@ -854,13 +853,15 @@ FN instead."
   (tooltip-mode 1)
   ;; Must use advice, because tooltip mode aggressively resets
   ;; `show-help-function' to `tooltip-show-help'.
-  (dolist (fn '(tooltip-show-help tooltip-show-help-non-mode))
-    (advice-add fn :around #'fstar-subp--overlay-legend-help-function)))
+  (when (fboundp 'advice-add)
+    (dolist (fn '(tooltip-show-help tooltip-show-help-non-mode))
+      (advice-add fn :around #'fstar-subp--overlay-legend-help-function))))
 
 (defun fstar-teardown-overlay-legend ()
   "Disable overlay legends in modeline."
-  (dolist (fn '(tooltip-show-help tooltip-show-help-non-mode))
-    (advice-remove fn #'fstar-subp--overlay-legend-help-function)))
+  (when (fboundp 'advice-remove)
+    (dolist (fn '(tooltip-show-help tooltip-show-help-non-mode))
+      (advice-remove fn #'fstar-subp--overlay-legend-help-function))))
 
 ;;;; Basic subprocess operations
 
@@ -1541,12 +1542,15 @@ asynchronously after the fact)."
   ;; Add-function doesn't work on 'eldoc-documentation-function in Emacs < 25,
   ;; due to the default value being nil instead of `ignore'.
   (setq-local eldoc-documentation-function #'fstar--eldoc-function)
-  (advice-add 'eldoc-message :around #'fstar--eldoc-truncate-message)
+  (when (fboundp 'advice-add)
+    (advice-add 'eldoc-message :around #'fstar--eldoc-truncate-message))
   (eldoc-mode))
 
 (defun fstar-teardown-eldoc ()
   "Tear down eldoc support."
-  (kill-local-variable 'eldoc-documentation-function))
+  (kill-local-variable 'eldoc-documentation-function)
+  (when (fboundp 'advice-remove)
+    (advice-remove 'eldoc-message #'fstar--eldoc-truncate-message)))
 
 ;;;; xref-like features
 
@@ -1570,7 +1574,8 @@ asynchronously after the fact)."
             (find-file target-fname))
           (fstar--goto target-row target-col)
           (recenter)
-          (pulse-momentary-highlight-one-line (point))))
+          (when (fboundp 'pulse-momentary-highlight-one-line)
+            (pulse-momentary-highlight-one-line (point)))))
     (message "No definition found")))
 
 (defun fstar-jump-to-definition ()
