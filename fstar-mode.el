@@ -746,7 +746,7 @@ FIXME: This doesn't do error handling."
     (fstar--goto line column)
     (point)))
 
-(defun fstar--match-strings-no-properties (ids str)
+(defun fstar--match-strings-no-properties (ids &optional str)
   "Get (match-string-no-properties ID STR) for each ID in IDS."
   (mapcar (lambda (num) (match-string-no-properties num str)) ids))
 
@@ -1109,21 +1109,21 @@ returns without doing anything."
   "\\(.*?\\)(\\([[:digit:]]+\\),\\([[:digit:]]+\\)-\\([[:digit:]]+\\),\\([[:digit:]]+\\))")
 
 (defconst fstar-subp-issue-regexp
-  (concat "^" fstar-subp-issue-location-regexp "\\s-*:\\s-*\\(.*\\)"))
+  (concat "^" fstar-subp-issue-location-regexp "\\s-*:\\s-*"))
 
 (defconst fstar-subp-also-see-regexp
   (concat "(Also see: " fstar-subp-issue-location-regexp ")"))
 
-(defun fstar-subp-parse-issue (context)
-  "Construct an issue object from the current match data and CONTEXT."
+(defun fstar-subp-parse-issue (limit)
+  "Construct an issue object from the current match data up to LIMIT."
   (pcase-let* ((issue-level 'error)
-               (message (match-string-no-properties 6 context))
+               (message (buffer-substring (match-end 0) limit))
                (`(,filename ,line-from ,col-from ,line-to ,col-to)
                 (or (save-match-data
                       (when (string-match fstar-subp-also-see-regexp message)
                         (prog1 (fstar--match-strings-no-properties '(1 2 3 4 5) message)
                           (setq message (substring message 0 (match-beginning 0))))))
-                    (fstar--match-strings-no-properties '(1 2 3 4 5) context))))
+                    (fstar--match-strings-no-properties '(1 2 3 4 5)))))
     (pcase-dolist (`(,marker . ,level) '(("(Warning) " . warning)
                                          ("(Error) " . error)))
       (when (string-prefix-p marker message)
@@ -1139,16 +1139,21 @@ returns without doing anything."
 
 (defun fstar-subp-parse-issues (response)
   "Parse RESPONSE into a list of issues."
-  (let ((start 0))
-    (cl-loop while (string-match fstar-subp-issue-regexp response start)
-             collect (fstar-subp-parse-issue response)
-             do (setq start (match-end 0)))))
+  (unless (equal response "")
+    (with-temp-buffer
+      (insert response)
+      (let ((bound (point-max)))
+        (goto-char (point-max))
+        ;; Matching backwards makes it easy to capture multi-line issues.
+        (cl-loop while (re-search-backward fstar-subp-issue-regexp nil t)
+                 collect (fstar-subp-parse-issue bound)
+                 do (setq bound (match-beginning 0)))))))
 
 (defun fstar-subp-cleanup-issue (issue ov)
   "Fixup ISSUE: include a file name, and adjust line numbers wrt OV."
   (when (member (fstar-issue-filename issue) '("unknown" "<input>"))
     (setf (fstar-issue-filename issue) (buffer-file-name))) ;; FIXME ensure we have a file name?
-  (unless fstar-compat--error-messages-use-absolute-linums
+  (unless (or fstar-compat--error-messages-use-absolute-linums (null ov))
     (let ((linum (1- (line-number-at-pos (overlay-start ov)))))
       (setf (fstar-issue-line-from issue) (+ (fstar-issue-line-from issue) linum))
       (setf (fstar-issue-line-to issue) (+ (fstar-issue-line-to issue) linum))))
