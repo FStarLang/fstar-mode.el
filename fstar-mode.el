@@ -564,6 +564,8 @@ If MUST-FIND-TYPE is nil, the :type part is not necessary."
     (define-key map (kbd "RET") #'fstar-newline-and-indent)
     (define-key map (kbd "C-h .") #'display-local-help) ;; For Emacs < 25
     (define-key map (kbd "M-.") #'fstar-jump-to-definition)
+    (define-key map (kbd "C-RET") #'company-manual-begin)
+    (define-key map (kbd "<C-return>") #'company-manual-begin)
     map))
 
 (defun fstar-newline-and-indent (arg)
