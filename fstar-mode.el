@@ -999,6 +999,9 @@ return value."
 (defun fstar-subp-killed ()
   "Clean up current source buffer."
   (fstar-subp-with-process-buffer fstar-subp--process
+    (let ((leftovers (string-trim (buffer-string))))
+      (unless (equal leftovers "")
+        (message "F* subprocess died early: %s" leftovers)))
     (kill-buffer))
   (fstar-subp-remove-tracking-overlays)
   (fstar-subp-remove-issues-overlays)
