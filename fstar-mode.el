@@ -67,10 +67,11 @@
       "Remove trailing whitespace from STRING."
       (if (string-match "[ \t\n\r]+\\'" string)
           (replace-match "" t t string)
-        string))
-    (defsubst string-trim (string)
-      "Remove leading and trailing whitespace from STRING."
-      (string-trim-left (string-trim-right string)))))
+        string))))
+
+(defun fstar--string-trim (s)
+  "Trim S, or return nil if nil."
+  (when s (string-trim-left (string-trim-right s))))
 
 ;;; Group
 
@@ -569,6 +570,7 @@ If MUST-FIND-TYPE is nil, the :type part is not necessary."
     (define-key map (kbd "<backtab>") #'fstar-unindent)
     (define-key map (kbd "S-TAB") #'fstar-unindent)
     (define-key map (kbd "C-h M-w") #'fstar-copy-help-at-point)
+    (define-key map (kbd "C-c C-d") #'fstar-doc-at-point)
     map))
 
 (defun fstar-newline-and-indent (arg)
@@ -983,7 +985,7 @@ return value."
            (resp-beg      (point-min))
            (resp-end      (point-at-bol))
            (resp-real-end (point-at-eol))
-           (response      (string-trim (buffer-substring resp-beg resp-end))))
+           (response      (fstar--string-trim (buffer-substring resp-beg resp-end))))
       (fstar-log "RESPONSE [%s] [%s]" status response)
       (delete-region resp-beg resp-real-end)
       (when (fstar-subp-live-p proc)
@@ -1033,7 +1035,7 @@ return value."
 (defun fstar-subp-killed ()
   "Clean up current source buffer."
   (fstar-subp-with-process-buffer fstar-subp--process
-    (let ((leftovers (string-trim (buffer-string))))
+    (let ((leftovers (fstar--string-trim (buffer-string))))
       (unless (equal leftovers "")
         (message "F* subprocess died early: %s" leftovers)))
     (kill-buffer))
@@ -1530,32 +1532,58 @@ into blocks; process it as one large block instead."
             (fstar-subp--column-number-at-pos pos))))
 
 (defconst fstar-subp--info-response-regex
-  "^(defined at \\(.+?\\)(\\([0-9]+\\),\\([0-9]+\\)-\\([0-9]+\\),\\([0-9]+\\)))")
+  "^(defined at \\(.+?\\)(\\([0-9]+\\),\\([0-9]+\\)-\\([0-9]+\\),\\([0-9]+\\))) *\\([^ ]+\\) *: +")
 
-(cl-defstruct fstar-pos-info
-  source-file def-start def-end type)
+(cl-defstruct fstar-symbol-info
+  source-file name def-start def-end type doc)
+
+(defun fstar-symbol-info-sig (info &optional help-kbd)
+  "Format signature of INFO.
+When HELP-KBD is non nil and info includes a docstring, suggest
+to use HELP-KBD to show documentation."
+  (concat
+   (fstar-highlight-string
+    (format "%s: %s" (fstar-symbol-info-name info) (fstar-symbol-info-type info)))
+   (if (and help-kbd (fstar-symbol-info-doc info))
+       (substitute-command-keys (format " (%s for help)" help-kbd))
+     "")))
+
+(defun fstar-subp--parse-info (response)
+  "Parse info structure from RESPONSE."
+  (when (string-match fstar-subp--info-response-regex response)
+    (pcase-let* ((type-doc (substring response (match-end 0)))
+                 (`(,file ,start-r ,start-c ,end-r ,end-c ,name)
+                  (mapcar #'fstar--string-trim
+                          (fstar--match-strings-no-properties
+                           '(1 2 3 4 5 6) response)))
+                 (`(,type ,doc)
+                  (mapcar #'fstar--string-trim
+                          (if (string-match "#doc " type-doc)
+                              (list (substring type-doc 0 (match-beginning 0))
+                                    (substring type-doc (match-end 0)))
+                            (list type-doc nil)))))
+      (make-fstar-symbol-info
+       :source-file file
+       :name name
+       :def-start (cons (string-to-number start-r) (string-to-number start-c))
+       :def-end (cons (string-to-number end-r) (string-to-number end-c))
+       :type type
+       :doc doc))))
 
 (defun fstar-subp--info-continuation (continuation pos success response)
   "Handle the results (SUCCESS and RESPONSE) of an #info query at POS.
 If response is valid, forward results to CONTINUATION.  With nil
 POS, this function can also handle results of position-less #info queries."
-  (if (and success
-           (or (null pos) (eq (point) pos)) ;; Point didn't move since request
-           (string-match fstar-subp--info-response-regex response))
-      (funcall continuation
-               (make-fstar-pos-info
-                :source-file (match-string 1 response)
-                :def-start (cons (string-to-number (match-string 2 response))
-                                 (string-to-number (match-string 3 response)))
-                :def-end (cons (string-to-number (match-string 4 response))
-                               (string-to-number (match-string 5 response)))
-                :type (string-trim (substring response (match-end 0)))))
+  (if-let* ((success success)
+            (point-did-not-move (or (null pos) (eq (point) pos)))
+            (info (fstar-subp--parse-info response)))
+      (funcall continuation info)
     (funcall continuation nil)))
 
 (defun fstar--eldoc-continuation (continuation info)
   "Pass highlighted type information from INFO to CONTINUATION."
   (when info
-    (funcall continuation (fstar-highlight-string (fstar-pos-info-type info)))))
+    (funcall continuation (fstar-symbol-info-sig info "\\[fstar-doc-at-point]"))))
 
 (defun fstar--eldoc-function ()
   "Compute an eldoc string for current point.
@@ -1599,6 +1627,29 @@ asynchronously after the fact)."
   (when (fboundp 'advice-remove)
     (advice-remove 'eldoc-message #'fstar--eldoc-truncate-message)))
 
+;;;; Doc at point
+
+(defun fstar--doc-at-point-continuation (info)
+  "Show documentation in INFO."
+  (-if-let* ((doc (and info (fstar-symbol-info-doc info))))
+      (with-help-window "*fstar-doc*"
+        (princ doc))
+    (message
+     (substitute-command-keys
+      (concat "No documentation found. "
+              "Try visiting the source file with \\[fstar-jump-to-definition]")))))
+
+(defun fstar-doc-at-point ()
+  "Show documentation of identifier at point, if any."
+  (interactive)
+  (fstar-subp--ensure-available #'user-error)
+  (unless fstar-compat--can-use-info
+    (user-error "This feature isn't available in F* < 0.9.4.1"))
+  (fstar-subp--query (fstar-subp--positional-info-query (point))
+                (apply-partially #'fstar-subp--info-continuation
+                                 #'fstar--doc-at-point-continuation
+                                 (point))))
+
 ;;;; xref-like features
 
 (defun fstar--save-point ()
@@ -1610,8 +1661,8 @@ asynchronously after the fact)."
 (defun fstar--jump-to-definition-continuation (info)
   "Jump to position in INFO."
   (if info
-      (pcase-let* ((target-fname (fstar-pos-info-source-file info))
-                   (`(,target-row . ,target-col) (fstar-pos-info-def-start info)))
+      (pcase-let* ((target-fname (fstar-symbol-info-source-file info))
+                   (`(,target-row . ,target-col) (fstar-symbol-info-def-start info)))
         (fstar--save-point)
         (catch 'not-found
           (unless (equal target-fname "<input>")
@@ -1685,20 +1736,33 @@ CALLBACK is the company-mode asynchronous meta callback."
   (funcall callback (pcase info
                       (`nil nil)
                       (`busy "F* subprocess unavailable")
-                      (_ (fstar-highlight-string (fstar-pos-info-type info))))))
+                      (_ (fstar-symbol-info-sig info "\\[company-show-doc-buffer]")))))
 
 (defun fstar-subp-company--async-meta (candidate callback)
   "Find type of CANDIDATE and pass it to CALLBACK."
   (fstar-subp-company--async-info
    candidate (apply-partially #'fstar-subp-company--meta-continuation callback)))
 
+(defun fstar-subp-company--doc-buffer-continuation (callback info)
+  "Forward documentation INFO to CALLBACK.
+CALLBACK is the company-mode asynchronous doc-buffer callback."
+  (funcall callback (pcase info
+                      (`nil nil)
+                      (`busy "F* subprocess unavailable")
+                      (_ (company-doc-buffer (fstar-symbol-info-docs info))))))
+
+(defun fstar-subp-company--async-doc-buffer (candidate callback)
+  "Find documentation of CANDIDATE and pass it to CALLBACK."
+  (fstar-subp-company--async-info
+   candidate (apply-partially #'fstar-subp-company--doc-buffer-continuation callback)))
+
 (defun fstar-subp-company--location-continuation (callback info)
   "Forward type INFO to CALLBACK.
 CALLBACK is the company-mode asynchronous meta callback."
   (pcase info
     ((or `nil `busy) (funcall callback nil))
-    (_ (pcase-let* ((fname (fstar-pos-info-source-file info))
-                    (`(,row . ,col) (fstar-pos-info-def-start info)))
+    (_ (pcase-let* ((fname (fstar-symbol-info-source-file info))
+                    (`(,row . ,col) (fstar-symbol-info-def-start info)))
          (funcall callback (if (string= fname "<input>")
                                (cons (current-buffer) (fstar--row-col-offset row col))
                              (cons fname row)))))))
@@ -1742,6 +1806,8 @@ COMMAND, ARG: see `company-backends'."
        (fstar-subp-company-candidates arg))
       (`meta
        `(:async . ,(apply-partially #'fstar-subp-company--async-meta arg)))
+      (`doc-buffer
+       `(:async . ,(apply-partially #'fstar-subp-company--async-doc-buffer arg)))
       (`location
        `(:async . ,(apply-partially #'fstar-subp-company--async-location arg)))
       (`sorted t)
