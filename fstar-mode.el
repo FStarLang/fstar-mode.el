@@ -1747,10 +1747,10 @@ CALLBACK is the company-mode asynchronous meta callback."
 (defun fstar-subp-company--doc-buffer-continuation (callback info)
   "Forward documentation INFO to CALLBACK.
 CALLBACK is the company-mode asynchronous doc-buffer callback."
-  (funcall callback (pcase info
-                      (`nil nil)
-                      (`busy "F* subprocess unavailable")
-                      (_ (company-doc-buffer (fstar-symbol-info-docs info))))))
+  (funcall callback (-when-let* ((doc (and info
+                                           (fstar-symbol-info-p info)
+                                           (fstar-symbol-info-doc info))))
+                      (company-doc-buffer doc))))
 
 (defun fstar-subp-company--async-doc-buffer (candidate callback)
   "Find documentation of CANDIDATE and pass it to CALLBACK."
