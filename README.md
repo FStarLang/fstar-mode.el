@@ -36,11 +36,14 @@ F*-mode requires Emacs 24.3 or newer, and is distributed through [MELPA](https:/
 
 ### General
 
-Key     | Action
---------|----------------------------------
-`C-h .` | Show error message at point
-`C-RET` | :zap: Autocomplete word at point
-`M-.`   | :zap: Jump to definition
+Key       | Action
+----------|----------------------------------
+`C-h .`   | Show error message at point
+`C-h M-w` | Copy error message at point
+`TAB`     | Indent
+`S-TAB`   | Unindent
+`C-RET`   | :zap: Autocomplete word at point
+`M-.`     | :zap: Jump to definition
 
 ### Interactive mode
 

@@ -566,6 +566,9 @@ If MUST-FIND-TYPE is nil, the :type part is not necessary."
     (define-key map (kbd "M-.") #'fstar-jump-to-definition)
     (define-key map (kbd "C-RET") #'company-manual-begin)
     (define-key map (kbd "<C-return>") #'company-manual-begin)
+    (define-key map (kbd "<backtab>") #'fstar-unindent)
+    (define-key map (kbd "S-TAB") #'fstar-unindent)
+    (define-key map (kbd "C-h M-w") #'fstar-copy-help-at-point)
     map))
 
 (defun fstar-newline-and-indent (arg)
@@ -579,6 +582,11 @@ If MUST-FIND-TYPE is nil, the :type part is not necessary."
       (indent-line-to indentation))))
 
 (put 'fstar-newline-and-indent 'delete-selection t)
+
+(defun fstar-copy-help-at-point ()
+  "Copy contents of help-echo at point."
+  (interactive)
+  (kill-new (help-at-pt-string)))
 
 ;;; Indentation
 
@@ -608,22 +616,43 @@ If MUST-FIND-TYPE is nil, the :type part is not necessary."
                             (cons comment-offset points))))
     (-distinct (sort points #'<))))
 
-(defun fstar-indent ()
-  "Cycle between vaguely relevant indentation points."
-  (interactive)
+(defun fstar--indent-1 (backwards)
+  "Cycle between vaguely relevant indentation points.
+With BACKWARDS, go back among indentation points."
   (let* ((current-ind (current-indentation))
-         (points      (fstar-indentation-points))
-         (remaining   (-filter (lambda (x) (> x current-ind)) points))
-         (target      (car (or remaining points))))
+         (points (fstar-indentation-points))
+         (remaining (or (-filter (if backwards
+                                     (lambda (x) (< x current-ind))
+                                   (lambda (x) (> x current-ind)))
+                                 points)
+                        points))
+         (target (car (if backwards
+                          (last remaining)
+                        remaining))))
     (if (> (current-column) current-ind)
         (save-excursion (indent-line-to target))
       (indent-line-to target))))
+
+(defun fstar-indent ()
+  "Cycle forwards between vaguely relevant indentation points."
+  (interactive)
+  (fstar--indent-1 nil))
+
+(defun fstar-unindent ()
+  "Cycle backwards between vaguely relevant indentation points."
+  (interactive)
+  (fstar--indent-1 t))
 
 (defun fstar-setup-indentation ()
   "Setup indentation for F*."
   (setq-local indent-line-function #'fstar-indent)
   (when (boundp 'electric-indent-inhibit) ; Emacs ≥ 24.4
     (setq-local electric-indent-inhibit t)))
+
+(defun fstar-teardown-indentation ()
+  "Remove indentation support for F*."
+  (kill-local-variable 'electric-indent-inhibit)
+  (kill-local-variable 'indent-line-function))
 
 ;;; Interactive proofs (fstar-subp)
 
