@@ -1420,7 +1420,8 @@ If NO-ERROR is set, do not report an error if the region is empty."
 (defcustom fstar-subp-block-sep "\\(\\'\\|\\s-*\\(\n\\s-*\\)\\{3,\\}\\)"
   "Regular expression used when looking for source blocks."
   :group 'fstar
-  :type 'string)
+  :type 'string
+  :safe #'stringp)
 
 (defun fstar-subp-skip-comments-and-whitespace ()
   "Skip over comments and whitespace."
