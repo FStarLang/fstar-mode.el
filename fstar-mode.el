@@ -810,11 +810,13 @@ FIXME: This doesn't do error handling."
   "Return non-nil if OVERLAY is an fstar-subp tracking overlay."
   (fstar-subp-status overlay))
 
-(defun fstar-subp-tracking-overlays (&optional status)
-  "Find all -subp tracking overlays with status STATUS in the current buffer.
+(defun fstar-subp-tracking-overlays (&optional status pos)
+  "Find all -subp tracking overlays with status STATUS at POS.
 
-If STATUS is nil, return all fstar-subp overlays."
-  (sort (cl-loop for overlay being the overlays of (current-buffer)
+If STATUS is nil, return all fstar-subp overlays.  If POS is nil,
+look in the entire buffer."
+  (sort (cl-loop for overlay in (if pos (overlays-at pos)
+                                  (overlays-in (point-min) (point-max)))
                  when (fstar-subp-tracking-overlay-p overlay)
                  when (or (not status) (fstar-subp-status-eq overlay status))
                  collect overlay)
