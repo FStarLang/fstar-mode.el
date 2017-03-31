@@ -1205,14 +1205,18 @@ returns without doing anything."
   "Remove OVERLAY."
   (delete-overlay overlay))
 
+(defun fstar-subp--help-echo-at (pos)
+  "Compute help-echo message at POS."
+  (mapconcat (lambda (ov) (overlay-get ov 'fstar-subp-message))
+             (fstar-subp-issue-overlays-at pos)
+             "\n"))
+
 (defun fstar-subp--help-echo (_window object pos)
   "Concatenate -subp messages found at POS of OBJECT."
   (-when-let* ((buf (cond ((bufferp object) object)
                           ((overlayp object) (overlay-buffer object)))))
     (with-current-buffer buf
-      (mapconcat (lambda (ov) (overlay-get ov 'fstar-subp-message))
-                 (fstar-subp-issue-overlays-at pos)
-                 "\n"))))
+      (fstar-subp--help-echo-at pos))))
 
 (defun fstar-subp-issue-face (issue)
   "Compute a face for ISSUE's overlay."
