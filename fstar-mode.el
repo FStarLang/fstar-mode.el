@@ -1408,13 +1408,13 @@ If NO-ERROR is set, do not report an error if the region is empty."
   (let ((beg (fstar-subp-unprocessed-beginning))
         (end (fstar-skip-spaces-backwards-from end)))
     (fstar-assert (cl-loop for overlay in (overlays-in beg end)
-                           never (fstar-subp-tracking-overlay-p overlay)))
+                      never (fstar-subp-tracking-overlay-p overlay)))
     (if (<= end beg)
         (unless no-error
           (user-error "Nothing more to process!"))
       (let ((overlay (make-overlay beg end (current-buffer) nil nil)))
-        (fstar-subp-set-status overlay 'pending)
         (overlay-put overlay 'fstar-subp--lax fstar-subp--lax)
+        (fstar-subp-set-status overlay 'pending)
         (fstar-subp-process-queue (current-buffer))))))
 
 (defcustom fstar-subp-block-sep "\\(\\'\\|\\s-*\\(\n\\s-*\\)\\{3,\\}\\)"
