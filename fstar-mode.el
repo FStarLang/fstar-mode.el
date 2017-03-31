@@ -891,9 +891,11 @@ FN instead."
 
 (defun fstar-teardown-overlay-legend ()
   "Disable overlay legends in modeline."
-  (when (fboundp 'advice-remove)
-    (dolist (fn '(tooltip-show-help tooltip-show-help-non-mode))
-      (advice-remove fn #'fstar-subp--overlay-legend-help-function))))
+  ;; No way to disable buffer-locally
+  ;; (when (fboundp 'advice-remove)
+  ;;   (dolist (fn '(tooltip-show-help tooltip-show-help-non-mode))
+  ;;     (advice-remove fn #'fstar-subp--overlay-legend-help-function)))
+  )
 
 ;;;; Basic subprocess operations
 
