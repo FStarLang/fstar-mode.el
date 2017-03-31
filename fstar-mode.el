@@ -88,21 +88,22 @@
   :risky t)
 
 (defconst fstar-known-modules
-  '((font-lock      . "Syntax highlighting")
-    (prettify       . "Unicode math (e.g. display forall as ∀; requires emacs 24.4 or later)")
-    (indentation    . "Indentation (based on control points)")
-    (comments       . "Comment syntax and special comments ('(***', '(*+', etc.)")
-    (flycheck       . "Real-time verification (good for small files; requires Flycheck)")
-    (interactive    . "Interactive verification (à la Proof-General)")
-    (eldoc          . "Type annotations in the minibuffer.")
-    (company        . "Completion with company-mode.")
-    (spinner        . "Blink the modeline while F* is busy.")
-    (overlay-legend . "Show a legend in the modeline when hovering an F* overlay."))
+  '((font-lock        . "Syntax highlighting")
+    (prettify         . "Unicode math (e.g. display forall as ∀; requires emacs 24.4 or later)")
+    (indentation      . "Indentation (based on control points)")
+    (comments         . "Comment syntax and special comments ('(***', '(*+', etc.)")
+    (flycheck         . "Real-time verification (good for small files; requires Flycheck)")
+    (interactive      . "Interactive verification (à la Proof-General)")
+    (eldoc            . "Type annotations in the minibuffer.")
+    (company          . "Completion with company-mode.")
+    (company-defaults . "Opinionated company-mode configuration.")
+    (spinner          . "Blink the modeline while F* is busy.")
+    (overlay-legend   . "Show a legend in the modeline when hovering an F* overlay."))
   "Available components of F*-mode.")
 
 (defcustom fstar-enabled-modules
   '(font-lock prettify indentation comments interactive
-              eldoc company spinner overlay-legend)
+              eldoc company company-defaults spinner overlay-legend)
   "Which F*-mode components to load."
   :group 'fstar
   :type `(set ,@(cl-loop for (mod . desc) in fstar-known-modules
@@ -1820,14 +1821,27 @@ COMMAND, ARG: see `company-backends'."
   "Set up Company support."
   (setq-local company-backends
               (cons #'fstar-subp-company-backend company-backends))
-  (setq-local company-tooltip-align-annotations t)
   (company-mode))
 
 (defun fstar-teardown-company ()
   "Tear down Company support."
   (kill-local-variable 'company-backends)
-  (kill-local-variable 'company-tooltip-align-annotations)
   (company-mode -1))
+
+
+(defun fstar-setup-company-defaults ()
+  "Set up Company support."
+  (company-quickhelp-mode 1)
+  (setq-local company-idle-delay 0.01)
+  (setq-local company-tooltip-align-annotations t)
+  (setq-local company-abort-manual-when-too-short t))
+
+(defun fstar-teardown-company-defaults ()
+  "Tear down Company support."
+  (company-quickhelp-mode -1)
+  (kill-local-variable 'company-idle-delay)
+  (kill-local-variable 'company-tooltip-align-annotations)
+  (kill-local-variable 'company-abort-manual-when-too-short))
 
 ;;;; Busy spinner
 

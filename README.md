@@ -33,17 +33,19 @@ F*-mode requires Emacs 24.3 or newer, and is distributed through [MELPA](https:/
 ## Keybindings
 
 :zap: indicates keybindings available once F* is running.
+:sparkles: indicates features added since the latest F* release.
 
 ### General
 
 Key       | Action
 ----------|----------------------------------
-`C-h .`   | Show error message at point
-`C-h M-w` | Copy error message at point
+`C-h .`   | Show current error in echo area
+`C-h M-w` | Copy current error message
 `TAB`     | Indent
 `S-TAB`   | Unindent
-`C-RET`   | :zap: Autocomplete word at point
-`M-.`     | :zap: Jump to definition
+`C-RET`   | :zap: :sparkles: Autocomplete word at point
+`M-.`     | :zap: :sparkles: Jump to definition
+`C-c C-d` | :zap: :sparkles: Show documentation of symbol at point
 
 ### Interactive mode
 
