@@ -1836,14 +1836,14 @@ COMMAND, ARG: see `company-backends'."
 
 (defun fstar-setup-company-defaults ()
   "Set up Company support."
-  (company-quickhelp-mode 1)
+  ;; (company-quickhelp-mode 1)
   (setq-local company-idle-delay 0.01)
   (setq-local company-tooltip-align-annotations t)
   (setq-local company-abort-manual-when-too-short t))
 
 (defun fstar-teardown-company-defaults ()
   "Tear down Company support."
-  (company-quickhelp-mode -1)
+  ;; (company-quickhelp-mode -1)
   (kill-local-variable 'company-idle-delay)
   (kill-local-variable 'company-tooltip-align-annotations)
   (kill-local-variable 'company-abort-manual-when-too-short))
