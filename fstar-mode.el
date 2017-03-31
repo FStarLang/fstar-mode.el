@@ -789,7 +789,8 @@ FIXME: This doesn't do error handling."
   (with-syntax-table fstar--fqn-at-point-syntax-table
     (save-excursion
       (goto-char pos)
-      (symbol-name (symbol-at-point)))))
+      (-when-let* ((s (symbol-at-point)))
+        (symbol-name s)))))
 
 ;;;; Overlay classification
 
