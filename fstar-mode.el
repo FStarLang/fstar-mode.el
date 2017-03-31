@@ -347,21 +347,21 @@ error."
   (match-end (or bound-to 0)))
 
 (defconst fstar-syntax-id-unwrapped (rx (? (or "#" "'"))
-                                        (any "a-z_") (* (or wordchar (syntax symbol)))
-                                        (? "." (* (or wordchar (syntax symbol))))))
+                                   (any "a-z_") (* (or wordchar (syntax symbol)))
+                                   (? "." (* (or wordchar (syntax symbol))))))
 
 (defconst fstar-syntax-id (concat "\\_<" fstar-syntax-id-unwrapped "\\_>"))
 
 (defconst fstar-syntax-cs (rx symbol-start
-                              (any "A-Z") (* (or wordchar (syntax symbol)))
-                              symbol-end))
+                         (any "A-Z") (* (or wordchar (syntax symbol)))
+                         symbol-end))
 
 (defconst fstar-syntax-universe-id-unwrapped (rx "'u" (* (or wordchar (syntax symbol)))))
 
 (defconst fstar-syntax-universe-id (concat "\\_<" fstar-syntax-universe-id-unwrapped "\\_>"))
 
 (defconst fstar-syntax-universe (concat "\\(" fstar-syntax-universe-id
-                                        "\\|u#([^)]*)\\)"))
+                                   "\\|u#([^)]*)\\)"))
 
 (defconst fstar-syntax-ids (concat "\\(" fstar-syntax-id "\\(?: +" fstar-syntax-id "\\)*\\)"))
 
@@ -1235,9 +1235,9 @@ returns without doing anything."
 (defun fstar-subp-highlight-issue (issue)
   "Highlight ISSUE in current buffer."
   (let* ((from (fstar--row-col-offset (fstar-issue-line-from issue)
-                                      (fstar-issue-col-from issue)))
+                                 (fstar-issue-col-from issue)))
          (to (fstar--row-col-offset (fstar-issue-line-to issue)
-                                    (fstar-issue-col-to issue)))
+                               (fstar-issue-col-to issue)))
          (overlay (make-overlay from (max to (1+ from)) (current-buffer) t nil)))
     (overlay-put overlay 'fstar-subp-issue t)
     (overlay-put overlay 'face (fstar-subp-issue-face issue))
@@ -1254,7 +1254,7 @@ returns without doing anything."
 (defun fstar-subp-jump-to-issue (issue)
   "Jump to ISSUE in current buffer."
   (goto-char (fstar--row-col-offset (fstar-issue-line-from issue)
-                                    (fstar-issue-col-from issue))))
+                               (fstar-issue-col-from issue))))
 
 (defun fstar-subp--local-issue-p (issue)
   "Check if ISSUE came from the current buffer."
