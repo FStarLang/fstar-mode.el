@@ -6,7 +6,7 @@
 
 ;; Created: 27 Aug 2015
 ;; Version: 0.4
-;; Package-Requires: ((emacs "24.3") (dash "2.11") (company "0.8.12"))
+;; Package-Requires: ((emacs "24.3") (dash "2.11") (company "0.8.12") (company-quickhelp "2.1.0"))
 ;; Keywords: convenience, languages
 
 ;; This file is not part of GNU Emacs.
@@ -1836,14 +1836,14 @@ COMMAND, ARG: see `company-backends'."
 
 (defun fstar-setup-company-defaults ()
   "Set up Company support."
-  ;; (company-quickhelp-mode 1)
+  (company-quickhelp-local-mode 1)
   (setq-local company-idle-delay 0.01)
   (setq-local company-tooltip-align-annotations t)
   (setq-local company-abort-manual-when-too-short t))
 
 (defun fstar-teardown-company-defaults ()
   "Tear down Company support."
-  ;; (company-quickhelp-mode -1)
+  (company-quickhelp-local-mode -1)
   (kill-local-variable 'company-idle-delay)
   (kill-local-variable 'company-tooltip-align-annotations)
   (kill-local-variable 'company-abort-manual-when-too-short))
