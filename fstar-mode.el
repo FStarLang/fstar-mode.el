@@ -356,12 +356,23 @@ error."
                               (any "A-Z") (* (or wordchar (syntax symbol)))
                               symbol-end))
 
-(defconst fstar-syntax-universe-id-unwrapped (rx "'u" (* (or wordchar (syntax symbol)))))
 
-(defconst fstar-syntax-universe-id (concat "\\_<" fstar-syntax-universe-id-unwrapped "\\_>"))
+(defun ueval (form) (eval (cadr form)))
 
-(defconst fstar-syntax-universe (concat "\\(" fstar-syntax-universe-id
-                                        "\\|u#([^)]*)\\)"))
+(defmacro rx2 (&rest body)
+  "Adds a non-quoting evaluation instruction ueval to rx"
+  `(let ((rx-constituents (cons '(ueval . (ueval 1 1)) rx-constituents)))
+     (rx-to-string '(: ,@body))))
+
+(defconst fstar-syntax-universe-id-unwrapped (rx2  "'u" (* (or wordchar (syntax symbol)))))
+
+(defconst fstar-syntax-universe-id (rx2  "\\_<"
+                                         (ueval fstar-syntax-universe-id-unwrapped)
+                                         "\\_>"))
+
+(defconst fstar-syntax-universe (rx2 (or (ueval fstar-syntax-universe-id-unwrapped)
+                                        (and "u#" (or (+ num)
+                                                      (regexp "([^)]+)"))))))
 
 (defconst fstar-syntax-ids (concat "\\(" fstar-syntax-id "\\(?: +" fstar-syntax-id "\\)*\\)"))
 
@@ -433,7 +444,7 @@ If MUST-FIND-TYPE is nil, the :type part is not necessary."
     `((,fstar-syntax-cs
        (0 'font-lock-type-face))
       (,fstar-syntax-universe
-       (1 'fstar-universe-face))
+       (0 'fstar-universe-face))
       (,(concat "{\\(:" id "\\) *\\([^}]*\\)}")
        (1 'font-lock-builtin-face append)
        (2 'fstar-attribute-face append))
