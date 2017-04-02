@@ -1730,9 +1730,11 @@ Return (CALLBACK CANDIDATES)."
              (candidates (mapcar #'fstar-subp-company--parse-candidate lines)))
         (funcall callback (delq nil candidates))))))
 
-(defun fstar-subp--positionless-info-query (fqn)
-  "Prepare a header for an info query for FQN."
-  (format "#info %s\n" fqn))
+(defun fstar-subp--positionless-info-query (symbol)
+  "Prepare a header for an info query for SYMBOL."
+  (when (equal symbol "")
+    (user-error "Looking up an empty name"))
+  (format "#info %s\n" symbol))
 
 (defun fstar-subp-company--candidate-fqn (candidate)
   "Compute the fully qualified name of CANDIDATE."
