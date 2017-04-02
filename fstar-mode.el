@@ -386,7 +386,8 @@ If MUST-FIND-TYPE is nil, the :type part is not necessary."
                                       (or (eq (char-before) ?|) ;; | X: int
                                           (save-match-data
                                             ;; val x : Y:int
-                                            (re-search-forward "\\_<\\(val\\|let\\)\\_>" (match-end 0) t))))))))
+                                            (re-search-forward "\\_<\\(val\\|let\\|type\\)\\_>"
+                                                               (match-end 0) t))))))))
     (when (and found must-find-type)
       (ignore-errors
         (goto-char (match-end 0))
