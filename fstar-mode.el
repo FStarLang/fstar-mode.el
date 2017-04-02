@@ -6,7 +6,7 @@
 
 ;; Created: 27 Aug 2015
 ;; Version: 0.4
-;; Package-Requires: ((emacs "24.3") (dash "2.11") (company "0.8.12") (company-quickhelp "2.1.0"))
+;; Package-Requires: ((emacs "24.3") (dash "2.11") (company "0.8.12") (company-quickhelp "2.1.0") (yasnippet "0.11.0"))
 ;; Keywords: convenience, languages
 
 ;; This file is not part of GNU Emacs.
@@ -32,6 +32,7 @@
 ;; * Indentation
 ;; * Type hints (Eldoc)
 ;; * Autocompletion (Company)
+;; * Snippets (Yasnippet)
 ;; * Interactive proofs (à la Proof-General)
 ;; * Whole-buffer verification (Flycheck)
 ;;
@@ -46,6 +47,7 @@
 (require 'eldoc)
 (require 'help-at-pt)
 (require 'company)
+(require 'yasnippet)
 (require 'flycheck nil t)
 
 ;;; Compatibility
@@ -108,6 +110,28 @@
   :group 'fstar
   :type `(set ,@(cl-loop for (mod . desc) in fstar-known-modules
                          collect `(const :tag ,desc ,mod))))
+
+;;; Utilities
+
+(defun fstar--indent-str (str amount)
+  "Indent all newlines of STR by AMOUNT."
+  (replace-regexp-in-string "\n" (concat "\n" (make-string amount ?\s)) str))
+
+(defun fstar--property-range (pos prop)
+  "Find range around POS with consistent non-nil value of PROP."
+  (let* ((val-1 (get-text-property (1- pos) prop))
+         (val (get-text-property pos prop)))
+    (when (or val val-1)
+      (list (if (eq (or val val-1) val-1)
+                (previous-single-property-change pos prop) pos)
+            (if val
+                (next-single-property-change pos prop) pos)
+            (or val val-1)))))
+
+(defun fstar--expand-snippet (&rest args)
+  "Ensure that Yasnippet is on and forward ARGS to `yas-expand-snippet'."
+  (unless yas-minor-mode (yas-minor-mode 1))
+  (apply #'yas-expand-snippet args))
 
 ;;; Debugging
 
@@ -579,6 +603,7 @@ If MUST-FIND-TYPE is nil, the :type part is not necessary."
     (define-key map (kbd "S-TAB") #'fstar-unindent)
     (define-key map (kbd "C-h M-w") #'fstar-copy-help-at-point)
     (define-key map (kbd "C-c C-d") #'fstar-doc-at-point)
+    (define-key map (kbd "C-c C-f C-d") #'fstar-insert-match-dwim)
     map))
 
 (defun fstar-newline-and-indent (arg)
@@ -1669,6 +1694,101 @@ asynchronously after the fact)."
   (fstar-subp--ensure-available #'user-error 'docs)
   (fstar-subp--query (fstar-subp--positional-info-query (point))
                 (fstar-subp--info-wrapper #'fstar--doc-at-point-continuation (point))))
+
+;;;; Insert a match
+
+(defun fstar--split-match-var-annot (str)
+  "Split var name and <<<>>> type annotation in STR."
+  (save-match-data
+    (if (string-match "\\(.+?\\)<<<\\(.+?\\)>>>" str)
+        (let ((var (match-string 1 str))
+              (type (match-string 2 str)))
+          (cons var type))
+      (cons str nil))))
+
+(defun fstar--prepare-match-snippet (snippet)
+  "Prepare SNIPPET: add numbers and replace type annotations."
+  (let ((counter 0))
+    (replace-regexp-in-string
+     "\\$\\(?:{\\(.+?\\)}\\|\\$\\)"
+     (lambda (match)
+       (pcase-let* ((name (or (match-string-no-properties 1 match) ""))
+                    (`(,name . ,type) (fstar--split-match-var-annot name)))
+         (propertize (format "${%d:%s}" (cl-incf counter) name)
+                     'fstar--match-var-type type)))
+     snippet t t)))
+
+(defun fstar--format-one-branch (branch)
+  "Format a single match BRANCH."
+  (format "| %s -> $$" (replace-regexp-in-string "\\`(\\(.*\\))\\'" "\\1" branch)))
+
+(defun fstar--insert-match-continuation (type response)
+  "Handle RESPONSE to a #show-match query.
+TYPE is used in error messages"
+  (-if-let* ((branches (and response (split-string response "\n"))))
+      (let* ((name-str (if (string-match fstar-syntax-id type)
+                           (match-string 0 type)
+                         "expr"))
+             (branch-strs (mapconcat #'fstar--format-one-branch branches "\n"))
+             (match (format "match ${%s} with\n%s" name-str branch-strs))
+             (indented (fstar--indent-str match (current-column))))
+        (let ((yas-indent-line nil))
+          (fstar--expand-snippet (fstar--prepare-match-snippet indented))))
+    (message "No match found for type `%s'." type)))
+
+(defun fstar--read-type-name ()
+  "Read a type name."
+  (read-string "Type to destruct (list, …): "))
+
+(defun fstar-subp--show-match-query (type)
+  "Prepare a #show-match query for TYPE."
+  (format "#show-match %s\n" (replace-regexp-in-string "\n" " " type)))
+
+(defun fstar-insert-match (type)
+  "Insert a match on TYPE at point."
+  (interactive (list (fstar--read-type-name)))
+  (fstar-subp--ensure-available #'user-error 'match)
+  (fstar-subp--query (fstar-subp--show-match-query type)
+                (fstar-subp--pos-check-wrapper (point)
+                  (apply-partially #'fstar--insert-match-continuation type))))
+
+(defun fstar--destruct-var-continuation (from to type response)
+  "Replace FROM..TO (with TYPE) with match from RESPONSE."
+  (pcase (and response (split-string response "\n"))
+    (`nil (message "No match found for type `%s'." type))
+    (`(,_ ,_ . ,_) (message "Can't destruct `%s' in place (it has more than one constructor)" type))
+    (`(,branch)
+     (remove-text-properties from to '(fstar--match-var-type nil))
+     (let ((yas-indent-line nil)
+           (snip (fstar--prepare-match-snippet branch)))
+       (fstar--expand-snippet snip from to)))))
+
+(defun fstar--destruct-match-var-1 (from to type)
+  "Replace FROM..TO by pattern matching on TYPE."
+  (fstar-subp--ensure-available #'user-error 'match)
+  (fstar-subp--query
+   (fstar-subp--show-match-query type)
+   (fstar-subp--pos-check-wrapper (point)
+     (apply-partially #'fstar--destruct-var-continuation from to type))))
+
+(defun fstar--destruct-match-var-at-point ()
+  "Destruct match variable inserted with `fstar-insert-match'."
+  (pcase (fstar--property-range (point) 'fstar--match-var-type)
+    (`(,from ,to ,type)
+     (fstar--destruct-match-var-1 from to type)
+     t)))
+
+(defun fstar-insert-match-dwim ()
+  "Insert a match, or destruct the identifier at point.
+This works in two steps: the first invocation prompts for a type
+name and inserts a full match.  Subsequent invocations (on
+variables of the constructors of the first match) just destruct
+that variable."
+  (interactive)
+  (if (region-active-p)
+      (fstar--destruct-match-var-1 (region-beginning) (region-end) (fstar--read-type-name))
+    (or (fstar--destruct-match-var-at-point)
+        (funcall-interactively #'fstar-insert-match (fstar--read-type-name)))))
 
 ;;;; xref-like features
 
