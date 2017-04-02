@@ -156,17 +156,14 @@ error."
 (defvar-local fstar--vernum nil
   "F*'s version number.")
 
-(defvar-local fstar-compat--error-messages-use-absolute-linums nil
-  "F* > 0.9.3.0-beta1 uses absolute line numbers in error messages.")
-
-(defvar-local fstar-compat--can-use-info nil
-  "F* >= 0.9.4.1 supports #info queries.")
-
-(defvar-local fstar-compat--info-includes-symbol nil
-  "F* >= 0.9.4.2 includes the name of the symbol at point in #info queries.")
-
-(defvar-local fstar-compat--can-use-completion nil
-  "F* >= 0.9.4.2 includes the name of the current symbol in #info queries.")
+(eval-and-compile
+  (defconst fstar--features-min-version-alist
+    '((absolute-linums-in-errors . "0.9.3.0-beta2")
+      (info . "0.9.4.1")
+      (info-includes-symbol . "0.9.4.2")
+      (completion . "0.9.4.2")
+      (docs . "42.0")
+      (match . "42.0"))))
 
 (defun fstar--init-compatibility-layer ()
   "Adjust compatibility settings based on `fstar-executable''s version number."
@@ -174,12 +171,19 @@ error."
     (if (string-match "F\\* \\([- .[:alnum:]]+\\)" version-string)
         (setq fstar--vernum (match-string 1 version-string))
       (message "F*: Can't parse version number from %S" version-string)
-      (setq fstar--vernum "unknown")))
-  (let ((v (if (string-match-p "unknown" fstar--vernum) "1000" fstar--vernum)))
-    (setq fstar-compat--error-messages-use-absolute-linums (version< "0.9.3.0-beta1" v))
-    (setq fstar-compat--can-use-info (version<= "0.9.4.1" v))
-    (setq fstar-compat--info-includes-symbol (version<= "0.9.4.2" v))
-    (setq fstar-compat--can-use-completion (version<= "0.9.4.2" v))))
+      (setq fstar--vernum "unknown"))))
+
+(defun fstar--has-feature (feature &optional error-fn)
+  "Check if FEATURE from `fstar--features-min-version-alist' is available.
+If not, call ERROR-FN if supplied with a relevant message."
+  (let* ((min-version (cdr (assq feature fstar--features-min-version-alist))))
+    (fstar-assert (stringp min-version))
+    (or (member fstar--vernum '(nil "unknown"))
+        (version<= min-version fstar--vernum)
+        (ignore
+         (and error-fn
+              (funcall error-fn "This feature isn't available in F* < %s.  \
+You're running version %s" min-version fstar--vernum))))))
 
 ;;; Flycheck
 
@@ -923,8 +927,12 @@ If PROC is nil, use the current buffer's `fstar-subp--process'."
   (and (fstar-subp-live-p fstar-subp--process)
        (not fstar-subp--continuation)))
 
-(defun fstar-subp--ensure-available (error-fn)
-  "Raise an error with ERROR-FN if F* isn't available."
+(defun fstar-subp--ensure-available (error-fn &optional feature)
+  "Raise an error with ERROR-FN if F* isn't available.
+Also raise an error if current subprocess doesn't meet version requirements for
+FEATURE, if specified."
+  (when feature
+    (fstar--has-feature feature error-fn))
   (when (fstar-subp--busy-p)
     (funcall error-fn "F* seems busy; please wait until processing is complete"))
   (unless (fstar-subp-live-p)
@@ -1198,7 +1206,7 @@ returns without doing anything."
   "Fixup ISSUE: include a file name, and adjust line numbers wrt OV."
   (when (member (fstar-issue-filename issue) '("unknown" "<input>"))
     (setf (fstar-issue-filename issue) (buffer-file-name))) ;; FIXME ensure we have a file name?
-  (unless (or fstar-compat--error-messages-use-absolute-linums (null ov))
+  (unless (or (fstar--has-feature 'absolute-linums-in-errors) (null ov))
     (let ((linum (1- (line-number-at-pos (overlay-start ov)))))
       (setf (fstar-issue-line-from issue) (+ (fstar-issue-line-from issue) linum))
       (setf (fstar-issue-line-to issue) (+ (fstar-issue-line-to issue) linum))))
@@ -1528,7 +1536,7 @@ into blocks; process it as one large block instead."
 
 (defun fstar-subp--positional-info-query (pos)
   "Prepare a header for an info query at POS."
-  (if fstar-compat--info-includes-symbol
+  (if (fstar--has-feature 'info-includes-symbol)
       (format "#info %s <input> %d %d\n"
               (or (fstar--fqn-at-point pos) "")
               (line-number-at-pos pos)
@@ -1596,7 +1604,7 @@ POS, this function can also handle results of position-less #info queries."
 Briefly tries to get results synchronously to reduce flicker, and
 then returns nil (in that case, results are displayed
 asynchronously after the fact)."
-  (when (and fstar-compat--can-use-info (fstar-subp-available-p)
+  (when (and (fstar--has-feature 'info) (fstar-subp-available-p)
              (not (fstar-subp--in-issue-p (point))))
     (let* ((query (fstar-subp--positional-info-query (point)))
            (retv (fstar-subp--query-and-wait query 0.01)))
@@ -1648,9 +1656,6 @@ asynchronously after the fact)."
 (defun fstar-doc-at-point ()
   "Show documentation of identifier at point, if any."
   (interactive)
-  (fstar-subp--ensure-available #'user-error)
-  (unless fstar-compat--can-use-info
-    (user-error "This feature isn't available in F* < 0.9.4.1"))
   (fstar-subp--query (fstar-subp--positional-info-query (point))
                 (apply-partially #'fstar-subp--info-continuation
                                  #'fstar--doc-at-point-continuation
@@ -1685,9 +1690,7 @@ asynchronously after the fact)."
 (defun fstar-jump-to-definition ()
   "Jump to definition of identifier at point, if any."
   (interactive)
-  (fstar-subp--ensure-available #'user-error)
-  (unless fstar-compat--can-use-info
-    (user-error "This feature isn't available in F* < 0.9.4.1"))
+  (fstar-subp--ensure-available #'user-error 'info)
   (fstar-subp--query (fstar-subp--positional-info-query (point))
                 (apply-partially #'fstar-subp--info-continuation
                                  #'fstar--jump-to-definition-continuation
@@ -1799,7 +1802,7 @@ Candidates are provided by the F* subprocess.
 COMMAND, ARG: see `company-backends'."
   (interactive '(interactive))
   ;; (fstar-log "fstar-subp-company-backend: %S %S" command arg)
-  (when fstar-compat--can-use-completion
+  (when (fstar--has-feature 'completion)
     (pcase command
       (`interactive
        (company-begin-backend #'fstar-subp-company-backend))
