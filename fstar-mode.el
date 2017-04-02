@@ -425,13 +425,10 @@ If MUST-FIND-TYPE is nil, the :type part is not necessary."
                   (point)))
       (setq found (and (<= end bound)
                        (<= end (point-at-eol))
-                       (save-excursion
-                         (backward-char)
-                         (not (looking-at-p "[^ ]+ +with"))))))
+                       (memq (char-syntax (char-before (match-beginning 0))) '(?w ?_)))))
     (when found
       (set-match-data `(,(1+ (match-beginning 0)) ,(1- end))))
     found))
-
 
 (defconst fstar-syntax-additional
   (let ((id fstar-syntax-id))
