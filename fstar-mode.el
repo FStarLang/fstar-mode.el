@@ -1546,8 +1546,11 @@ into blocks; process it as one large block instead."
             (line-number-at-pos pos)
             (fstar-subp--column-number-at-pos pos))))
 
-(defconst fstar-subp--info-response-regex
+(defconst fstar-subp--info-response-header-regex
   "^(defined at \\(.+?\\)(\\([0-9]+\\),\\([0-9]+\\)-\\([0-9]+\\),\\([0-9]+\\))) *\\([^ ]+\\) *: +")
+
+(defconst fstar-subp--info-response-body-regex
+  "\\([^\0]+?\\)\\(?:#doc \\([^\0]+?\\)\\)?\\'")
 
 (cl-defstruct fstar-symbol-info
   source-file name def-start def-end type doc)
@@ -1565,18 +1568,16 @@ to use HELP-KBD to show documentation."
 
 (defun fstar-subp--parse-info (response)
   "Parse info structure from RESPONSE."
-  (when (string-match fstar-subp--info-response-regex response)
-    (pcase-let* ((type-doc (substring response (match-end 0)))
+  (when (string-match fstar-subp--info-response-header-regex response)
+    (pcase-let* ((body (substring response (match-end 0)))
                  (`(,file ,start-r ,start-c ,end-r ,end-c ,name)
                   (mapcar #'fstar--string-trim
                           (fstar--match-strings-no-properties
                            '(1 2 3 4 5 6) response)))
                  (`(,type ,doc)
-                  (mapcar #'fstar--string-trim
-                          (if (string-match "#doc " type-doc)
-                              (list (substring type-doc 0 (match-beginning 0))
-                                    (substring type-doc (match-end 0)))
-                            (list type-doc nil)))))
+                  (and (string-match fstar-subp--info-response-body-regex body)
+                       (mapcar #'fstar--string-trim (fstar--match-strings-no-properties
+                                                '(1 2) body)))))
       (make-fstar-symbol-info
        :source-file file
        :name name
