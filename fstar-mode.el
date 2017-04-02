@@ -1586,15 +1586,25 @@ to use HELP-KBD to show documentation."
        :type type
        :doc doc))))
 
-(defun fstar-subp--info-continuation (continuation pos success response)
+(defun fstar-subp--pos-check-wrapper (pos continuation)
+  "Construct a continuation that runs CONTINUATION if point is POS.
+Otherwise, call CONTINUATION with nil.  Same if the query fails.
+If POS is nil, the POS check is ignored."
+  (declare (indent 1))
+  (lambda (success response)
+    (if (and success (or (null pos) (eq (point) pos)))
+        (funcall continuation response)
+      (funcall continuation nil))))
+
+(defun fstar-subp--info-wrapper (continuation pos)
   "Handle the results (SUCCESS and RESPONSE) of an #info query at POS.
 If response is valid, forward results to CONTINUATION.  With nil
 POS, this function can also handle results of position-less #info queries."
-  (if-let* ((success success)
-            (point-did-not-move (or (null pos) (eq (point) pos)))
-            (info (fstar-subp--parse-info response)))
-      (funcall continuation info)
-    (funcall continuation nil)))
+  (fstar-subp--pos-check-wrapper pos
+    (lambda (response)
+      (if-let* ((info (and response (fstar-subp--parse-info response))))
+          (funcall continuation info)
+        (funcall continuation nil)))))
 
 (defun fstar--eldoc-continuation (continuation info)
   "Pass highlighted type information from INFO to CONTINUATION."
@@ -1612,14 +1622,15 @@ asynchronously after the fact)."
            (retv (fstar-subp--query-and-wait query 0.01)))
       (pcase retv
         (`(t . (,success ,results))
-         (fstar-subp--info-continuation
-          (apply-partially #'fstar--eldoc-continuation #'identity)
-          (point) success results))
+         (funcall (fstar-subp--info-wrapper
+                   (apply-partially #'fstar--eldoc-continuation #'identity)
+                   (point))
+                  success results))
         (`(needs-callback . ,_)
          (setf (cdr retv)
-               (apply-partially #'fstar-subp--info-continuation
-                                (apply-partially #'fstar--eldoc-continuation #'eldoc-message)
-                                (point))))))))
+               (fstar-subp--info-wrapper
+                (apply-partially #'fstar--eldoc-continuation #'eldoc-message)
+                (point))))))))
 
 (defun fstar--eldoc-truncate-message (fn &rest args)
   "Forward ARGS to FN within scope of binding for `message-truncate-lines'."
@@ -1658,10 +1669,9 @@ asynchronously after the fact)."
 (defun fstar-doc-at-point ()
   "Show documentation of identifier at point, if any."
   (interactive)
+  (fstar-subp--ensure-available #'user-error 'docs)
   (fstar-subp--query (fstar-subp--positional-info-query (point))
-                (apply-partially #'fstar-subp--info-continuation
-                                 #'fstar--doc-at-point-continuation
-                                 (point))))
+                (fstar-subp--info-wrapper #'fstar--doc-at-point-continuation (point))))
 
 ;;;; xref-like features
 
@@ -1694,9 +1704,7 @@ asynchronously after the fact)."
   (interactive)
   (fstar-subp--ensure-available #'user-error 'info)
   (fstar-subp--query (fstar-subp--positional-info-query (point))
-                (apply-partially #'fstar-subp--info-continuation
-                                 #'fstar--jump-to-definition-continuation
-                                 (point))))
+                (fstar-subp--info-wrapper #'fstar--jump-to-definition-continuation (point))))
 
 ;;;; Company
 
@@ -1738,7 +1746,7 @@ If F* is busy, call CONTINUATION directly with symbol `busy'."
   (if (fstar-subp-available-p)
       (fstar-subp--query
        (fstar-subp--positionless-info-query (fstar-subp-company--candidate-fqn candidate))
-       (apply-partially #'fstar-subp--info-continuation continuation nil))
+       (fstar-subp--info-wrapper continuation nil))
     (funcall continuation 'busy)))
 
 (defun fstar-subp-company--meta-continuation (callback info)
