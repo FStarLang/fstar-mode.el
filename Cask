@@ -5,6 +5,7 @@
 
 (depends-on "dash")
 (depends-on "company")
+(depends-on "quick-peek")
 (depends-on "yasnippet")
 (depends-on "company-quickhelp")
 

@@ -42,11 +42,13 @@
 
 ;;; Imports
 
-(require 'dash)
 (require 'cl-lib)
 (require 'eldoc)
 (require 'help-at-pt)
+
+(require 'dash)
 (require 'company)
+(require 'quick-peek)
 (require 'yasnippet)
 (require 'flycheck nil t)
 
@@ -612,6 +614,8 @@ If MUST-FIND-TYPE is nil, the :type part is not necessary."
     (define-key map (kbd "C-h M-w") #'fstar-copy-help-at-point)
     (define-key map (kbd "C-c C-d") #'fstar-doc-at-point)
     (define-key map (kbd "C-c C-f C-d") #'fstar-insert-match-dwim)
+    (define-key map (kbd "<menu>") #'fstar-quick-peek)
+    (define-key map (kbd "M-<f12>") #'fstar-quick-peek)
     map))
 
 (defun fstar-newline-and-indent (arg)
@@ -1833,6 +1837,26 @@ that variable."
   (fstar-subp--ensure-available #'user-error 'info)
   (fstar-subp--query (fstar-subp--positional-info-query (point))
                 (fstar-subp--info-wrapper #'fstar--jump-to-definition-continuation (point))))
+
+;;;; Quick-peek
+
+(defun fstar--quick-peek-continuation (info)
+  "Show type from INFO in inline pop-up."
+  (if info
+      (let ((segments (delq nil (list (fstar-symbol-info-sig info)
+                                      (fstar-symbol-info-doc info)))))
+        (quick-peek-show (mapconcat #'identity segments "\n\n")
+                         (car (with-syntax-table fstar--fqn-at-point-syntax-table
+                                (bounds-of-thing-at-point 'symbol)))))
+    (message "No definition found")))
+
+(defun fstar-quick-peek ()
+  "Toggle inline window showing type of identifier at point."
+  (interactive)
+  (fstar-subp--ensure-available #'user-error 'info)
+  (when (= (quick-peek-hide) 0)
+    (fstar-subp--query (fstar-subp--positional-info-query (point))
+                  (fstar-subp--info-wrapper #'fstar--quick-peek-continuation (point)))))
 
 ;;;; Company
 
