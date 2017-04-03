@@ -136,6 +136,16 @@
   (unless yas-minor-mode (yas-minor-mode 1))
   (apply #'yas-expand-snippet args))
 
+(defun fstar--refresh-eldoc ()
+  "Tell Eldoc to do its thing.
+It's often incorrect to add commands to `eldoc-message-commands',
+as that leads to outdated information being displayed when the
+command is asynchronous.  For example, adding
+`fstar-insert-match-dwim' to `eldoc-message-commands' causes
+eldoc to show the type of the whole *before* destruction, not
+after."
+  (eldoc-print-current-symbol-info))
+
 ;;; Debugging
 
 (defvar fstar-debug nil
@@ -1680,6 +1690,10 @@ asynchronously after the fact)."
   ;; Add-function doesn't work on 'eldoc-documentation-function in Emacs < 25,
   ;; due to the default value being nil instead of `ignore'.
   (setq-local eldoc-documentation-function #'fstar--eldoc-function)
+  ;; LATER the following should move to yasnippet itself
+  (eldoc-add-command 'yas-next-field-or-maybe-expand 'yas-prev-field
+                     'yas-expand 'yas-expand-from-keymap
+                     'yas-expand-from-trigger-key)
   (when (fboundp 'advice-add)
     (advice-add 'eldoc-message :around #'fstar--eldoc-truncate-message))
   (eldoc-mode))
@@ -1773,7 +1787,8 @@ TYPE is used in error messages"
      (remove-text-properties from to '(fstar--match-var-type nil))
      (let ((yas-indent-line nil)
            (snip (fstar--prepare-match-snippet branch)))
-       (fstar--expand-snippet snip from to)))
+       (fstar--expand-snippet snip from to)
+       (fstar--refresh-eldoc)))
     (_
      (message "Can't destruct `%s' in place (it has more than one constructor)" type))))
 
