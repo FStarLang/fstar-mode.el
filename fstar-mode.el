@@ -1638,21 +1638,24 @@ POS, this function can also handle results of position-less #info queries."
 Briefly tries to get results synchronously to reduce flicker, and
 then returns nil (in that case, results are displayed
 asynchronously after the fact)."
-  (when (and (fstar--has-feature 'info) (fstar-subp-available-p)
-             (not (fstar-subp--in-issue-p (point))))
-    (let* ((query (fstar-subp--positional-info-query (point)))
-           (retv (fstar-subp--query-and-wait query 0.01)))
-      (pcase retv
-        (`(t . (,success ,results))
-         (funcall (fstar-subp--info-wrapper
-                   (apply-partially #'fstar--eldoc-continuation #'identity)
-                   (point))
-                  success results))
-        (`(needs-callback . ,_)
-         (setf (cdr retv)
-               (fstar-subp--info-wrapper
-                (apply-partially #'fstar--eldoc-continuation #'eldoc-message)
-                (point))))))))
+  (-if-let* ((hole-info (get-text-property (point) 'fstar--match-var-type)))
+      ;; FIXME Yasnippet hides this message
+      (format "This hole has type `%s'" (car hole-info))
+    (when (and (fstar--has-feature 'info) (fstar-subp-available-p)
+               (not (fstar-subp--in-issue-p (point))))
+      (let* ((query (fstar-subp--positional-info-query (point)))
+             (retv (fstar-subp--query-and-wait query 0.01)))
+        (pcase retv
+          (`(t . (,success ,results))
+           (funcall (fstar-subp--info-wrapper
+                     (apply-partially #'fstar--eldoc-continuation #'identity)
+                     (point))
+                    success results))
+          (`(needs-callback . ,_)
+           (setf (cdr retv)
+                 (fstar-subp--info-wrapper
+                  (apply-partially #'fstar--eldoc-continuation #'eldoc-message)
+                  (point)))))))))
 
 (defun fstar--eldoc-truncate-message (fn &rest args)
   "Forward ARGS to FN within scope of binding for `message-truncate-lines'."
@@ -1698,12 +1701,13 @@ asynchronously after the fact)."
 ;;;; Insert a match
 
 (defun fstar--split-match-var-annot (str)
-  "Split var name and <<<>>> type annotation in STR."
+  "Split var name and <<<|||>>> type annotation in STR."
   (save-match-data
-    (if (string-match "\\(.+?\\)<<<\\(.+?\\)>>>" str)
+    (if (string-match "\\(.+?\\)<<<\\(.+?\\)|||\\(.+?\\)>>>" str)
         (let ((var (match-string 1 str))
-              (type (match-string 2 str)))
-          (cons var type))
+              (type (match-string 2 str))
+              (closed (match-string 3 str)))
+          (cons var (cons type closed)))
       (cons str nil))))
 
 (defun fstar--prepare-match-snippet (snippet)
@@ -1726,10 +1730,8 @@ asynchronously after the fact)."
   "Handle RESPONSE to a #show-match query.
 TYPE is used in error messages"
   (-if-let* ((branches (and response (split-string response "\n"))))
-      (let* ((name-str (if (string-match fstar-syntax-id type)
-                           (match-string 0 type)
-                         "expr"))
-             (branch-strs (mapconcat #'fstar--format-one-branch branches "\n"))
+      (let* ((name-str (car branches))
+             (branch-strs (mapconcat #'fstar--format-one-branch (cdr branches) "\n"))
              (match (format "match ${%s} with\n%s" name-str branch-strs))
              (indented (fstar--indent-str match (current-column))))
         (let ((yas-indent-line nil))
@@ -1755,27 +1757,31 @@ TYPE is used in error messages"
 (defun fstar--destruct-var-continuation (from to type response)
   "Replace FROM..TO (with TYPE) with match from RESPONSE."
   (pcase (and response (split-string response "\n"))
-    (`nil (message "No match found for type `%s'." type))
-    (`(,_ ,_ . ,_) (message "Can't destruct `%s' in place (it has more than one constructor)" type))
-    (`(,branch)
+    (`nil
+     (message "No match found for type `%s'." type))
+    (`(,_name ,branch)
      (remove-text-properties from to '(fstar--match-var-type nil))
      (let ((yas-indent-line nil)
            (snip (fstar--prepare-match-snippet branch)))
-       (fstar--expand-snippet snip from to)))))
+       (fstar--expand-snippet snip from to)))
+    (_
+     (message "Can't destruct `%s' in place (it has more than one constructor)" type))))
 
-(defun fstar--destruct-match-var-1 (from to type)
-  "Replace FROM..TO by pattern matching on TYPE."
+(defun fstar--destruct-match-var-1 (from to type closed-type)
+  "Replace FROM..TO by pattern matching on TYPE/CLOSED-TYPE.
+TYPE is for display (tuple2 a int); CLOSED-TYPE is reparseable by
+F* (fun a -> (tuple2 a int))."
   (fstar-subp--ensure-available #'user-error 'match)
   (fstar-subp--query
-   (fstar-subp--show-match-query type)
+   (fstar-subp--show-match-query closed-type)
    (fstar-subp--pos-check-wrapper (point)
      (apply-partially #'fstar--destruct-var-continuation from to type))))
 
 (defun fstar--destruct-match-var-at-point ()
   "Destruct match variable inserted with `fstar-insert-match'."
   (pcase (fstar--property-range (point) 'fstar--match-var-type)
-    (`(,from ,to ,type)
-     (fstar--destruct-match-var-1 from to type)
+    (`(,from ,to (,type . ,closed-type))
+     (fstar--destruct-match-var-1 from to type closed-type)
      t)))
 
 (defun fstar-insert-match-dwim ()
@@ -1786,7 +1792,8 @@ variables of the constructors of the first match) just destruct
 that variable."
   (interactive)
   (if (region-active-p)
-      (fstar--destruct-match-var-1 (region-beginning) (region-end) (fstar--read-type-name))
+      (let ((type (fstar--read-type-name)))
+        (fstar--destruct-match-var-1 (region-beginning) (region-end) type type))
     (or (fstar--destruct-match-var-at-point)
         (funcall-interactively #'fstar-insert-match (fstar--read-type-name)))))
 
