@@ -2014,27 +2014,32 @@ COMMAND, ARG: see `company-backends'."
     (cancel-timer fstar--spin-timer)
     (setq-local fstar--spin-timer nil)))
 
-(defun fstar--spin-tick (buffer)
-  "Update fstar-mode's mode-line indicator in BUFFER."
-  (with-current-buffer buffer
-    (let ((icon nil))
-      (cond
-       ((and fstar--spin-timer (fstar-subp--busy-p))
-        (setq fstar--spin-counter (mod (1+ fstar--spin-counter) (length fstar-spin-theme)))
-        (setq icon (substring fstar-spin-theme
-                              fstar--spin-counter (1+ fstar--spin-counter))))
-       (t
-        (setq fstar--spin-counter -1)
-        (setq icon "✪")))
-      ;; (print icon)
-      (setq icon (compose-string icon 0 1 (format "\t%c\t" (aref icon 0))))
-      (setq-local mode-name `("F" ,icon))
-      (force-mode-line-update))))
+(defun fstar--spin-tick (buffer timer)
+  "Update fstar-mode's mode-line indicator in BUFFER.
+TIMER is the timer that caused this event to fire."
+  (if (buffer-live-p buffer)
+      (with-current-buffer buffer
+        (let ((icon nil))
+          (cond
+           ((and fstar--spin-timer (fstar-subp--busy-p))
+            (setq fstar--spin-counter (mod (1+ fstar--spin-counter) (length fstar-spin-theme)))
+            (setq icon (substring fstar-spin-theme
+                                  fstar--spin-counter (1+ fstar--spin-counter))))
+           (t
+            (setq fstar--spin-counter -1)
+            (setq icon "✪")))
+          (setq icon (compose-string icon 0 1 (format "\t%c\t" (aref icon 0))))
+          (setq-local mode-name `("F" ,icon))
+          (force-mode-line-update)))
+    (cancel-timer timer)))
 
 (defun fstar-setup-spinner ()
   "Enable dynamic F* icon."
-  (setq-local fstar--spin-timer
-              (run-with-timer 0 0.5 #'fstar--spin-tick (current-buffer))))
+  (let* ((timer nil)
+         (buf (current-buffer))
+         (ticker (lambda () (fstar--spin-tick buf timer))))
+    (setq timer (run-with-timer 0 0.5 ticker))
+    (setq-local fstar--spin-timer timer)))
 
 (defun fstar-teardown-spinner ()
   "Disable dynamic F* icon."
