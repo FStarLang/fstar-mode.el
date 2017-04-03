@@ -48,6 +48,7 @@
 
 (require 'dash)
 (require 'company)
+(require 'company-quickhelp)
 (require 'quick-peek)
 (require 'yasnippet)
 (require 'flycheck nil t)
