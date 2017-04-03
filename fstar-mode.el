@@ -647,11 +647,11 @@ If MUST-FIND-TYPE is nil, the :type part is not necessary."
 
 (defun fstar-indentation-points ()
   "Find reasonable indentation points on the current line."
-  (let ((points)) ;; FIXME first line?
+  (let ((points))
     (save-excursion
-      (forward-line -1)
-      (while (re-search-forward "\\s-+" (point-at-eol) t)
-        (push (current-column) points)))
+      (when (= (forward-line -1) 0) ;; Recognize the first line
+        (while (re-search-forward "\\s-+" (point-at-eol) t)
+          (push (current-column) points))))
     (when points
       (let ((mn (apply #'min points)))
         (push (+ 2 mn) points)
@@ -813,11 +813,9 @@ With BACKWARDS, go back among indentation points."
   (forward-char (min (- (point-at-eol) (point-at-bol)) column)))
 
 (defun fstar--row-col-offset (line column)
-  "Convert a (LINE, COLUMN) pair into a buffer offset.
-
-FIXME: This would be much easier if the interactive mode returned
-an offset instead of a line an column.
-FIXME: This doesn't do error handling."
+  "Convert a (LINE, COLUMN) pair into a buffer offset."
+  ;; LATER: This would be much easier if the interactive mode returned
+  ;; an offset instead of a line an column.
   (save-excursion
     (fstar--goto line column)
     (point)))
@@ -1240,7 +1238,8 @@ returns without doing anything."
 (defun fstar-subp-cleanup-issue (issue ov)
   "Fixup ISSUE: include a file name, and adjust line numbers wrt OV."
   (when (member (fstar-issue-filename issue) '("unknown" "<input>"))
-    (setf (fstar-issue-filename issue) (buffer-file-name))) ;; FIXME ensure we have a file name?
+    (cl-assert buffer-file-name)
+    (setf (fstar-issue-filename issue) buffer-file-name))
   (unless (or (fstar--has-feature 'absolute-linums-in-errors) (null ov))
     (let ((linum (1- (line-number-at-pos (overlay-start ov)))))
       (setf (fstar-issue-line-from issue) (+ (fstar-issue-line-from issue) linum))
@@ -1651,7 +1650,6 @@ Briefly tries to get results synchronously to reduce flicker, and
 then returns nil (in that case, results are displayed
 asynchronously after the fact)."
   (-if-let* ((hole-info (get-text-property (point) 'fstar--match-var-type)))
-      ;; FIXME Yasnippet hides this message
       (format "This hole has type `%s'" (car hole-info))
     (when (and (fstar--has-feature 'info) (fstar-subp-available-p)
                (not (fstar-subp--in-issue-p (point))))
