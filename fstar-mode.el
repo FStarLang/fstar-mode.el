@@ -147,13 +147,21 @@
 (define-obsolete-variable-alias 'fstar-subp-debug 'fstar-debug "0.4")
 (define-obsolete-function-alias 'fstar-subp-toggle-debug 'fstar-toggle-debug "0.4")
 
+(defun fstar--log-buffer ()
+  "Get or create log buffer."
+  (or (get-buffer "*fstar-debug*")
+      (with-current-buffer (get-buffer-create "*fstar-debug*")
+        (setq-local truncate-lines t)
+        (setq-local window-point-insertion-type t)
+        (buffer-disable-undo)
+        (current-buffer))))
+
 (defun fstar--log (format &rest args)
   "Log a message, conditional on `fstar-debug'.
 
 FORMAT and ARGS are as in `message'."
-  (with-current-buffer (get-buffer-create "*fstar-debug*")
+  (with-current-buffer (fstar--log-buffer)
     (goto-char (point-max))
-    (setq-local window-point-insertion-type t)
     (insert (apply #'format format args) "\n")))
 
 (defmacro fstar-log (format &rest args)
