@@ -1709,13 +1709,12 @@ asynchronously after the fact)."
 ;;;; Insert a match
 
 (defun fstar--split-match-var-annot (str)
-  "Split var name and <<<|||>>> type annotation in STR."
+  "Split var name and <<<>>> type annotation in STR."
   (save-match-data
-    (if (string-match "\\(.+?\\)<<<\\(.+?\\)|||\\(.+?\\)>>>" str)
+    (if (string-match "\\(.+?\\)<<<\\(.+?\\)>>>" str)
         (let ((var (match-string 1 str))
-              (type (match-string 2 str))
-              (closed (match-string 3 str)))
-          (cons var (cons type closed)))
+              (type (match-string 2 str)))
+          (cons var (list type)))
       (cons str nil))))
 
 (defun fstar--prepare-match-snippet (snippet)
@@ -1775,21 +1774,19 @@ TYPE is used in error messages"
     (_
      (message "Can't destruct `%s' in place (it has more than one constructor)" type))))
 
-(defun fstar--destruct-match-var-1 (from to type closed-type)
-  "Replace FROM..TO by pattern matching on TYPE/CLOSED-TYPE.
-TYPE is for display (tuple2 a int); CLOSED-TYPE is reparseable by
-F* (fun a -> (tuple2 a int))."
+(defun fstar--destruct-match-var-1 (from to type)
+  "Replace FROM..TO by pattern matching on TYPE."
   (fstar-subp--ensure-available #'user-error 'match)
   (fstar-subp--query
-   (fstar-subp--show-match-query closed-type)
+   (fstar-subp--show-match-query type)
    (fstar-subp--pos-check-wrapper (point)
      (apply-partially #'fstar--destruct-var-continuation from to type))))
 
 (defun fstar--destruct-match-var-at-point ()
   "Destruct match variable inserted with `fstar-insert-match'."
   (pcase (fstar--property-range (point) 'fstar--match-var-type)
-    (`(,from ,to (,type . ,closed-type))
-     (fstar--destruct-match-var-1 from to type closed-type)
+    (`(,from ,to (,type))
+     (fstar--destruct-match-var-1 from to type)
      t)))
 
 (defun fstar-insert-match-dwim ()
@@ -1800,8 +1797,7 @@ variables of the constructors of the first match) just destruct
 that variable."
   (interactive)
   (if (region-active-p)
-      (let ((type (fstar--read-type-name)))
-        (fstar--destruct-match-var-1 (region-beginning) (region-end) type type))
+      (fstar--destruct-match-var-1 (region-beginning) (region-end) (fstar--read-type-name))
     (or (fstar--destruct-match-var-at-point)
         (funcall-interactively #'fstar-insert-match (fstar--read-type-name)))))
 
