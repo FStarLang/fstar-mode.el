@@ -1604,8 +1604,10 @@ into blocks; process it as one large block instead."
 When HELP-KBD is non nil and info includes a docstring, suggest
 to use HELP-KBD to show documentation."
   (concat
-   (fstar-highlight-string
-    (format "%s: %s" (fstar-symbol-info-name info) (fstar-symbol-info-type info)))
+   (let* ((type (fstar-symbol-info-type info))
+          (clean-type (replace-regexp-in-string "uu___:" "" type)))
+     (fstar-highlight-string
+      (format "%s: %s" (fstar-symbol-info-name info) clean-type)))
    (if (and help-kbd (fstar-symbol-info-doc info))
        (substitute-command-keys (format " (%s for help)" help-kbd))
      "")))
