@@ -1771,7 +1771,8 @@ TYPE is used in error messages"
 
 (defun fstar--read-type-name ()
   "Read a type name."
-  (read-string "Type to destruct (list, …): "))
+  (read-string "Type to match on \
+(`list', `option (int * _)', `either _ (nat * nat)', …): "))
 
 (defun fstar-subp--show-match-query (type)
   "Prepare a #show-match query for TYPE."
