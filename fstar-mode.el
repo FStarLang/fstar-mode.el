@@ -2184,7 +2184,8 @@ multiple arguments as one string will not work: you should use
          (if (eq system-type 'cygwin)
              (string-trim-right
               (shell-command-to-string
-               (format "cygpath -w %s" buffer-file-name)))
+               (format "cygpath -w %s"
+                       (shell-quote-argument buffer-file-name))))
            buffer-file-name)))
     (append `(,file-name "--in") args)))
 
