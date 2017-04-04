@@ -6,7 +6,7 @@
 
 ;; Created: 27 Aug 2015
 ;; Version: 0.4
-;; Package-Requires: ((emacs "24.3") (dash "2.11") (company "0.8.12") (company-quickhelp "2.1.0") (yasnippet "0.11.0"))
+;; Package-Requires: ((emacs "24.3") (dash "2.11") (company "0.8.12") (company-quickhelp "2.1.0") (quick-peek "1.0") (yasnippet "0.11.0"))
 ;; Keywords: convenience, languages
 
 ;; This file is not part of GNU Emacs.
