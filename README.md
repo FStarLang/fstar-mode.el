@@ -32,20 +32,29 @@ F*-mode requires Emacs 24.3 or newer, and is distributed through [MELPA](https:/
 
 ## Keybindings
 
-:zap: indicates keybindings available once F* is running.
-:sparkles: indicates features added since the latest F* release.
+:zap: indicates keybindings available once F* is running.<br/>
+:sparkles: indicates features added since the latest F* release.<br/>
+:unicorn: indicates features that require yet-unmerged patches to F*.<br/>
 
 ### General
 
-Key       | Action
-----------|----------------------------------
-`C-h .`   | Show current error in echo area
-`C-h M-w` | Copy current error message
-`TAB`     | Indent
-`S-TAB`   | Unindent
-`C-RET`   | :zap: :sparkles: Autocomplete word at point
-`M-.`     | :zap: :sparkles: Jump to definition
-`C-c C-d` | :zap: :sparkles: Show documentation of symbol at point
+Key                 | Action
+--------------------|----------------------------------
+`C-h .`             | Show current error in echo area
+`C-h M-w`           | Copy current error message
+`TAB`               | Indent
+`S-TAB`             | Unindent
+`C-RET`             | :zap: :sparkles: Autocomplete word at point
+`M-.`               | :zap: :sparkles: Jump to definition
+`C-c C-d`           | :zap: :unicorn: Show documentation of symbol at point (repeat to hide docs)
+`<menu>`, `M-<f12>` | :zap: :unicorn: Show type and docs in a small inline window (repeat to hide the window)
+
+### Matching
+
+Key                 | Action
+--------------------|----------------------------------
+`C-c C-s C-c`       | :zap: :unicorn: Case split: insert a match, or refine match at point
+
 
 ### Interactive mode
 

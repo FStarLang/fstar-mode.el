@@ -624,9 +624,9 @@ If MUST-FIND-TYPE is nil, the :type part is not necessary."
     (define-key map (kbd "S-TAB") #'fstar-unindent)
     (define-key map (kbd "C-h M-w") #'fstar-copy-help-at-point)
     (define-key map (kbd "C-c C-d") #'fstar-doc-at-point-dwim)
-    (define-key map (kbd "C-c C-f C-d") #'fstar-insert-match-dwim)
     (define-key map (kbd "<menu>") #'fstar-quick-peek)
     (define-key map (kbd "M-<f12>") #'fstar-quick-peek)
+    (define-key map (kbd "C-c C-s C-c") #'fstar-insert-match-dwim)
     map))
 
 (defun fstar-newline-and-indent (arg)
@@ -1772,7 +1772,7 @@ TYPE is used in error messages"
 (defun fstar--read-type-name ()
   "Read a type name."
   (read-string "Type to match on \
-(`list', `option (int * _)', `either _ (nat * nat)', …): "))
+(‘list’, ‘either’, ‘option (nat * nat)’, …): "))
 
 (defun fstar-subp--show-match-query (type)
   "Prepare a #show-match query for TYPE."
