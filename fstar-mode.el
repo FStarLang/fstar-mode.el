@@ -6,7 +6,7 @@
 
 ;; Created: 27 Aug 2015
 ;; Version: 0.4
-;; Package-Requires: ((emacs "24.3") (dash "2.11") (company "0.8.12") (company-quickhelp "2.1.0") (quick-peek "1.0") (yasnippet "0.11.0"))
+;; Package-Requires: ((emacs "24.3") (dash "2.11") (company "0.8.12") (quick-peek "1.0") (yasnippet "0.11.0"))
 ;; Keywords: convenience, languages
 
 ;; This file is not part of GNU Emacs.
@@ -48,10 +48,10 @@
 
 (require 'dash)
 (require 'company)
-(require 'company-quickhelp)
 (require 'quick-peek)
 (require 'yasnippet)
 (require 'flycheck nil t)
+(require 'company-quickhelp nil t)
 
 ;;; Compatibility
 
@@ -1678,7 +1678,7 @@ If response is valid, forward results to CONTINUATION.  With nil
 POS, this function can also handle results of position-less #info queries."
   (fstar-subp--pos-check-wrapper pos
     (lambda (response)
-      (if-let* ((info (and response (fstar-subp--parse-info response))))
+      (-if-let* ((info (and response (fstar-subp--parse-info response))))
           (funcall continuation info)
         (funcall continuation nil)))))
 
@@ -1754,9 +1754,9 @@ Try visiting the source file with \\[fstar-jump-to-definition]?"))))
 (defun fstar-doc-at-point-dwim ()
   "Show documentation of identifier at point, if any."
   (interactive)
-  (if-let* ((same-command (eq last-command this-command))
-            (doc-wins (and (buffer-live-p (get-buffer fstar--doc-buffer-name))
-                           (get-buffer-window-list fstar--doc-buffer-name nil t))))
+  (-if-let* ((same-command (eq last-command this-command))
+             (doc-wins (and (buffer-live-p (get-buffer fstar--doc-buffer-name))
+                            (get-buffer-window-list fstar--doc-buffer-name nil t))))
       (mapc (apply-partially #'quit-window nil) doc-wins)
     (fstar-subp--ensure-available #'user-error 'docs)
     (fstar-subp--query (fstar-subp--positional-info-query (point))
@@ -1857,7 +1857,7 @@ that variable."
   (if (region-active-p)
       (fstar--destruct-match-var-1 (region-beginning) (region-end) (fstar--read-type-name))
     (or (fstar--destruct-match-var-at-point)
-        (funcall-interactively #'fstar-insert-match (fstar--read-type-name)))))
+        (fstar-insert-match (fstar--read-type-name)))))
 
 ;;;; xref-like features
 
@@ -2057,14 +2057,16 @@ COMMAND, ARG: see `company-backends'."
 
 (defun fstar-setup-company-defaults ()
   "Set up Company support."
-  (company-quickhelp-local-mode 1)
+  (when (fboundp 'company-quickhelp-local-mode)
+    (company-quickhelp-local-mode 1))
   (setq-local company-idle-delay 0.01)
   (setq-local company-tooltip-align-annotations t)
   (setq-local company-abort-manual-when-too-short t))
 
 (defun fstar-teardown-company-defaults ()
   "Tear down Company support."
-  (company-quickhelp-local-mode -1)
+  (when (fboundp 'company-quickhelp-local-mode)
+    (company-quickhelp-local-mode -1))
   (kill-local-variable 'company-idle-delay)
   (kill-local-variable 'company-tooltip-align-annotations)
   (kill-local-variable 'company-abort-manual-when-too-short))
