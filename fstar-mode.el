@@ -146,6 +146,10 @@ eldoc to show the type of the whole *before* destruction, not
 after."
   (eldoc-print-current-symbol-info))
 
+(defun fstar--unwrap-paragraphs (str)
+  "Remove hard line wraps from STR."
+  (replace-regexp-in-string "\n\\([^\n\t ]\\)" "\\1" str))
+
 ;;; Debugging
 
 (defvar fstar-debug nil
@@ -540,6 +544,27 @@ If MUST-FIND-TYPE is nil, the :type part is not necessary."
     (if (fboundp 'font-lock-ensure)
         (font-lock-ensure)
       (with-no-warnings (font-lock-fontify-buffer)))
+    (buffer-string)))
+
+(defun fstar--highlight-docstring-buffer ()
+  "Highlight current buffer as an F* docstring."
+  (let ((inhibit-read-only t))
+    (goto-char (point-min))
+    (while (search-forward "[" nil t)
+      (let* ((beg (point))
+             (end (ignore-errors (backward-char) (forward-sexp) (1- (point))))
+             (str (and end (buffer-substring-no-properties beg end))))
+        (if (null str)
+            (goto-char (point-max))
+          (goto-char beg)
+          (delete-region beg end)
+          (insert (fstar-highlight-string str)))))))
+
+(defun fstar--highlight-docstring (str)
+  "Highlight STR as an F* docstring."
+  (with-temp-buffer
+    (insert str)
+    (fstar--highlight-docstring-buffer)
     (buffer-string)))
 
 (defun fstar-setup-font-lock ()
@@ -1612,6 +1637,11 @@ to use HELP-KBD to show documentation."
        (substitute-command-keys (format " (%s for help)" help-kbd))
      "")))
 
+(defun fstar-symbol-info-docstring (info)
+  "Format docstring of INFO, if any."
+  (-when-let* ((doc (fstar-symbol-info-doc info)))
+    (fstar--highlight-docstring doc)))
+
 (defun fstar-subp--parse-info (response)
   "Parse info structure from RESPONSE."
   (when (string-match fstar-subp--info-response-header-regex response)
@@ -1714,7 +1744,9 @@ asynchronously after the fact)."
   "Show documentation in INFO."
   (-if-let* ((doc (and info (fstar-symbol-info-doc info))))
       (with-help-window fstar--doc-buffer-name
-        (princ doc))
+        (with-current-buffer standard-output
+          (insert (fstar--unwrap-paragraphs doc))
+          (fstar--highlight-docstring-buffer)))
     (message
      (substitute-command-keys "No documentation found. \
 Try visiting the source file with \\[fstar-jump-to-definition]?"))))
@@ -1866,7 +1898,7 @@ that variable."
   "Show type from INFO in inline pop-up."
   (if info
       (let ((segments (delq nil (list (fstar-symbol-info-sig info)
-                                      (fstar-symbol-info-doc info)))))
+                                      (fstar-symbol-info-docstring info)))))
         (quick-peek-show (mapconcat #'identity segments "\n\n")
                          (car (with-syntax-table fstar--fqn-at-point-syntax-table
                                 (bounds-of-thing-at-point 'symbol)))))
