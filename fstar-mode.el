@@ -623,7 +623,7 @@ If MUST-FIND-TYPE is nil, the :type part is not necessary."
     (define-key map (kbd "<backtab>") #'fstar-unindent)
     (define-key map (kbd "S-TAB") #'fstar-unindent)
     (define-key map (kbd "C-h M-w") #'fstar-copy-help-at-point)
-    (define-key map (kbd "C-c C-d") #'fstar-doc-at-point)
+    (define-key map (kbd "C-c C-d") #'fstar-doc-at-point-dwim)
     (define-key map (kbd "C-c C-f C-d") #'fstar-insert-match-dwim)
     (define-key map (kbd "<menu>") #'fstar-quick-peek)
     (define-key map (kbd "M-<f12>") #'fstar-quick-peek)
@@ -1655,7 +1655,7 @@ POS, this function can also handle results of position-less #info queries."
 (defun fstar--eldoc-continuation (continuation info)
   "Pass highlighted type information from INFO to CONTINUATION."
   (when info
-    (funcall continuation (fstar-symbol-info-sig info "\\[fstar-doc-at-point]"))))
+    (funcall continuation (fstar-symbol-info-sig info "\\[fstar-doc-at-point-dwim]"))))
 
 (defun fstar--eldoc-function ()
   "Compute an eldoc string for current point.
@@ -1708,22 +1708,27 @@ asynchronously after the fact)."
 
 ;;;; Doc at point
 
+(defconst fstar--doc-buffer-name "*fstar-doc*")
+
 (defun fstar--doc-at-point-continuation (info)
   "Show documentation in INFO."
   (-if-let* ((doc (and info (fstar-symbol-info-doc info))))
-      (with-help-window "*fstar-doc*"
+      (with-help-window fstar--doc-buffer-name
         (princ doc))
     (message
-     (substitute-command-keys
-      (concat "No documentation found. "
-              "Try visiting the source file with \\[fstar-jump-to-definition]")))))
+     (substitute-command-keys "No documentation found. \
+Try visiting the source file with \\[fstar-jump-to-definition]?"))))
 
-(defun fstar-doc-at-point ()
+(defun fstar-doc-at-point-dwim ()
   "Show documentation of identifier at point, if any."
   (interactive)
-  (fstar-subp--ensure-available #'user-error 'docs)
-  (fstar-subp--query (fstar-subp--positional-info-query (point))
-                (fstar-subp--info-wrapper #'fstar--doc-at-point-continuation (point))))
+  (if-let* ((same-command (eq last-command this-command))
+            (doc-wins (and (buffer-live-p (get-buffer fstar--doc-buffer-name))
+                           (get-buffer-window-list fstar--doc-buffer-name nil t))))
+      (mapc (apply-partially #'quit-window nil) doc-wins)
+    (fstar-subp--ensure-available #'user-error 'docs)
+    (fstar-subp--query (fstar-subp--positional-info-query (point))
+                  (fstar-subp--info-wrapper #'fstar--doc-at-point-continuation (point)))))
 
 ;;;; Insert a match
 
