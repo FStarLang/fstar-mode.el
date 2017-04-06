@@ -45,6 +45,7 @@
 (require 'cl-lib)
 (require 'eldoc)
 (require 'help-at-pt)
+(require 'tramp)
 
 (require 'dash)
 (require 'company)
@@ -194,13 +195,19 @@ FORMAT and ARGS are as in `message'."
 (defun fstar-find-executable ()
   "Compute the absolute path to the F* executable.
 Check that the binary exists and is executable; if not, raise an
-error."
-  (let ((prog-abs (and fstar-executable (executable-find fstar-executable))))
-    (unless (and prog-abs (file-exists-p prog-abs))
-      (user-error "F* executable not found; please set `fstar-executable'"))
-    (unless (file-executable-p prog-abs)
-      (user-error "F* executable not executable; please check the value of `fstar-executable'"))
-    prog-abs))
+error.  These checks are skipped if the current file is remote."
+  (if (tramp-tramp-file-p buffer-file-name)
+      (progn (message "Running remotely: \
+skipping `fstar-executable' presence check.")
+             fstar-executable)
+    (let ((prog-abs (and fstar-executable (executable-find fstar-executable))))
+      (unless (and prog-abs (file-exists-p prog-abs))
+        (user-error "F* executable not found; \
+please set `fstar-executable'"))
+      (unless (file-executable-p prog-abs)
+        (user-error "F* executable not executable; \
+please check the value of `fstar-executable'"))
+      prog-abs)))
 
 (defvar-local fstar--vernum nil
   "F*'s version number.")
@@ -214,10 +221,16 @@ error."
       (docs . "42.0")
       (match . "42.0"))))
 
-(defun fstar--init-compatibility-layer ()
-  "Adjust compatibility settings based on `fstar-executable''s version number."
-  (let* ((version-string (car (process-lines (fstar-find-executable) "--version"))))
-    (if (string-match "F\\* \\([- .[:alnum:]]+\\)" version-string)
+(defun fstar--query-vernum (executable)
+  "Ask F* EXECUTABLE for its version number."
+  (with-temp-buffer
+    (process-file executable nil t nil "--version")
+    (buffer-string)))
+
+(defun fstar--init-compatibility-layer (executable)
+  "Adjust compatibility settings based on EXECUTABLE's version number."
+  (let* ((version-string (fstar--query-vernum executable)))
+    (if (string-match "^F\\* \\([- .[:alnum:]]+\\)" version-string)
         (setq fstar--vernum (match-string 1 version-string))
       (message "F*: Can't parse version number from %S" version-string)
       (setq fstar--vernum "unknown"))))
@@ -2183,12 +2196,15 @@ multiple arguments as one string will not work: you should use
 (defun fstar-subp-with-interactive-args (args)
   "Return ARGS precedeed by --in and the filename of the current buffer."
   (let ((file-name
-         (if (eq system-type 'cygwin)
-             (string-trim-right
-              (shell-command-to-string
-               (format "cygpath -w %s"
-                       (shell-quote-argument buffer-file-name))))
-           buffer-file-name)))
+         (cond
+          ((tramp-tramp-file-p buffer-file-name)
+           (tramp-file-name-localname
+            (tramp-dissect-file-name buffer-file-name)))
+          ((eq system-type 'cygwin)
+           (string-trim-right
+            (shell-command-to-string
+             (format "cygpath -w %s" (shell-quote-argument buffer-file-name)))))
+          (t buffer-file-name))))
     (append `(,file-name "--in") args)))
 
 (defun fstar-subp-adjust-path (fn buf prog args)
@@ -2201,7 +2217,7 @@ Forward BUF, PROG, and ARGS to FN."
 
 (defun fstar-subp-start-process (buf prog args)
   "Start an F* subprocess PROG in BUF with ARGS."
-  (apply #'start-process "F* interactive" buf prog args))
+  (apply #'start-file-process "F* interactive" buf prog args))
 
 (defun fstar-subp-start ()
   "Start an F* subprocess attached to the current buffer, if none exists."
@@ -2209,9 +2225,10 @@ Forward BUF, PROG, and ARGS to FN."
     (error "Can't start F* subprocess without a backing file (save this buffer first)"))
   (unless fstar-subp--process
     (let ((prog-abs (fstar-find-executable)))
-      (fstar--init-compatibility-layer)
+      (fstar--init-compatibility-layer prog-abs)
       (let* ((buf (fstar-subp-make-buffer))
              (process-connection-type nil)
+             (tramp-process-connection-type nil)
              (args (fstar-subp-with-interactive-args (fstar-subp-get-prover-args)))
              (proc (fstar-subp-start-process buf prog-abs args)))
         (fstar-log "Started F* interactive: %S" (cons prog-abs args))
