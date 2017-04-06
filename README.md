@@ -46,8 +46,8 @@ Key                 | Action
 `S-TAB`             | Unindent
 `C-RET`             | :zap: :sparkles: Autocomplete word at point
 `M-.`               | :zap: :sparkles: Jump to definition
-`C-c C-d`           | :zap: :unicorn: Show documentation of symbol at point (repeat to hide docs)
-`<menu>`, `M-<f12>` | :zap: :unicorn: Show type and docs in a small inline window (repeat to hide the window)
+`C-c C-d`           | :zap: :sparkles: Show documentation of symbol at point (repeat to hide docs)
+`<menu>`, `M-<f12>` | :zap: :sparkles: Show type and docs in a small inline window (repeat to hide the window)
 
 ### Matching
 
