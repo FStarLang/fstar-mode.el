@@ -1817,7 +1817,7 @@ TYPE is used in error messages"
 (defun fstar--read-type-name ()
   "Read a type name."
   (read-string "Type to match on \
-(‘list’, ‘either’, ‘option (nat * nat)’, …): "))
+(‘list’, ‘either’, ‘option (nat * _)’, …): "))
 
 (defun fstar-subp--show-match-query (type)
   "Prepare a #show-match query for TYPE."
