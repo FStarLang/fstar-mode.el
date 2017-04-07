@@ -19,7 +19,7 @@ prepare-cask: prepare-emacs
 before_install: prepare-emacs prepare-cask
 
 install:
-	cask install
+	cask install || true
 
 script:
 	make build

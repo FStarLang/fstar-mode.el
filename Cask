@@ -7,7 +7,7 @@
 (depends-on "company")
 (depends-on "quick-peek")
 (depends-on "yasnippet")
+(depends-on "flycheck")
 
 (development
- (depends-on "flycheck")
  (depends-on "company-quickhelp"))

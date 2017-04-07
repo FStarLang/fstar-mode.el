@@ -2,10 +2,10 @@ language: emacs-lisp
 sudo: false
 
 env:
-  - EMACS_TARGET=emacs-24.3
-  - EMACS_TARGET=emacs-24.4
-  - EMACS_TARGET=emacs-24.5
-  - EMACS_TARGET=emacs-git
+  - EMACS_TARGET=emacs-24.3 ERROR_ON_WARN=nil
+  - EMACS_TARGET=emacs-24.4 ERROR_ON_WARN=t
+  - EMACS_TARGET=emacs-24.5 ERROR_ON_WARN=t
+  - EMACS_TARGET=emacs-git  ERROR_ON_WARN=t
 
 before_install:
   - export PATH=$HOME/.cask/bin:$HOME/bin:$PATH
