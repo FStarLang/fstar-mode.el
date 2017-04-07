@@ -183,12 +183,19 @@ after."
 (define-obsolete-variable-alias 'fstar-subp-debug 'fstar-debug "0.4")
 (define-obsolete-function-alias 'fstar-subp-toggle-debug 'fstar-toggle-debug "0.4")
 
+(defconst fstar--log-buffer-keywords
+  '((";;;" . font-lock-constant-face)
+    (">>>" . font-lock-constant-face)
+    ("^#done-n?ok" . font-lock-builtin-face)))
+
 (defun fstar--log-buffer ()
   "Get or create log buffer."
   (or (get-buffer "*fstar-debug*")
       (with-current-buffer (get-buffer-create "*fstar-debug*")
         (setq-local truncate-lines t)
         (setq-local window-point-insertion-type t)
+        (setq-local font-lock-defaults '(fstar--log-buffer-keywords))
+        (font-lock-mode 1)
         (buffer-disable-undo)
         (current-buffer))))
 
@@ -201,6 +208,7 @@ LEVEL is one of `info', `input', `output'."
     (goto-char (point-max))
     (let* ((raw (apply #'format format args))
            (head (cdr (assq kind '((info . ";;; ") (in . ">>> ") (out . ""))))))
+      (fstar-assert head)
       (insert (replace-regexp-in-string "^" head raw) "\n"))))
 
 (defmacro fstar-log (kind format &rest args)
@@ -795,8 +803,8 @@ With BACKWARDS, go back among indentation points."
 (defconst fstar-subp--failure "nok")
 (defconst fstar-subp--done "\n#done-")
 
-(defconst fstar-subp--cancel "#pop\n")
-(defconst fstar-subp--footer "\n#end #done-ok #done-nok\n")
+(defconst fstar-subp--cancel "#pop")
+(defconst fstar-subp--footer "\n#end #done-ok #done-nok")
 
 (defconst fstar-subp-statuses '(pending busy processed))
 
@@ -1065,7 +1073,7 @@ FEATURE, if specified."
   (fstar-assert (not fstar-subp--continuation))
   (setq fstar-subp--continuation continuation)
   (fstar-subp-start)
-  (process-send-string fstar-subp--process query))
+  (process-send-string fstar-subp--process (concat query "\n")))
 
 (defun fstar-subp--query-and-wait-1 (start query results-cell max-delay continuation)
   "Issues QUERY and wait for an answer for up to MAX-DELAY after START.
@@ -1661,11 +1669,11 @@ into blocks; process it as one large block instead."
 (defun fstar-subp--positional-info-query (pos)
   "Prepare a header for an info query at POS."
   (if (fstar--has-feature 'info-includes-symbol)
-      (format "#info %s <input> %d %d\n"
+      (format "#info %s <input> %d %d"
               (or (fstar--fqn-at-point pos) "")
               (line-number-at-pos pos)
               (fstar-subp--column-number-at-pos pos))
-    (format "#info <input> %d %d\n"
+    (format "#info <input> %d %d"
             (line-number-at-pos pos)
             (fstar-subp--column-number-at-pos pos))))
 
@@ -1863,7 +1871,7 @@ TYPE is used in error messages"
 
 (defun fstar-subp--show-match-query (type)
   "Prepare a #show-match query for TYPE."
-  (format "#show-match %s\n" (replace-regexp-in-string "\n" " " type)))
+  (format "#show-match %s" (replace-regexp-in-string "\n" " " type)))
 
 (defun fstar-insert-match (type)
   "Insert a match on TYPE at point."
@@ -1972,7 +1980,7 @@ that variable."
 (defun fstar-subp--completion-query (prefix)
   "Prepare a #completions query from PREFIX."
   (fstar-assert (not (string-match-p " " prefix)))
-  (format "#completions %s #\n" prefix))
+  (format "#completions %s #" prefix))
 
 (defun fstar-subp-company--parse-candidate (line)
   "Extract a candidate from LINE."
@@ -1995,7 +2003,7 @@ Return (CALLBACK CANDIDATES)."
   "Prepare a header for an info query for SYMBOL."
   (when (equal symbol "")
     (user-error "Looking up an empty name"))
-  (format "#info %s\n" symbol))
+  (format "#info %s" symbol))
 
 (defun fstar-subp-company--candidate-fqn (candidate)
   "Compute the fully qualified name of CANDIDATE."
