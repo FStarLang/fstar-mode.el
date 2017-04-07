@@ -192,11 +192,15 @@ FORMAT and ARGS are as in `message'."
 
 ;;; Compatibility across F* versions
 
-(defun fstar--make-tramp-file-name (vec fname)
-  "Convert FNAME to a name on remote host VEC."
-  (tramp-make-tramp-file-name
-   (tramp-file-name-method vec) (tramp-file-name-user vec)
-   (tramp-file-name-host vec) fname))
+(defun fstar--make-tramp-file-name (fname)
+  "Convert FNAME to a name on remote host."
+  (with-parsed-tramp-file-name buffer-file-name nil
+    (tramp-make-tramp-file-name method user host fname)))
+
+(defun fstar--tramp-find-executable (prog)
+  "Check if PROG is in the remote path."
+  (with-parsed-tramp-file-name buffer-file-name vec
+    (tramp-find-executable vec prog nil)))
 
 (defun fstar--check-executable (path qual)
   "Check if PATH exists and is executable.
@@ -213,14 +217,16 @@ please check the value of `fstar-executable'" qual fstar-executable)))
 Check that the binary exists and is executable; if not, raise an
 error."
   (let* ((remote (tramp-tramp-file-p buffer-file-name))
-         (prog-abs (if remote fstar-executable (executable-find fstar-executable))))
+         (f*-abs (if remote fstar-executable (executable-find fstar-executable)))
+         (z3 (if remote (fstar--tramp-find-executable "z3") (executable-find "z3"))))
+    (unless z3
+      (user-error "Z3 doesn't seem to be in your %spath.  \
+Please adjust your PATH environment variable" (if remote "remote " "")))
     (if remote
-        (let* ((vec (tramp-dissect-file-name buffer-file-name))
-               (fqn (fstar--make-tramp-file-name vec fstar-executable)))
-          (unless (tramp-find-executable vec fstar-executable nil)
-            (fstar--check-executable fqn "Remote ")))
-      (fstar--check-executable prog-abs ""))
-    prog-abs))
+        (or (fstar--tramp-find-executable fstar-executable)
+            (fstar--check-executable (fstar--make-tramp-file-name fstar-executable) "Remote "))
+      (fstar--check-executable f*-abs ""))
+    f*-abs))
 
 (defvar-local fstar--vernum nil
   "F*'s version number.")
