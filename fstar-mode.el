@@ -174,21 +174,24 @@ after."
         (buffer-disable-undo)
         (current-buffer))))
 
-(defun fstar--log (format &rest args)
-  "Log a message, conditional on `fstar-debug'.
+(defun fstar--log (kind format &rest args)
+  "Log a message of kind KIND, conditional on `fstar-debug'.
 
-FORMAT and ARGS are as in `message'."
+FORMAT and ARGS are as in `message'.
+LEVEL is one of `info', `input', `output'."
   (with-current-buffer (fstar--log-buffer)
     (goto-char (point-max))
-    (insert (apply #'format format args) "\n")))
+    (let* ((raw (apply #'format format args))
+           (head (cdr (assq kind '((info . ";;; ") (in . ">>> ") (out . ""))))))
+      (insert (replace-regexp-in-string "^" head raw) "\n"))))
 
-(defmacro fstar-log (format &rest args)
-  "Log a message, conditional on `fstar-debug'.
+(defmacro fstar-log (kind format &rest args)
+  "Log a message of kind KIND, conditional on `fstar-debug'.
 
 FORMAT and ARGS are as in `message'."
   (declare (debug t))
   `(when fstar-debug
-     (fstar--log ,format ,@args)))
+     (fstar--log ,kind ,format ,@args)))
 
 ;;; Compatibility across F* versions
 
@@ -1041,7 +1044,7 @@ FEATURE, if specified."
 
 (defun fstar-subp--query (query continuation)
   "Send QUERY to F* subprocess; handle results with CONTINUATION."
-  (fstar-log "QUERY [%s]" query)
+  (fstar-log 'in "%s" query)
   (fstar-assert (not fstar-subp--continuation))
   (setq fstar-subp--continuation continuation)
   (fstar-subp-start)
@@ -1082,11 +1085,11 @@ return value."
     ;; Check for results
     (cond
      ((car results-cell) ;; Got results in time!
-      (fstar-log "Fetching results for %S took %.2fms"
+      (fstar-log 'info "Fetching results for %S took %.2fms"
             query (* 1000 (float-time (time-since start))))
       results-cell)
      (t ;; Results are late.  Set callback to company-supplied one.
-      (fstar-log "Results for %S are late" query)
+      (fstar-log 'info "Results for %S are late" query)
       callback-cell))))
 
 (defun fstar-subp-find-response (proc)
@@ -1101,7 +1104,7 @@ return value."
            (resp-end      (point-at-bol))
            (resp-real-end (point-at-eol))
            (response      (fstar--string-trim (buffer-substring resp-beg resp-end))))
-      (fstar-log "RESPONSE [%s] [%s]" status response)
+      (fstar-log 'info "EOM received; status is [%s]" status)
       (delete-region resp-beg resp-real-end)
       (when (fstar-subp-live-p proc)
         (fstar-subp-with-source-buffer proc
@@ -1130,7 +1133,7 @@ return value."
 (defun fstar-subp-filter (proc string)
   "Handle PROC's output (STRING)."
   (when string
-    (fstar-log "OUTPUT [%s]" string)
+    (fstar-log 'out "%s" string)
     (if (fstar-subp-live-p proc)
         (fstar-subp-with-process-buffer proc
           (goto-char (point-max))
@@ -1140,7 +1143,7 @@ return value."
 
 (defun fstar-subp-sentinel (proc signal)
   "Handle PROC's SIGNAL."
-  (fstar-log "SENTINEL [%s] [%s]" signal (process-status proc))
+  (fstar-log 'info "Signal received: [%s] [%s]" signal (process-status proc))
   (when (or (memq (process-status proc) '(exit signal))
             (not (process-live-p proc)))
     (message "F*: subprocess exited.")
@@ -1383,7 +1386,7 @@ Complain if SUCCESS is nil and RESPONSE doesn't contain issues."
       (warn "No issues found in response despite prover failure: [%s]" response))
     (when other-issues
       (message "F* reported issues in other files: [%S]" other-issues))
-    (fstar-log "Highlighting issues: %s" issues)
+    (fstar-log 'info "Highlighting issues: %s" issues)
     (when local-issues
       (fstar-subp-jump-to-issue (car local-issues))
       (fstar-subp-highlight-issues local-issues)
@@ -1499,9 +1502,9 @@ Modifications are only allowed if it is safe to retract up to the beginning of t
     (fstar-subp-start)
     (unless (fstar-subp--busy-p)
       (-if-let* ((overlay (car-safe (fstar-subp-tracking-overlays 'pending))))
-          (progn (fstar-log "Processing queue")
+          (progn (fstar-log 'info "Processing queue")
                  (fstar-subp-process-overlay overlay))
-        (fstar-log "Queue is empty %S" (mapcar #'fstar-subp-status (fstar-subp-tracking-overlays)))))))
+        (fstar-log 'info "Queue is empty %S" (mapcar #'fstar-subp-status (fstar-subp-tracking-overlays)))))))
 
 ;;;; Advancing and retracting
 
@@ -2052,7 +2055,7 @@ then returns an :async cons, as required by company-mode."
 Candidates are provided by the F* subprocess.
 COMMAND, ARG: see `company-backends'."
   (interactive '(interactive))
-  ;; (fstar-log "fstar-subp-company-backend: %S %S" command arg)
+  ;; (fstar-log 'info "fstar-subp-company-backend: %S %S" command arg)
   (when (fstar--has-feature 'completion)
     (pcase command
       (`interactive
@@ -2251,7 +2254,7 @@ Forward BUF, PROG, and ARGS to FN."
              (tramp-process-connection-type nil)
              (args (fstar-subp-with-interactive-args (fstar-subp-get-prover-args)))
              (proc (fstar-subp-start-process buf prog-abs args)))
-        (fstar-log "Started F* interactive: %S" (cons prog-abs args))
+        (fstar-log 'info "Started F* interactive: %S" (cons prog-abs args))
         (set-process-query-on-exit-flag proc nil)
         (set-process-filter proc #'fstar-subp-filter)
         (set-process-sentinel proc #'fstar-subp-sentinel)
