@@ -192,22 +192,35 @@ FORMAT and ARGS are as in `message'."
 
 ;;; Compatibility across F* versions
 
+(defun fstar--make-tramp-file-name (vec fname)
+  "Convert FNAME to a name on remote host VEC."
+  (tramp-make-tramp-file-name
+   (tramp-file-name-method vec) (tramp-file-name-user vec)
+   (tramp-file-name-host vec) fname))
+
+(defun fstar--check-executable (path qual)
+  "Check if PATH exists and is executable.
+QUAL is used as a prefix of error messages."
+  (unless (and path (file-exists-p path))
+    (user-error "%sF* executable (‘%s’) not found; \
+please adjust `fstar-executable'" qual fstar-executable))
+  (unless (file-executable-p path)
+    (user-error "%sF* executable (‘%s’) not executable; \
+please check the value of `fstar-executable'" qual fstar-executable)))
+
 (defun fstar-find-executable ()
   "Compute the absolute path to the F* executable.
 Check that the binary exists and is executable; if not, raise an
-error.  These checks are skipped if the current file is remote."
-  (if (tramp-tramp-file-p buffer-file-name)
-      (progn (message "Running remotely: \
-skipping `fstar-executable' presence check.")
-             fstar-executable)
-    (let ((prog-abs (and fstar-executable (executable-find fstar-executable))))
-      (unless (and prog-abs (file-exists-p prog-abs))
-        (user-error "F* executable not found; \
-please set `fstar-executable'"))
-      (unless (file-executable-p prog-abs)
-        (user-error "F* executable not executable; \
-please check the value of `fstar-executable'"))
-      prog-abs)))
+error."
+  (let* ((remote (tramp-tramp-file-p buffer-file-name))
+         (prog-abs (if remote fstar-executable (executable-find fstar-executable))))
+    (if remote
+        (let* ((vec (tramp-dissect-file-name buffer-file-name))
+               (fqn (fstar--make-tramp-file-name vec fstar-executable)))
+          (unless (tramp-find-executable vec fstar-executable nil)
+            (fstar--check-executable fqn "Remote ")))
+      (fstar--check-executable prog-abs ""))
+    prog-abs))
 
 (defvar-local fstar--vernum nil
   "F*'s version number.")
