@@ -45,7 +45,9 @@
 (require 'cl-lib)
 (require 'eldoc)
 (require 'help-at-pt)
+(require 'ansi-color)
 (require 'tramp)
+(require 'tramp-sh)
 
 (require 'dash)
 (require 'company)
@@ -1094,7 +1096,9 @@ return value."
 
 (defun fstar-subp-find-response (proc)
   "Find full response in PROC's buffer; handle it if found."
-  (goto-char (point-min))
+  (setq ansi-color-context-region nil)
+  (ansi-color-filter-region (point-min) (point-max))
+  (goto-char (point-min)) ;; FIXME better protocol wouldn't require re-scans
   (when (search-forward fstar-subp--done nil t)
     (let* ((status        (cond
                            ((looking-at fstar-subp--success) t)
@@ -1110,8 +1114,8 @@ return value."
         (fstar-subp-with-source-buffer proc
           (unless (booleanp status)
             (fstar-subp-kill)
-            (error "Unknown status [%s] from F* subprocess (response was [%s])"
-                   status response))
+            (error "Unknown status [%s] from F* subprocess \
+\(response was [%s])" status response))
           (fstar-subp-process-response status response))))))
 
 (defun fstar-subp-process-response (success response)
