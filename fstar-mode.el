@@ -1734,7 +1734,8 @@ asynchronously after the fact)."
            (setf (cdr retv)
                  (fstar-subp--info-wrapper
                   (apply-partially #'fstar--eldoc-continuation #'eldoc-message)
-                  (point)))))))))
+                  (point)))
+           nil))))))
 
 (defun fstar--eldoc-truncate-message (fn &rest args)
   "Forward ARGS to FN within scope of binding for `message-truncate-lines'."
