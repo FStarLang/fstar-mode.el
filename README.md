@@ -30,6 +30,8 @@ F*-mode requires Emacs 24.3 or newer, and is distributed through [MELPA](https:/
     (advice-add 'fstar-subp-start-process :around #'fstar-subp-adjust-path)
     ```
 
+`fstar-mode` is compatible with Tramp: if you open an F* file on a remote machine, `fstar-mode` run F* remotely [over SSH](#editing-remote-f*-files).
+
 ## Keybindings
 
 :zap: indicates keybindings available once F* is running.<br/>
@@ -55,7 +57,6 @@ Key                 | Action
 --------------------|----------------------------------
 `C-c C-s C-c`       | :zap: :unicorn: Case split: insert a match, or refine match at point
 
-
 ### Interactive mode
 
 Proof-General            | :atom: Atom   | Action
@@ -78,7 +79,7 @@ Key     | Action
 `C-w`   | Show definition of current completion candidate
 `C-s`   | Search among completion candidates
 
-## Customization
+## Advanced topics and customization
 
 ### Enabling and disabling individual F* mode components
 
@@ -98,7 +99,7 @@ Use the following snippet:
 (add-to-list 'auto-mode-alist '("\\.fsi\\'" . fstar-mode))
 ```
 
-### Include non-standard libraries when using fstar-mode
+### Including non-standard libraries when using fstar-mode
 
 Add the following line to your `.emacs`.
 
@@ -113,6 +114,22 @@ Note that under Cygwin, `fstar` is a Windows program and expects Windows pathnam
 ```
 
 Use `C-h v fstar-subp-prover-args` for more documentation.
+
+### Editing remote F* files
+
+F*-mode is compatible with Emacs' Tramp.  To use F*-mode over tramp:
+
+* Set `fstar-executable` appropriately (if F* is in your path on the remote machine it's enough to use `fstar.exe`; otherwise, use F*'s path on the remote machine — e.g. `~/fstar/FStar/bin/fstar.exe`),
+* Make sure that Z3 is in your remote path (you can check your remote path by running `M-! echo $PATH` in a remote buffer).
+* Open a remote file (`C-x C-f /sshx:username@remote-server: RET test.fst RET`).  Processing this file should invoke a remote F* through SSH.
+
+If the remote machine uses a custom path (e.g. a path set in `~/.profile`), you'll want to add the following to your `.emacs`:
+
+```
+(with-eval-after-load 'tramp
+  (add-to-list 'tramp-remote-path 'tramp-own-remote-path))
+```
+
 
 ## Troubleshooting
 
