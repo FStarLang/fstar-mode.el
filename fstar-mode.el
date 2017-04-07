@@ -35,6 +35,7 @@
 ;; * Snippets (Yasnippet)
 ;; * Interactive proofs (à la Proof-General)
 ;; * Whole-buffer verification (Flycheck)
+;; * Remote editing (Tramp)
 ;;
 ;; See https://github.com/FStarLang/fstar-mode.el for setup and usage tips.
 
@@ -169,6 +170,16 @@ after."
       (funcall fn-or-v)
     fn-or-v))
 
+(defun fstar--remote-p ()
+  "Check if current buffer is remote."
+  (and buffer-file-name (tramp-tramp-file-p buffer-file-name)))
+
+(defun fstar--maybe-cygpath (path)
+  "Translate PATH using Cygpath if appropriate."
+  (if (and (eq system-type 'cygwin) (not (fstar--remote-p)))
+      (string-trim-right (car (process-lines "cygpath" "-w" path)))
+    path))
+
 ;;; Debugging
 
 (defvar fstar-debug nil
@@ -245,7 +256,7 @@ please check the value of `%s'" prog-name path var-name)))
   "Compute the absolute path to PROG.
 Check that the binary exists and is executable; if not, raise an
 error referring to PROG as PROG-NAME and VAR-NAME."
-  (let* ((local (not (tramp-tramp-file-p buffer-file-name)))
+  (let* ((local (not (fstar--remote-p)))
          (abs (if local (executable-find prog) prog)))
     (if local
         (fstar--check-executable (or abs prog) prog-name var-name)
@@ -1011,10 +1022,10 @@ look in the entire buffer."
 
 (defun fstar-subp--overlay-legend-help-function (fn help-string)
   "Show legend of overlay statuses in buffer indicated by HELP-STRING.
-If HELP-STRING doesn't have `fstar--subp-legend' property, call
+If HELP-STRING doesn't have `fstar-subp--legend' property, call
 FN instead."
   (-if-let* ((buf (and help-string
-                       (get-text-property 0 'fstar--subp-legend help-string))))
+                       (get-text-property 0 'fstar-subp--legend help-string))))
       (when (buffer-live-p buf)
         (with-current-buffer buf
           (fstar-subp--show-overlay-legend-mode-line)))
@@ -1506,7 +1517,7 @@ Modifications are only allowed if it is safe to retract up to the beginning of t
   (fstar-assert (memq status fstar-subp-statuses))
   (let* ((inhibit-read-only t)
          (lax (overlay-get overlay 'fstar-subp--lax))
-         (help-echo (propertize " " 'fstar--subp-legend (current-buffer))))
+         (help-echo (propertize " " 'fstar-subp--legend (current-buffer))))
     (overlay-put overlay 'fstar-subp-status status)
     (overlay-put overlay 'priority -1)
     (overlay-put overlay 'help-echo help-echo)
@@ -2242,7 +2253,7 @@ multiple arguments as one string will not work: you should use
   "Find path to SMT solver executable."
   (fstar-find-executable fstar-smt-executable "SMT solver" 'fstar-smt-executable))
 
-(defun fstar--subp-parse-prover-args ()
+(defun fstar-subp--parse-prover-args ()
   "Translate `fstar-subp-prover-args' into a list of strings."
   (let ((args (fstar--resolve-fn-value fstar-subp-prover-args)))
     (cond ((listp args) args)
@@ -2250,25 +2261,20 @@ multiple arguments as one string will not work: you should use
           (t (user-error "Interpreting `fstar-subp-prover-args' \
 led to invalid value [%s]" args)))))
 
-(defun fstar--subp-get-prover-args ()
+(defun fstar-subp--get-prover-args ()
   "Compute F*'s arguments."
-  (let ((smt-path (fstar-subp-find-smt-solver))
-        (usr-args (fstar--subp-parse-prover-args)))
-    `(,(fstar--subp-buffer-file-name) "--in" "--smt" ,smt-path ,@usr-args)))
+  (let ((smt-path (fstar--maybe-cygpath (fstar-subp-find-smt-solver)))
+        (usr-args (fstar-subp--parse-prover-args)))
+    `(,(fstar-subp--buffer-file-name) "--in" "--smt" ,smt-path ,@usr-args)))
 
-(defun fstar--subp-buffer-file-name ()
+(defun fstar-subp--buffer-file-name ()
   "Find name of current buffer, as sent to F*."
-  (cond
-   ((tramp-tramp-file-p buffer-file-name)
-    (tramp-file-name-localname
-     (tramp-dissect-file-name buffer-file-name)))
-   ((eq system-type 'cygwin)
-    (string-trim-right
-     (shell-command-to-string
-      (format "cygpath -w %s" (shell-quote-argument buffer-file-name)))))
-   (t buffer-file-name)))
+  (if (fstar--remote-p)
+      (tramp-file-name-localname
+       (tramp-dissect-file-name buffer-file-name))
+    (fstar--maybe-cygpath buffer-file-name)))
 
-(defun fstar--subp-start-process (buf prog args)
+(defun fstar-subp--start-process (buf prog args)
   "Start an F* subprocess PROG in BUF with ARGS."
   (apply #'start-file-process "F* interactive" buf prog args))
 
@@ -2282,8 +2288,8 @@ led to invalid value [%s]" args)))))
       (let* ((buf (fstar-subp-make-buffer))
              (process-connection-type nil)
              (tramp-process-connection-type nil)
-             (args (fstar--subp-get-prover-args))
-             (proc (fstar--subp-start-process buf f*-abs args)))
+             (args (fstar-subp--get-prover-args))
+             (proc (fstar-subp--start-process buf f*-abs args)))
         (fstar-log 'info "Started F* interactive: %S" (cons f*-abs args))
         (set-process-query-on-exit-flag proc nil)
         (set-process-filter proc #'fstar-subp-filter)
