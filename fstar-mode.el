@@ -908,7 +908,7 @@ With BACKWARDS, go back among indentation points."
     (save-excursion
       (goto-char pos)
       (-when-let* ((s (symbol-at-point)))
-        (symbol-name s)))))
+        (substring-no-properties (symbol-name s))))))
 
 ;;;; Overlay classification
 
