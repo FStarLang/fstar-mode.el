@@ -90,7 +90,17 @@
 ;;; Customization
 
 (defcustom fstar-executable "fstar.exe"
-  "Full path to the fstar.exe binary."
+  "Where to find F*.
+May be either “fstar.exe” (search in $PATH) or an absolute path."
+  :group 'fstar
+  :type 'file
+  :risky t)
+
+(defcustom fstar-smt-executable "z3"
+  "Where to find the SML solver.
+May be one of “z3” (search in $PATH), an absolute path, or a
+function taking a string (the full path to the F* executable) and
+returning a string (the full path to the SMT solver)."
   :group 'fstar
   :type 'file
   :risky t)
@@ -153,6 +163,12 @@ after."
   "Remove hard line wraps from STR."
   (replace-regexp-in-string "\n\\([^\n\t ]\\)" "\\1" str))
 
+(defun fstar--resolve-fn-value (fn-or-v)
+  "Return FN-OR-V, or the result of calling it if it's a function."
+  (if (functionp fn-or-v)
+      (funcall fn-or-v)
+    fn-or-v))
+
 ;;; Debugging
 
 (defvar fstar-debug nil
@@ -207,31 +223,30 @@ FORMAT and ARGS are as in `message'."
   (with-parsed-tramp-file-name buffer-file-name vec
     (tramp-find-executable vec prog nil)))
 
-(defun fstar--check-executable (path qual)
+(defun fstar--check-executable (path prog-name var-name)
   "Check if PATH exists and is executable.
-QUAL is used as a prefix of error messages."
+PROG-NAME and VAR-NAME are used in error messages."
   (unless (and path (file-exists-p path))
-    (user-error "%sF* executable (‘%s’) not found; \
-please adjust `fstar-executable'" qual fstar-executable))
+    (user-error "%s (“%s”) not found; \
+please adjust `%s'" prog-name path var-name))
   (unless (file-executable-p path)
-    (user-error "%sF* executable (‘%s’) not executable; \
-please check the value of `fstar-executable'" qual fstar-executable)))
+    (user-error "%s (“%s”) not executable; \
+please check the value of `%s'" prog-name path var-name)))
 
-(defun fstar-find-executable ()
-  "Compute the absolute path to the F* executable.
+(defun fstar-find-executable (prog prog-name var-name)
+  "Compute the absolute path to PROG.
 Check that the binary exists and is executable; if not, raise an
-error."
-  (let* ((remote (tramp-tramp-file-p buffer-file-name))
-         (f*-abs (if remote fstar-executable (executable-find fstar-executable)))
-         (z3 (if remote (fstar--tramp-find-executable "z3") (executable-find "z3"))))
-    (unless z3
-      (user-error "Z3 doesn't seem to be in your %spath.  \
-Please adjust your PATH environment variable" (if remote "remote " "")))
-    (if remote
-        (or (fstar--tramp-find-executable fstar-executable)
-            (fstar--check-executable (fstar--make-tramp-file-name fstar-executable) "Remote "))
-      (fstar--check-executable f*-abs ""))
-    f*-abs))
+error referring to PROG as PROG-NAME and VAR-NAME."
+  (let* ((local (not (tramp-tramp-file-p buffer-file-name)))
+         (abs (if local (executable-find prog) prog)))
+    (if local
+        (fstar--check-executable (or abs prog) prog-name var-name)
+      (with-parsed-tramp-file-name buffer-file-name nil
+        (or (tramp-find-executable v abs nil)
+            (fstar--check-executable
+             (tramp-make-tramp-file-name method user host abs)
+             (concat "Remote " prog-name) var-name))))
+    abs))
 
 (defvar-local fstar--vernum nil
   "F*'s version number.")
@@ -2211,38 +2226,41 @@ multiple arguments as one string will not work: you should use
   :group 'fstar
   :type '(repeat string))
 
-(defun fstar-subp-get-prover-args ()
-  "Compute prover arguments from `fstar-subp-prover-args'."
-  (let ((args (if (functionp fstar-subp-prover-args)
-                  (funcall fstar-subp-prover-args)
-                fstar-subp-prover-args)))
+(defun fstar-subp-find-fstar ()
+  "Find path to F* executable."
+  (fstar-find-executable fstar-executable "F*" 'fstar-executable))
+
+(defun fstar-subp-find-smt-solver ()
+  "Find path to SMT solver executable."
+  (fstar-find-executable fstar-smt-executable "SMT solver" 'fstar-smt-executable))
+
+(defun fstar--subp-parse-prover-args ()
+  "Translate `fstar-subp-prover-args' into a list of strings."
+  (let ((args (fstar--resolve-fn-value fstar-subp-prover-args)))
     (cond ((listp args) args)
           ((stringp args) (list args))
-          (t (user-error "Interpreting fstar-subp-prover-args led to invalid value [%s]" args)))))
+          (t (user-error "Interpreting `fstar-subp-prover-args' \
+led to invalid value [%s]" args)))))
 
-(defun fstar-subp-with-interactive-args (args)
-  "Return ARGS precedeed by --in and the filename of the current buffer."
-  (let ((file-name
-         (cond
-          ((tramp-tramp-file-p buffer-file-name)
-           (tramp-file-name-localname
-            (tramp-dissect-file-name buffer-file-name)))
-          ((eq system-type 'cygwin)
-           (string-trim-right
-            (shell-command-to-string
-             (format "cygpath -w %s" (shell-quote-argument buffer-file-name)))))
-          (t buffer-file-name))))
-    (append `(,file-name "--in") args)))
+(defun fstar--subp-get-prover-args ()
+  "Compute F*'s arguments."
+  (let ((smt-path (fstar-subp-find-smt-solver))
+        (usr-args (fstar--subp-parse-prover-args)))
+    `(,(fstar--subp-buffer-file-name) "--in" "--smt" ,smt-path ,@usr-args)))
 
-(defun fstar-subp-adjust-path (fn buf prog args)
-  "Run FN with PATH extended to contain directory of PROG.
-Forward BUF, PROG, and ARGS to FN."
-  (let* ((prog-dir (file-name-directory prog))
-         (path (concat prog-dir path-separator (getenv "PATH")))
-         (process-environment (cons (concat "PATH=" path) process-environment)))
-    (funcall fn buf prog args)))
+(defun fstar--subp-buffer-file-name ()
+  "Find name of current buffer, as sent to F*."
+  (cond
+   ((tramp-tramp-file-p buffer-file-name)
+    (tramp-file-name-localname
+     (tramp-dissect-file-name buffer-file-name)))
+   ((eq system-type 'cygwin)
+    (string-trim-right
+     (shell-command-to-string
+      (format "cygpath -w %s" (shell-quote-argument buffer-file-name)))))
+   (t buffer-file-name)))
 
-(defun fstar-subp-start-process (buf prog args)
+(defun fstar--subp-start-process (buf prog args)
   "Start an F* subprocess PROG in BUF with ARGS."
   (apply #'start-file-process "F* interactive" buf prog args))
 
@@ -2251,14 +2269,14 @@ Forward BUF, PROG, and ARGS to FN."
   (unless (and buffer-file-name (file-exists-p buffer-file-name))
     (error "Can't start F* subprocess without a backing file (save this buffer first)"))
   (unless fstar-subp--process
-    (let ((prog-abs (fstar-find-executable)))
-      (fstar--init-compatibility-layer prog-abs)
+    (let ((f*-abs (fstar-subp-find-fstar)))
+      (fstar--init-compatibility-layer f*-abs)
       (let* ((buf (fstar-subp-make-buffer))
              (process-connection-type nil)
              (tramp-process-connection-type nil)
-             (args (fstar-subp-with-interactive-args (fstar-subp-get-prover-args)))
-             (proc (fstar-subp-start-process buf prog-abs args)))
-        (fstar-log 'info "Started F* interactive: %S" (cons prog-abs args))
+             (args (fstar--subp-get-prover-args))
+             (proc (fstar--subp-start-process buf f*-abs args)))
+        (fstar-log 'info "Started F* interactive: %S" (cons f*-abs args))
         (set-process-query-on-exit-flag proc nil)
         (set-process-filter proc #'fstar-subp-filter)
         (set-process-sentinel proc #'fstar-subp-sentinel)

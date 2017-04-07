@@ -18,16 +18,11 @@ F*-mode requires Emacs 24.3 or newer, and is distributed through [MELPA](https:/
 
 2.  Restart Emacs, then run <kbd>M-x package-refresh-contents</kbd> and <kbd>M-x package-install RET fstar-mode RET</kbd>. Future updates can be downloaded using <kbd>M-x list-packages U x y</kbd>.
 
-3.  If `fstar.exe` is not already in your path, set the `fstar-executable` variable:
+3.  If `fstar.exe` and `z3` are not already in your path, set the `fstar-executable` and `z3-executable` variables:
 
     ```elisp
     (setq-default fstar-executable "PATH-TO-FSTAR.EXE")
-    ```
-
-4.  Make sure that Z3 is in your path. Or, to use the version of Z3 included in F* binary releases instead, add the following to your `.emacs`:
-
-    ```elisp
-    (advice-add 'fstar-subp-start-process :around #'fstar-subp-adjust-path)
+    (setq-default fstar-smt-executable "PATH-TO-Z3(.EXE)")
     ```
 
 `fstar-mode` is compatible with Tramp: if you open an F* file on a remote machine, `fstar-mode` run F* remotely [over SSH](#editing-remote-f*-files).
@@ -119,17 +114,8 @@ Use `C-h v fstar-subp-prover-args` for more documentation.
 
 F*-mode is compatible with Emacs' Tramp.  To use F*-mode over tramp:
 
-* Set `fstar-executable` appropriately (if F* is in your path on the remote machine it's enough to use `fstar.exe`; otherwise, use F*'s path on the remote machine — e.g. `~/fstar/FStar/bin/fstar.exe`),
-* Make sure that Z3 is in your remote path (you can check your remote path by running `M-! echo $PATH` in a remote buffer).
+* Set `fstar-executable` and `z3-executable` appropriately (if F* and Z3 are in your path on the remote machine it's enough to use `fstar.exe` and `z3`; otherwise, use their full paths on the remote machine — e.g. `~/FStar/bin/fstar.exe`),
 * Open a remote file (`C-x C-f /sshx:username@remote-server: RET test.fst RET`).  Processing this file should invoke a remote F* through SSH.
-
-If the remote machine uses a custom path (e.g. a path set in `~/.profile`), you'll want to add the following to your `.emacs`:
-
-```
-(with-eval-after-load 'tramp
-  (add-to-list 'tramp-remote-path 'tramp-own-remote-path))
-```
-
 
 ## Troubleshooting
 
