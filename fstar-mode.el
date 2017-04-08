@@ -483,7 +483,7 @@ to ‘%S’ to use this checker." checker))
 
 (defface fstar-ambiguous-face
   '((t :inherit font-lock-negation-char-face))
-  "Face to use for /\\ and \//."
+  "Face to use for /\\ and \\/."
   :group 'fstar)
 
 (defface fstar-universe-face
