@@ -2333,10 +2333,10 @@ led to invalid value [%s]" args)))))
            (save-excursion
              (goto-char comment-start-pos)
              (cond
-              ((looking-at (regexp-quote "(*** ")) '(:inherit font-lock-doc-face :height 2.5))
-              ((looking-at (regexp-quote "(**+ ")) '(:inherit font-lock-doc-face :height 1.8))
-              ((looking-at (regexp-quote "(**! ")) '(:inherit font-lock-doc-face :height 1.5))
-              ((looking-at (regexp-quote "(** "))  font-lock-doc-face)
+              ((looking-at "(\\*\\*\\*[ \t\n]") '(:inherit font-lock-doc-face :height 2.5))
+              ((looking-at "(\\*\\*\\+[ \t\n]") '(:inherit font-lock-doc-face :height 1.8))
+              ((looking-at "(\\*\\*\\![ \t\n]") '(:inherit font-lock-doc-face :height 1.5))
+              ((looking-at "(\\*\\*[ \t\n]")  font-lock-doc-face)
               (t font-lock-comment-face)))))))
 
 (defun fstar-setup-comments ()
