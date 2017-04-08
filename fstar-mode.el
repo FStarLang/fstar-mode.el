@@ -491,13 +491,13 @@ to ‘%S’ to use this checker." checker))
   "Face used for universe levels and variables"
   :group 'fstar)
 
-(defun fstar-subexpr-pre-matcher (rewind-to &optional bound-to)
-  "Move past REWIND-TO th group, then return end of BOUND-TO th."
-  (goto-char (match-end rewind-to))
-  (match-end (or bound-to 0)))
+(defface fstar-operator-face
+  '((t :inherit font-lock-variable-name-face))
+  "Face used for backticked infix operators."
+  :group 'fstar)
 
 (defconst fstar-syntax-id "\\_<[#']?[a-z_]\\(?:\\sw\\|\\s_\\)*\\_>")
-(defconst fstar-syntax-cs "\\_<[#']?[A-Z_]\\(?:\\sw\\|\\s_\\)*\\_>")
+(defconst fstar-syntax-cs "\\_<[#']?[A-Z]\\(?:\\sw\\|\\s_\\)*\\_>")
 
 (defconst fstar-syntax-id-with-subscript
   "\\_<[#']?_*[a-z]\\(?:[a-z0-9_']*[a-z]\\)?\\([0-9]+\\)['_]*\\_>")
@@ -512,10 +512,11 @@ to ‘%S’ to use this checker." checker))
 
 (defconst fstar-syntax-ids-and-type (concat fstar-syntax-ids " *:"))
 
-(defun fstar-find-id-maybe-type (bound must-find-type)
+(defun fstar-find-id-maybe-type (bound must-find-type &optional extra-check)
   "Find var:type or var1..varN:type pair between point and BOUND.
 
-If MUST-FIND-TYPE is nil, the :type part is not necessary."
+If MUST-FIND-TYPE is nil, the :type part is not necessary.
+If EXTRA-CHECK is non-nil, it is used as an extra filter on matches."
   (let ((found t) (rejected t)
         (regexp (if must-find-type fstar-syntax-ids-and-type fstar-syntax-ids)))
     (while (and found rejected)
@@ -524,7 +525,9 @@ If MUST-FIND-TYPE is nil, the :type part is not necessary."
                                     (save-excursion
                                       (goto-char (match-beginning 0))
                                       (skip-syntax-backward "-")
-                                      (or (eq (char-before) ?|) ;; | X: int
+                                      (or (and extra-check
+                                               (not (funcall extra-check)))
+                                          (eq (char-before) ?|) ;; | X: int
                                           (save-match-data
                                             ;; val x : Y:int
                                             (re-search-forward "\\_<\\(val\\|let\\|type\\)\\_>"
@@ -537,24 +540,61 @@ If MUST-FIND-TYPE is nil, the :type part is not necessary."
           (set-match-data `(,(car md) ,(point) ,@(cddr md))))))
     found))
 
-(defun fstar-find-id (bound)
-  "Find variable name between point and BOUND."
-  (fstar-find-id-maybe-type bound nil))
+(defvar-local fstar--font-lock-anchor nil)
+
+(defun fstar--beginning-of-sexp (pos)
+  "Find beginning of sexp enclosing POS."
+  (or (nth 1 (syntax-ppss pos)) 1))
+
+(defun fstar-subexpr-pre-matcher (rewind-to &optional bound-to)
+  "Move past REWIND-TO th group, then return end of BOUND-TO th.
+This also records the beginning of enclosing sexp in
+`fstar--font-lock-anchor'."
+  (setq-local fstar--font-lock-anchor (fstar--beginning-of-sexp (match-beginning 0)))
+  (goto-char (match-end rewind-to))
+  (match-end (or bound-to 0)))
+
+(defun fstar--directly-under-anchor ()
+  "Check whether point is directly under a binder.
+This works by moving up in the sexp tree and checking that this
+leads to the binder's start."
+  (= (fstar--beginning-of-sexp (point)) (or fstar--font-lock-anchor 1)))
+
+(defun fstar--find-formal (bound)
+  "Find unparenthesized variable name between point and BOUND."
+  (fstar-find-id-maybe-type bound nil #'fstar--directly-under-anchor))
 
 (defun fstar-find-id-with-type (bound)
   "Find var:type pair between point and BOUND."
   (fstar-find-id-maybe-type bound t))
 
-(defun fstar-find-fun-and-args (bound)
-  "Find lambda expression between point and BOUND."
+(defun fstar--search-forward-in-sexp (needle bound)
+  "Find next NEEDLE at current level before BOUND or end of current sexp."
+  (let ((found t) (rejected t)
+        (fstar--font-lock-anchor (fstar--beginning-of-sexp (point))))
+    (save-excursion
+      (while (and found rejected)
+        (setq found (search-forward needle bound t))
+        (setq rejected (and found (not (fstar--directly-under-anchor))))))
+    (when found (goto-char found))))
+
+(defun fstar--find-head-and-args (head tail bound)
+  "Find HEAD .. TAIL expression between point and BOUND."
   (let ((found))
-    (while (and (not found) (re-search-forward "\\_<fun\\_>" bound t))
+    (while (and (not found) (re-search-forward head bound t))
       (-when-let* ((mdata (match-data))
-                   (fnd   (search-forward "->" bound t))) ;;FIXME
-        (set-match-data `(,(car mdata) ,(match-end 0)
-                          ,@mdata))
+                   (fnd (fstar--search-forward-in-sexp tail (min bound (point-at-eol)))))
+        (set-match-data `(,(car mdata) ,(match-end 0) ,@mdata))
         (setq found t)))
     found))
+
+(defun fstar--find-fun-and-args (bound)
+  "Find lambda expression between point and BOUND."
+  (fstar--find-head-and-args "\\_<fun\\_>" "->" bound))
+
+(defun fstar--find-quantifier-and-args (bound)
+  "Find quantified expression between point and BOUND."
+  (fstar--find-head-and-args "\\_<\\(?:forall\\|exists\\)\\_>" "." bound))
 
 (defun fstar-find-subtype-annotation (bound)
   "Find {...} group between point and BOUND."
@@ -577,10 +617,12 @@ If MUST-FIND-TYPE is nil, the :type part is not necessary."
        (0 'font-lock-type-face))
       (,fstar-syntax-universe
        (1 'fstar-universe-face))
+      ("`.+?`"
+       (0 'fstar-operator-face append))
       (,(concat "{\\(:" id "\\) *\\([^}]*\\)}")
        (1 'font-lock-builtin-face append)
        (2 'fstar-attribute-face append))
-      (,(concat "\\_<\\(let\\(?: +rec\\)?\\|and\\)\\_>\\(\\(?: +" id "\\)?\\)")
+      (,(concat "\\_<\\(let\\(?: +rec\\)?\\|and\\)\\_>\\(\\(?: +" id "\\( *, *" id "\\)*\\)?\\)")
        (1 'fstar-structure-face)
        (2 'font-lock-function-name-face))
       (,(concat "\\_<\\(type\\|kind\\)\\( +" id "\\)")
@@ -590,17 +632,17 @@ If MUST-FIND-TYPE is nil, the :type part is not necessary."
        (1 'fstar-structure-face)
        (2 'font-lock-function-name-face))
       (fstar-find-id-with-type
-       (1 'font-lock-variable-name-face))
+       (1 'font-lock-variable-name-face append))
       (fstar-find-subtype-annotation
        (0 'fstar-subtype-face append))
       ("%\\[\\([^]]+\\)\\]"
        (1 'fstar-decreases-face append))
-      ("\\_<\\(forall\\|exists\\) [^.]+\."
-       (0 'font-lock-keyword-face)
-       (fstar-find-id (fstar-subexpr-pre-matcher 1) nil (1 'font-lock-variable-name-face)))
-      (fstar-find-fun-and-args
+      (fstar--find-quantifier-and-args
        (1 'font-lock-keyword-face)
-       (fstar-find-id (fstar-subexpr-pre-matcher 1) nil (1 'font-lock-variable-name-face)))
+       (fstar--find-formal (fstar-subexpr-pre-matcher 1) nil (1 'font-lock-variable-name-face append)))
+      (fstar--find-fun-and-args
+       (1 'font-lock-keyword-face)
+       (fstar--find-formal (fstar-subexpr-pre-matcher 1) nil (1 'font-lock-variable-name-face append)))
       (,fstar-syntax-ambiguous
        (0 'fstar-ambiguous-face append))
       ("!"
