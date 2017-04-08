@@ -504,6 +504,8 @@ to ‘%S’ to use this checker." checker))
   "Face used for backticked infix operators."
   :group 'fstar)
 
+(defconst fstar-comment-start-skip "\\(//+\\|(\\*+\\)[ \t]*")
+
 (defconst fstar-syntax-id "\\_<[#']?[a-z_]\\(?:\\sw\\|\\s_\\)*\\_>")
 (defconst fstar-syntax-cs "\\_<[#']?[A-Z]\\(?:\\sw\\|\\s_\\)*\\_>")
 
@@ -1632,7 +1634,9 @@ If NO-ERROR is set, do not report an error if the region is empty."
 
 
 (defcustom fstar-subp-block-sep
-  (concat "\\(?:\\'\\|\n\\(?:[[:space:]]*\n\\)+\\(?:" fstar-syntax-block-start-re "\\)\\)")
+  (concat "\\(?:\\'\\|\n\\(?:[[:space:]]*\n\\)+"
+          "\\(?:" fstar-syntax-block-start-re
+          "\\|" fstar-comment-start-skip "\\)\\)")
   "Regular expression used when looking for source blocks."
   :group 'fstar
   :type 'string
@@ -2506,7 +2510,7 @@ Function is public to make it easier to debug `fstar-subp-prover-args'."
   (setq-local comment-start      "(*")
   (setq-local comment-continue   " *")
   (setq-local comment-end        "*)")
-  (setq-local comment-start-skip "\\(//+\\|(\\*+\\)[ \t]*")
+  (setq-local comment-start-skip fstar-comment-start-skip)
   (setq-local font-lock-syntactic-face-function #'fstar-syntactic-face-function)
   (setq-local syntax-propertize-function fstar-mode-syntax-propertize-function))
 
