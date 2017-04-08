@@ -335,11 +335,6 @@ You're running version %s" min-version fstar--vernum))))))
       (flycheck-mode)
     (warn "Please install the Flycheck package to get real-time verification")))
 
-;;; Build config
-
-(defconst fstar-build-config-header "(*--build-config")
-(defconst fstar-build-config-footer "--*)")
-
 ;;; Prettify symbols
 
 (defcustom fstar-symbols-alist '(("exists" . ?∃) ("forall" . ?∀) ("fun" . ?λ)
@@ -580,8 +575,6 @@ If MUST-FIND-TYPE is nil, the :type part is not necessary."
       (fstar-find-fun-and-args
        (1 'font-lock-keyword-face)
        (fstar-find-id (fstar-subexpr-pre-matcher 1) nil (1 'font-lock-variable-name-face)))
-      ("(\\*--\\(build-config\\)"
-       (1 'font-lock-preprocessor-face prepend))
       (,fstar-syntax-ambiguous
        (0 'fstar-ambiguous-face append))
       ("!"
@@ -899,14 +892,6 @@ With BACKWARDS, go back among indentation points."
 (defun fstar-in-comment-p ()
   "Return non-nil if point is inside a comment."
   (nth 4 (syntax-ppss)))
-
-(defun fstar-in-build-config-p ()
-  "Return non-nil if point is in build config comment."
-  (let ((state (syntax-ppss)))
-    (and (nth 4 state)
-         (save-excursion
-           (goto-char (nth 8 state))
-           (looking-at-p (regexp-quote fstar-build-config-header))))))
 
 (defun fstar-subp--column-number-at-pos (pos)
   "Return column number at POS."
@@ -1457,15 +1442,13 @@ Complain if SUCCESS is nil and RESPONSE doesn't contain issues."
     (goto-char (point-min))
     (let (start)
       (while (setq start (comment-search-forward nil t))
-        (let ((skip (fstar-in-build-config-p)))
-          (goto-char start)
-          (forward-comment 1)
-          (unless skip ;; FIXME is this still needed?
-            (save-match-data
-              (let* ((comment (buffer-substring-no-properties start (point)))
-                     (replacement (replace-regexp-in-string "." " " comment t t)))
-                (delete-region start (point))
-                (insert replacement)))))))
+        (goto-char start)
+        (forward-comment 1)
+        (save-match-data ;; FIXME do we still need to strip comments?
+          (let* ((comment (buffer-substring-no-properties start (point)))
+                 (replacement (replace-regexp-in-string "." " " comment t t)))
+            (delete-region start (point))
+            (insert replacement)))))
     (buffer-substring-no-properties (point-min) (point-max))))
 
 (defun fstar-subp--push-header (pos lax)
@@ -1491,10 +1474,8 @@ Modifications are only allowed if it is safe to retract up to the beginning of t
   (let ((inhibit-modification-hooks t))
     (when (overlay-buffer overlay) ;; Hooks can be called multiple times
       (cond
-       ;; Always allow modifications in non-build-config comments
-       ((fstar-in-comment-p)
-        (when (fstar-in-build-config-p)
-          (fstar-subp-kill)))
+       ;; Always allow modifications in comments
+       ((fstar-in-comment-p) t)
        ;; Allow modifications (after retracting) in pending overlays, and in
        ;; processed overlays provided that F* isn't busy
        ((or (not (fstar-subp--busy-p))
@@ -1608,20 +1589,10 @@ Ignores separators found in comments."
       (fstar-subp-enqueue-until next-start)
     (user-error "Cannot find a full block to process")))
 
-(defun fstar-sub-overlay-contains-build-config (overlay)
-  "Check if OVERLAY contains a build-config header."
-  (save-excursion
-    (save-match-data
-      (goto-char (overlay-start overlay))
-      (cl-loop while (re-search-forward (regexp-quote fstar-build-config-header) (overlay-end overlay) t)
-               thereis (fstar-in-build-config-p)))))
-
 (defun fstar-subp-pop-overlay (overlay)
   "Remove overlay OVERLAY and issue the corresponding #pop command."
   (fstar-assert (fstar-subp-available-p))
-  (if (fstar-sub-overlay-contains-build-config overlay)
-      (fstar-subp-kill)
-    (fstar-subp--query fstar-subp--cancel nil))
+  (fstar-subp--query fstar-subp--cancel nil)
   (delete-overlay overlay))
 
 (defun fstar-subp-retract-one (overlay)
@@ -2362,7 +2333,6 @@ led to invalid value [%s]" args)))))
            (save-excursion
              (goto-char comment-start-pos)
              (cond
-              ((looking-at (regexp-quote fstar-build-config-header)) font-lock-doc-face)
               ((looking-at (regexp-quote "(*** ")) '(:inherit font-lock-doc-face :height 2.5))
               ((looking-at (regexp-quote "(**+ ")) '(:inherit font-lock-doc-face :height 1.8))
               ((looking-at (regexp-quote "(**! ")) '(:inherit font-lock-doc-face :height 1.5))
