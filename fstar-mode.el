@@ -180,6 +180,16 @@ after."
       (string-trim-right (car (process-lines "cygpath" "-w" path)))
     path))
 
+(defun fstar--make-tramp-file-name (fname)
+  "Convert FNAME to a name on remote host."
+  (with-parsed-tramp-file-name buffer-file-name nil
+    (tramp-make-tramp-file-name method user host fname)))
+
+(defun fstar--tramp-find-executable (prog)
+  "Check if PROG is in the remote path."
+  (with-parsed-tramp-file-name buffer-file-name vec
+    (tramp-find-executable vec prog nil)))
+
 ;;; Debugging
 
 (defvar fstar-debug nil
@@ -231,41 +241,6 @@ FORMAT and ARGS are as in `message'."
      (fstar--log ,kind ,format ,@args)))
 
 ;;; Compatibility across F* versions
-
-(defun fstar--make-tramp-file-name (fname)
-  "Convert FNAME to a name on remote host."
-  (with-parsed-tramp-file-name buffer-file-name nil
-    (tramp-make-tramp-file-name method user host fname)))
-
-(defun fstar--tramp-find-executable (prog)
-  "Check if PROG is in the remote path."
-  (with-parsed-tramp-file-name buffer-file-name vec
-    (tramp-find-executable vec prog nil)))
-
-(defun fstar--check-executable (path prog-name var-name)
-  "Check if PATH exists and is executable.
-PROG-NAME and VAR-NAME are used in error messages."
-  (unless (and path (file-exists-p path))
-    (user-error "%s (“%s”) not found; \
-please adjust `%s'" prog-name path var-name))
-  (unless (file-executable-p path)
-    (user-error "%s (“%s”) not executable; \
-please check the value of `%s'" prog-name path var-name)))
-
-(defun fstar-find-executable (prog prog-name var-name)
-  "Compute the absolute path to PROG.
-Check that the binary exists and is executable; if not, raise an
-error referring to PROG as PROG-NAME and VAR-NAME."
-  (let* ((local (not (fstar--remote-p)))
-         (abs (if local (executable-find prog) prog)))
-    (if local
-        (fstar--check-executable (or abs prog) prog-name var-name)
-      (with-parsed-tramp-file-name buffer-file-name nil
-        (or (tramp-find-executable v abs nil)
-            (fstar--check-executable
-             (tramp-make-tramp-file-name method user host abs)
-             (concat "Remote " prog-name) var-name))))
-    abs))
 
 (defvar-local fstar--vernum nil
   "F*'s version number.")
@@ -2175,6 +2150,31 @@ TIMER is the timer that caused this event to fire."
   (fstar--spin-cancel))
 
 ;;;; Starting the F* subprocess
+
+(defun fstar--check-executable (path prog-name var-name)
+  "Check if PATH exists and is executable.
+PROG-NAME and VAR-NAME are used in error messages."
+  (unless (and path (file-exists-p path))
+    (user-error "%s (“%s”) not found; \
+please adjust `%s'" prog-name path var-name))
+  (unless (file-executable-p path)
+    (user-error "%s (“%s”) not executable; \
+please check the value of `%s'" prog-name path var-name)))
+
+(defun fstar-find-executable (prog prog-name var-name)
+  "Compute the absolute path to PROG.
+Check that the binary exists and is executable; if not, raise an
+error referring to PROG as PROG-NAME and VAR-NAME."
+  (let* ((local (not (fstar--remote-p)))
+         (abs (if local (executable-find prog) prog)))
+    (if local
+        (fstar--check-executable (or abs prog) prog-name var-name)
+      (with-parsed-tramp-file-name buffer-file-name nil
+        (or (tramp-find-executable v abs nil)
+            (fstar--check-executable
+             (tramp-make-tramp-file-name method user host abs)
+             (concat "Remote " prog-name) var-name))))
+    abs))
 
 (defun fstar-subp-buffer-killed ()
   "Kill F* process associated to current buffer."
