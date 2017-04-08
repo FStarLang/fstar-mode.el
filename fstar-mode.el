@@ -466,9 +466,14 @@ to ‘%S’ to use this checker." checker))
   "Face used to highlight decreases clauses."
   :group 'fstar)
 
+(defface fstar-subscript-underscore-face
+  '((t :height 0.4))
+  "Face used to highlight underscores before subscripts."
+  :group 'fstar)
+
 (defface fstar-subscript-face
-  '((t :height 0.8))
-  "Face used to use for subscripts"
+  '((t :height 1.0))
+  "Face used to highlight subscripts"
   :group 'fstar)
 
 (defface fstar-braces-face
@@ -496,15 +501,11 @@ to ‘%S’ to use this checker." checker))
   (goto-char (match-end rewind-to))
   (match-end (or bound-to 0)))
 
-(defconst fstar-syntax-id-unwrapped (rx (? (or "#" "'"))
-                                   (any "a-z_") (* (or wordchar (syntax symbol)))
-                                   (? "." (* (or wordchar (syntax symbol))))))
+(defconst fstar-syntax-id "\\_<[#']?[a-z_]\\(?:\\sw\\|\\s_\\)*\\_>")
+(defconst fstar-syntax-cs "\\_<[#']?[A-Z_]\\(?:\\sw\\|\\s_\\)*\\_>")
 
-(defconst fstar-syntax-id (concat "\\_<" fstar-syntax-id-unwrapped "\\_>"))
-
-(defconst fstar-syntax-cs (rx symbol-start
-                         (any "A-Z") (* (or wordchar (syntax symbol)))
-                         symbol-end))
+(defconst fstar-syntax-id-with-subscript
+  "\\_<[#']?_*[a-z]\\(?:[a-z0-9_']*[a-z]\\)?\\([0-9]+\\)['_]*\\_>")
 
 (defconst fstar-syntax-universe-id-unwrapped (rx "'u" (* (or wordchar (syntax symbol)))))
 
@@ -611,9 +612,9 @@ If MUST-FIND-TYPE is nil, the :type part is not necessary."
        (0 'fstar-dereference-face))
       ("[{}]"
        (0 'fstar-braces-face append))
-      (,(concat "\\_<" fstar-syntax-id-unwrapped "\\(_\\)\\([0-9]+\\)\\_>")
-       (1 '(face nil invisible 'fstar-subscripts) prepend)
-       (2 '(face fstar-subscript-face display (raise -0.3)) append)))))
+      (,fstar-syntax-id-with-subscript
+       ;; (1 '(face fstar-subscript-underscore-face invisible 'fstar-subscripts) prepend)
+       (1 '(face fstar-subscript-face display (raise -0.3)) append)))))
 
 (defconst fstar--scratchpad-name " *%s-scratchpad*")
 
@@ -674,7 +675,7 @@ If MUST-FIND-TYPE is nil, the :type part is not necessary."
       ,@fstar-syntax-additional)
      nil nil))
   (font-lock-set-defaults)
-  (add-to-invisibility-spec 'fstar-subscripts)
+  (remove-from-invisibility-spec nil) ;; Make sure invisibility spec is a list
   (add-to-list 'font-lock-extra-managed-props 'display)
   (add-to-list 'font-lock-extra-managed-props 'invisible)
   (font-lock-mode))
