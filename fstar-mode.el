@@ -1019,13 +1019,11 @@ If PROC is nil, use the current buffer's `fstar-subp--process'."
 
 (defun fstar-subp--busy-p ()
   "Return t if current `fstar-subp--process' is live and busy."
-  (and (fstar-subp-live-p fstar-subp--process)
-       fstar-subp--continuation))
+  (and (fstar-subp-live-p) fstar-subp--continuation))
 
 (defun fstar-subp-available-p ()
   "Return t if current `fstar-subp--process' is live and idle."
-  (and (fstar-subp-live-p fstar-subp--process)
-       (not fstar-subp--continuation)))
+  (and (fstar-subp-live-p) (not fstar-subp--continuation)))
 
 (defun fstar-subp--ensure-available (error-fn &optional feature)
   "Raise an error with ERROR-FN if F* isn't available.
@@ -1236,7 +1234,7 @@ returns without doing anything."
   (interactive "P")
   (when (and (not all) (fstar-subp-available-p))
     (user-error "No busy F* process to interrupt"))
-  (let ((parent-live (fstar-subp-live-p fstar-subp--process)))
+  (let ((parent-live (fstar-subp-live-p)))
     (unless (or all parent-live)
       (user-error "No F* process in this buffer"))
     (let ((subp-pid (and parent-live (process-id fstar-subp--process))))
