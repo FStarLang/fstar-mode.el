@@ -245,6 +245,13 @@ FORMAT and ARGS are as in `message'."
 (defvar-local fstar--vernum nil
   "F*'s version number.")
 
+(defcustom fstar-assumed-vernum "0.9.4.2"
+  "Version number to assume if F* returns an unknown version number.
+This is useful when running an F#-compiled F*.  Use 42.0 to
+enable all experimental features."
+  :group 'fstar
+  :type 'string)
+
 (eval-and-compile
   (defconst fstar--features-min-version-alist
     '((absolute-linums-in-errors . "0.9.3.0-beta2")
@@ -272,10 +279,11 @@ FORMAT and ARGS are as in `message'."
 (defun fstar--has-feature (feature &optional error-fn)
   "Check if FEATURE from `fstar--features-min-version-alist' is available.
 If not, call ERROR-FN if supplied with a relevant message."
-  (let* ((min-version (cdr (assq feature fstar--features-min-version-alist))))
+  (let* ((min-version (cdr (assq feature fstar--features-min-version-alist)))
+         (vernum (if (equal fstar--vernum "unknown") fstar-assumed-vernum fstar--vernum)))
     (fstar-assert (stringp min-version))
-    (or (member fstar--vernum '(nil "unknown"))
-        (version<= min-version fstar--vernum)
+    (or (null vernum)
+        (version<= min-version vernum)
         (ignore
          (and error-fn
               (funcall error-fn "This feature isn't available in F* < %s.  \

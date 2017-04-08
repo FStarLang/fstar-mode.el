@@ -155,3 +155,5 @@ Setup MELPA as described above, then install the dependencies and clone the repo
 ```elisp
 (require 'fstar-mode "~/.emacs.d/lisp/fstar-mode.el/fstar-mode.el")
 ```
+
+When running an F#-compiled F* `fstar-mode` will complain about being unable to parse F*'s version number and assume you're running a relatively old F* (it needs to know F*'s version number to decide which features to enable).  You can override this check by customizing `fstar-assumed-vernum`.
