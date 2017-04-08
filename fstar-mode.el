@@ -2232,8 +2232,9 @@ multiple arguments as one string will not work: you should use
           (t (user-error "Interpreting `fstar-subp-prover-args' \
 led to invalid value [%s]" args)))))
 
-(defun fstar-subp--get-prover-args ()
-  "Compute F*'s arguments."
+(defun fstar-subp-get-prover-args ()
+  "Compute F*'s arguments.
+Function is public to make it easier to debug `fstar-subp-prover-args'."
   (let ((smt-path (fstar--maybe-cygpath (fstar-subp-find-smt-solver)))
         (usr-args (fstar-subp--parse-prover-args)))
     `(,(fstar-subp--buffer-file-name) "--in" "--smt" ,smt-path ,@usr-args)))
@@ -2259,7 +2260,7 @@ led to invalid value [%s]" args)))))
       (let* ((buf (fstar-subp-make-buffer))
              (process-connection-type nil)
              (tramp-process-connection-type nil)
-             (args (fstar-subp--get-prover-args))
+             (args (fstar-subp-get-prover-args))
              (proc (fstar-subp--start-process buf f*-abs args)))
         (fstar-log 'info "Started F* interactive: %S" (cons f*-abs args))
         (set-process-query-on-exit-flag proc nil)
