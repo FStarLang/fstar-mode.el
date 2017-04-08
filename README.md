@@ -102,13 +102,7 @@ Add the following line to your `.emacs`.
 (setq fstar-subp-prover-args '("--include" "<your-path>"))
 ```
 
-Note that under Cygwin, `fstar` is a Windows program and expects Windows pathnames. For example (`\\` is used to escape a Windows pathname),
-
-```elisp
-(setq fstar-subp-prover-args '("--include" "E:\\FStar\\ucontrib\\Platform\\fst")
-```
-
-Use `C-h v fstar-subp-prover-args` for more documentation.
+Use `C-h v fstar-subp-prover-args` for more details.
 
 ### Editing remote F* files
 
