@@ -346,19 +346,39 @@ You're running version %s" min-version fstar--vernum))))))
 
 ;; Loosely derived from https://github.com/FStarLang/atom-fstar/blob/master/grammars/fstar.cson
 
+(defconst fstar-syntax-structural-headers
+  '("open" "module" "include"
+    "let" "let rec" "val" "and"
+    "effect" "new_effect" "sub_effect" "new_effect_for_free"
+    "kind" "type"))
+
+(defconst fstar-syntax-preprocessor-directives
+  '("#set-options" "#reset-options"))
+
+(defconst fstar-syntax-headers
+  `(,@fstar-syntax-preprocessor-directives ,@fstar-syntax-structural-headers))
+
+(defconst fstar-syntax-structural-qualifiers
+  '("new" "abstract" "logic" "assume"
+    "unfold" "irreducible" "inline_for_extraction" "noeq" "noextract"
+    "private" "opaque" "total" "default" "reifiable" "reflectable"))
+
+(defconst fstar-syntax-qualifiers
+  `("assume" ,@fstar-syntax-structural-qualifiers))
+
+(defconst fstar-syntax-block-start-re
+  (format "^\\(?:%s \\)*%s "
+          (regexp-opt fstar-syntax-qualifiers)
+          (regexp-opt fstar-syntax-headers)))
+
 (defconst fstar-syntax-structure
-  (regexp-opt '("begin" "end"
-                "let" "rec" "in" "val" "and"
-                "kind" "type" "logic" "new" "abstract"
-                "unfold" "irreducible" "inline_for_extraction" "noeq" "noextract"
-                "private" "opaque" "total" "default" "reifiable" "reflectable"
-                "open" "module" "include")
+  (regexp-opt `("begin" "end" "in"
+                ,@fstar-syntax-structural-headers
+                ,@fstar-syntax-structural-qualifiers)
               'symbols))
 
 (defconst fstar-syntax-preprocessor
-  (regexp-opt '("#set-options"
-                "#reset-options")
-              'symbols))
+  (regexp-opt fstar-syntax-preprocessor-directives 'symbols))
 
 (defconst fstar-syntax-keywords
   (regexp-opt '("of"
@@ -374,7 +394,6 @@ You're running version %s" min-version fstar--vernum))))))
 
 (defconst fstar-syntax-builtins
   (regexp-opt '("requires" "ensures" "modifies" "decreases" "attributes"
-                "effect" "new_effect" "sub_effect" "new_effect_for_free"
                 "effect_actions")
               'symbols))
 
@@ -454,8 +473,7 @@ You're running version %s" min-version fstar--vernum))))))
 
 (defconst fstar-syntax-universe-id (concat "\\_<" fstar-syntax-universe-id-unwrapped "\\_>"))
 
-(defconst fstar-syntax-universe (concat "\\(" fstar-syntax-universe-id
-                                   "\\|u#([^)]*)\\)"))
+(defconst fstar-syntax-universe (concat "\\(" fstar-syntax-universe-id "\\|u#([^)]*)\\)"))
 
 (defconst fstar-syntax-ids (concat "\\(" fstar-syntax-id "\\(?: +" fstar-syntax-id "\\)*\\)"))
 
@@ -1530,7 +1548,9 @@ If NO-ERROR is set, do not report an error if the region is empty."
         (fstar-subp-set-status overlay 'pending)
         (fstar-subp-process-queue (current-buffer))))))
 
-(defcustom fstar-subp-block-sep "\\(\\'\\|\\s-*\\(\n\\s-*\\)\\{3,\\}\\)"
+
+(defcustom fstar-subp-block-sep
+  (concat "\\(?:\\'\\|\n\\(?:[[:space:]]*\n\\)+\\(?:" fstar-syntax-block-start-re "\\)\\)")
   "Regular expression used when looking for source blocks."
   :group 'fstar
   :type 'string
@@ -1547,6 +1567,7 @@ Ignores separators found in comments."
   (let (pos)
     (save-excursion
       (while (and (null pos) (re-search-forward fstar-subp-block-sep bound t))
+        (goto-char (point-at-bol))
         (unless (fstar-in-comment-p)
           (setq pos (point)))))
     (when pos
