@@ -466,11 +466,6 @@ to ‘%S’ to use this checker." checker))
   "Face used to highlight decreases clauses."
   :group 'fstar)
 
-(defface fstar-subscript-underscore-face
-  '((t :height 0.4))
-  "Face used to highlight underscores before subscripts."
-  :group 'fstar)
-
 (defface fstar-subscript-face
   '((t :height 1.0))
   "Face used to highlight subscripts"
@@ -613,7 +608,6 @@ If MUST-FIND-TYPE is nil, the :type part is not necessary."
       ("[{}]"
        (0 'fstar-braces-face append))
       (,fstar-syntax-id-with-subscript
-       ;; (1 '(face fstar-subscript-underscore-face invisible 'fstar-subscripts) prepend)
        (1 '(face fstar-subscript-face display (raise -0.3)) append)))))
 
 (defconst fstar--scratchpad-name " *%s-scratchpad*")
@@ -675,14 +669,12 @@ If MUST-FIND-TYPE is nil, the :type part is not necessary."
       ,@fstar-syntax-additional)
      nil nil))
   (font-lock-set-defaults)
-  (remove-from-invisibility-spec nil) ;; Make sure invisibility spec is a list
   (add-to-list 'font-lock-extra-managed-props 'display)
   (add-to-list 'font-lock-extra-managed-props 'invisible)
   (font-lock-mode))
 
 (defun fstar-teardown-font-lock ()
   "Disable F*-related font-locking."
-  (remove-from-invisibility-spec 'fstar-subscripts)
   (when (buffer-live-p fstar--scratchpad)
     (kill-buffer fstar--scratchpad)))
 
