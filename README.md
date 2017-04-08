@@ -80,7 +80,9 @@ Key     | Action
 
 Use <kbd>M-x customize-variable RET fstar-enabled-modules RET</kbd> to choose which parts of fstar-mode to enable.
 
-For example, you can get full-buffer verification (instead of interactive, Proof-General style verification), by enabling the `flycheck` module and disabling the `interactive` one. You'll need to install Flycheck from MELPA.
+### Real-time verification
+
+:unicorn: Customize the variable `fstar-flycheck-checker` to pick your favorite style of real-time verification (full-buffer verification or light, fast syntax checks in addition to proof-general style verification).  F*-mode's real-time checking uses `flycheck-mode` under the hood: try `M-x customize-group flycheck` to tweak Flycheck further.
 
 ### Completion
 

@@ -6,7 +6,7 @@
 
 ;; Created: 27 Aug 2015
 ;; Version: 0.4
-;; Package-Requires: ((emacs "24.3") (dash "2.11") (company "0.8.12") (quick-peek "1.0") (yasnippet "0.11.0"))
+;; Package-Requires: ((emacs "24.3") (dash "2.11") (company "0.8.12") (quick-peek "1.0") (yasnippet "0.11.0")  (flycheck "30.0"))
 ;; Keywords: convenience, languages
 
 ;; This file is not part of GNU Emacs.
@@ -32,9 +32,9 @@
 ;; * Indentation
 ;; * Type hints (Eldoc)
 ;; * Autocompletion (Company)
-;; * Snippets (Yasnippet)
+;; * Type-aware snippets (Yasnippet)
 ;; * Interactive proofs (à la Proof-General)
-;; * Whole-buffer verification (Flycheck)
+;; * Real-time verification (Flycheck)
 ;; * Remote editing (Tramp)
 ;;
 ;; See https://github.com/FStarLang/fstar-mode.el for setup and usage tips.
@@ -54,7 +54,7 @@
 (require 'company)
 (require 'quick-peek)
 (require 'yasnippet)
-(require 'flycheck nil t)
+(require 'flycheck)
 (require 'company-quickhelp nil t)
 
 ;;; Compatibility
@@ -111,7 +111,7 @@ returning a string (the full path to the SMT solver)."
     (prettify         . "Unicode math (e.g. display forall as ∀; requires emacs 24.4 or later)")
     (indentation      . "Indentation (based on control points)")
     (comments         . "Comment syntax and special comments ('(***', '(*+', etc.)")
-    (flycheck         . "Real-time verification (good for small files; requires Flycheck)")
+    (flycheck         . "Real-time verification with Flycheck")
     (interactive      . "Interactive verification (à la Proof-General)")
     (eldoc            . "Type annotations in the minibuffer.")
     (company          . "Completion with company-mode.")
@@ -121,7 +121,7 @@ returning a string (the full path to the SMT solver)."
   "Available components of F*-mode.")
 
 (defcustom fstar-enabled-modules
-  '(font-lock prettify indentation comments interactive
+  '(font-lock prettify indentation comments flycheck interactive
               eldoc company company-defaults spinner overlay-legend)
   "Which F*-mode components to load."
   :group 'fstar
@@ -252,7 +252,8 @@ FORMAT and ARGS are as in `message'."
       (info-includes-symbol . "0.9.4.2")
       (completion . "0.9.4.2")
       (docs . "42.0")
-      (match . "42.0"))))
+      (match . "42.0")
+      (flycheck-interactive . "42.0"))))
 
 (defun fstar--query-vernum (executable)
   "Ask F* EXECUTABLE for its version number."
@@ -282,6 +283,15 @@ You're running version %s" min-version fstar--vernum))))))
 
 ;;; Flycheck
 
+(defcustom fstar-flycheck-checker 'fstar-interactive
+  "Which Flycheck checker to use in F*-mode."
+  :group 'fstar
+  :type '(choice (const :tag "No Flycheck support" nil)
+                 (const :tag "Whole-buffer verification (slow)" 'fstar)
+                 (const :tag "Light syntax checking (fast)" 'fstar-interactive)))
+
+(make-variable-buffer-local 'fstar-flycheck-checker)
+
 (defconst fstar-error-patterns
   (let ((fstar-pat '((message) "near line " line ", character " column " in file " (file-name)))
         (z3-pat  '((file-name) "(" line "," column "-" (+ (any digit)) "," (+ (any digit)) ")"
@@ -291,24 +301,51 @@ You're running version %s" min-version fstar--vernum))))))
       (warning "WARNING: " ,@fstar-pat)
       (error ,@z3-pat))))
 
-(when (featurep 'flycheck)
-  (defvaralias 'flycheck-fstar-executable 'fstar-executable)
-  (make-obsolete-variable 'flycheck-fstar-executable 'fstar-executable "0.2" 'set)
+(defvaralias 'flycheck-fstar-executable 'fstar-executable)
+(make-obsolete-variable 'flycheck-fstar-executable 'fstar-executable "0.2" 'set)
 
-  (flycheck-define-command-checker 'fstar
-    "Flycheck checker for F*."
-    :command '("fstar.exe" source-inplace)
-    :error-patterns fstar-error-patterns
-    :error-filter #'flycheck-increment-error-columns
-    :modes '(fstar-mode))
+(defun fstar--flycheck-enabled (checker)
+  "Check whether CHECKER should be used."
+  (eq fstar-flycheck-checker checker))
 
-  (add-to-list 'flycheck-checkers 'fstar))
+(defun fstar--flycheck-verify-enabled (checker)
+  "Create a verification result announcing whether CHECKER is enabled."
+  (list
+   (flycheck-verification-result-new
+    :label "Checker selection"
+    :message (if (fstar--flycheck-enabled checker) "OK, checker selected."
+               (format "Set ‘fstar-flycheck-checker’ \
+to ‘%S’ to use this checker." checker))
+    :face (if (fstar--flycheck-enabled checker) 'success '(bold error)))))
+
+(defun fstar--flycheck-verify-subp-available ()
+  "Create a verification result announcing availability of the F* subprocess."
+  (list
+   (flycheck-verification-result-new
+    :label "Subprocess running"
+    :message (if (fstar-subp-live-p) "OK, F* started."
+               "This checker requires a running F* subprocess.")
+    :face (if (fstar-subp-live-p) 'success '(bold error)))
+   (flycheck-verification-result-new
+    :label "Subprocess started"
+    :message (if (fstar-subp-available-p) "OK, F* idle."
+               "This checker only runs when the F* subprocess is idle.")
+    :face (if (fstar-subp-available-p) 'success '(bold error)))))
+
+(flycheck-define-command-checker 'fstar
+  "Flycheck checker for F*."
+  :command '("fstar.exe" source-inplace)
+  :error-patterns fstar-error-patterns
+  :error-filter #'flycheck-increment-error-columns
+  :modes '(fstar-mode)
+  :verify #'fstar--flycheck-verify-enabled
+  :predicate (apply-partially #'fstar--flycheck-enabled 'fstar))
+
+(add-to-list 'flycheck-checkers 'fstar)
 
 (defun fstar-setup-flycheck ()
   "Prepare Flycheck for use with F*."
-  (if (featurep 'flycheck)
-      (flycheck-mode)
-    (warn "Please install the Flycheck package to get real-time verification")))
+  (flycheck-mode 1))
 
 ;;; Prettify symbols
 
@@ -1320,7 +1357,7 @@ returns without doing anything."
                  collect (fstar-subp-parse-issue bound)
                  do (setq bound (match-beginning 0)))))))
 
-(defun fstar-subp-cleanup-issue (issue ov)
+(defun fstar-subp-cleanup-issue (issue &optional ov)
   "Fixup ISSUE: include a file name, and adjust line numbers wrt OV."
   (when (member (fstar-issue-filename issue) '("unknown" "<input>"))
     (cl-assert buffer-file-name)
@@ -1442,20 +1479,21 @@ Complain if SUCCESS is nil and RESPONSE doesn't contain issues."
             (insert replacement)))))
     (buffer-substring-no-properties (point-min) (point-max))))
 
-(defun fstar-subp--push-header (pos lax)
+(defun fstar-subp--push-header (pos kind)
   "Prepare a header for a region starting at POS.
-With non-nil LAX, the region is to be processed in lax mode."
+KIND is one of `lax', `light', or `full'."
   (format "#push %d %d%s"
           (line-number-at-pos pos)
           (fstar-subp--column-number-at-pos pos)
-          (if lax " #lax" "")))
+          (pcase kind (`lax " #lax") (`light " #light") (_ ""))))
 
-(defun fstar-subp-send-region (beg end lax continuation)
+(defun fstar-subp-send-region (beg end kind continuation)
   "Send the region between BEG and END to the inferior F* process.
-With non-nil LAX, send region in lax mode.  Handle results with CONTINUATION."
+KIND indicates how to check BEG..END (one of `lax', `light', or
+`full').  Handle results with CONTINUATION."
   (interactive "r")
   (let* ((payload (fstar-subp-cleanup-region (current-buffer) beg end))
-         (msg (concat (fstar-subp--push-header beg lax) "\n" payload fstar-subp--footer)))
+         (msg (concat (fstar-subp--push-header beg kind) "\n" payload fstar-subp--footer)))
     (fstar-subp--query msg continuation)))
 
 (defun fstar-subp-overlay-attempt-modification (overlay &rest _args)
@@ -1503,8 +1541,9 @@ Modifications are only allowed if it is safe to retract up to the beginning of t
   (fstar-subp-start)
   (fstar-subp-set-status overlay 'busy)
   (let ((lax (overlay-get overlay 'fstar-subp--lax)))
-    (fstar-subp-send-region (overlay-start overlay) (overlay-end overlay) lax
-                       (apply-partially #'fstar-subp--overlay-continuation overlay))))
+    (fstar-subp-send-region
+     (overlay-start overlay) (overlay-end overlay) (if lax 'lax nil)
+     (apply-partially #'fstar-subp--overlay-continuation overlay))))
 
 (defun fstar-subp-process-queue (buffer)
   "Process the next pending overlay of BUFFER, if any."
@@ -1573,14 +1612,21 @@ Ignores separators found in comments."
     (when pos
       (goto-char pos))))
 
+(defun fstar-subp--next-unprocessed-start (n)
+  "Find the start of the at most (N + 1)th unprocessed block."
+  (save-excursion
+    (goto-char (fstar-subp-unprocessed-beginning))
+    (dotimes (_ n)
+      (fstar-subp-skip-comments-and-whitespace)
+      (fstar-subp-next-block-sep nil))
+    (point)))
+
 (defun fstar-subp-advance-next ()
   "Process buffer until `fstar-subp-block-sep'."
   (interactive)
   (fstar-subp-start)
-  (goto-char (fstar-subp-unprocessed-beginning))
-  (fstar-subp-skip-comments-and-whitespace)
-  (-if-let* ((next-start (fstar-subp-next-block-sep nil)))
-      (fstar-subp-enqueue-until next-start)
+  (-if-let* ((next-start (fstar-subp--next-unprocessed-start 1)))
+      (fstar-subp-enqueue-until (goto-char next-start))
     (user-error "Cannot find a full block to process")))
 
 (defun fstar-subp-pop-overlay (overlay)
@@ -1639,6 +1685,59 @@ into blocks; process it as one large block instead."
   (interactive "P")
   (let ((fstar-subp--lax t))
     (fstar-subp-advance-or-retract-to-point arg)))
+
+;;;; Flycheck
+
+(defun fstar-subp--can-run-flycheck ()
+  "Check whether it's a reasonable time to start a syntax check."
+  ;; FIXME check that there are no pending overlays ?
+  (fstar-subp-available-p))
+
+(defun fstar-subp--make-flycheck-issue (issue)
+  "Convert an F* ISSUE to a Flycheck issue."
+  (flycheck-error-new-at
+   (fstar-issue-line-from issue)
+   (1+ (fstar-issue-col-from issue))
+   (fstar-issue-level issue)
+   (fstar-issue-message issue)
+   :checker 'fstar-interactive
+   :filename (fstar-issue-filename issue)))
+
+(defun fstar-subp--flycheck-continuation (callback _status response)
+  "Forward results of #light check (STATUS and RESPONSE) to CALLBACK."
+  (let* ((raw-issues (fstar-subp-parse-issues response))
+         (issues (mapcar #'fstar-subp-cleanup-issue raw-issues)))
+    (fstar-log 'info "Highlighting #light issues: %s" issues)
+    (funcall callback 'finished (mapcar #'fstar-subp--make-flycheck-issue issues))))
+
+(defun fstar-subp--start-syntax-check (_checker callback)
+  "Start a light syntax check; pass results to CALLBACK."
+  (if (fstar-subp--can-run-flycheck)
+      (let ((beg (fstar-subp-unprocessed-beginning))
+            (end (fstar-subp--next-unprocessed-start 3))) ;; FIXME customize number
+        (if (< beg end)
+            (fstar-subp-send-region
+             beg end 'light
+             (apply-partially #'fstar-subp--flycheck-continuation callback))
+          (funcall callback 'finished nil)))
+    ;; FIXME check that this is the right status
+    (funcall callback 'interrupted nil)))
+
+(flycheck-define-generic-checker 'fstar-interactive
+  "Flycheck checker for F*'s interactive mode.
+This checker uses the F* subprocess to do light real-time
+checking of the first few chunks of the unprocessed region of the
+buffer."
+  :start #'fstar-subp--start-syntax-check
+  :modes '(fstar-mode)
+  :verify (lambda (checker) (append (fstar--flycheck-verify-enabled checker)
+                               (fstar--flycheck-verify-subp-available)))
+  :predicate (lambda ()
+               (and (fstar--has-feature 'flycheck-interactive)
+                    (fstar--flycheck-enabled 'fstar-interactive)
+                    (fstar-subp--can-run-flycheck))))
+
+(add-to-list 'flycheck-checkers 'fstar-interactive)
 
 ;;;; Info queries
 
@@ -2334,9 +2433,7 @@ Function is public to make it easier to debug `fstar-subp-prover-args'."
   (setq-local help-at-pt-display-when-idle t)
   (setq-local help-at-pt-timer-delay 0.2)
   (help-at-pt-cancel-timer)
-  (help-at-pt-set-timer)
-  (when (featurep 'flycheck)
-    (add-to-list 'flycheck-disabled-checkers 'fstar)))
+  (help-at-pt-set-timer))
 
 (defun fstar-teardown-interactive ()
   "Cleanup F* interactive mode."
