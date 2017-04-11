@@ -1622,6 +1622,8 @@ If NO-ERROR is set, do not report an error if the region is empty."
   (fstar-subp-start)
   (let ((beg (fstar-subp-unprocessed-beginning))
         (end (fstar-skip-spaces-backwards-from end)))
+    (when (eq (char-after end) ?\n)
+      (cl-incf end))
     (fstar-assert (cl-loop for overlay in (overlays-in beg end)
                       never (fstar-subp-tracking-overlay-p overlay)))
     (if (<= end beg)
