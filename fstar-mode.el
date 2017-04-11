@@ -704,7 +704,7 @@ leads to the binder's start."
 (defun fstar--highlight-docstring (str)
   "Highlight STR as an F* docstring."
   (with-temp-buffer
-    (insert str)
+    (insert (string-trim str))
     (fstar--highlight-docstring-buffer)
     (buffer-string)))
 
