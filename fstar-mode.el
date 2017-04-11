@@ -199,7 +199,9 @@ after."
   "Toggle `fstar-debug'."
   (interactive)
   (message "F*: Debugging %s."
-           (if (setq-default fstar-debug (not fstar-debug)) "enabled" "disabled")))
+           (if (setq-default fstar-debug (not fstar-debug)) "enabled" "disabled"))
+  (when fstar-debug
+    (display-buffer (fstar--log-buffer))))
 
 (define-obsolete-variable-alias 'fstar-subp-debug 'fstar-debug "0.4")
 (define-obsolete-function-alias 'fstar-subp-toggle-debug 'fstar-toggle-debug "0.4")
