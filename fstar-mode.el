@@ -232,7 +232,8 @@ LEVEL is one of `info', `input', `output'."
     (let* ((raw (apply #'format format args))
            (head (cdr (assq kind '((info . ";;; ") (in . ">>> ") (out . ""))))))
       (fstar-assert head)
-      (insert (replace-regexp-in-string "^" head raw) "\n"))))
+      (insert (replace-regexp-in-string "^" head raw)
+              (if (eq kind 'out) "" "\n")))))
 
 (defmacro fstar-log (kind format &rest args)
   "Log a message of kind KIND, conditional on `fstar-debug'.
