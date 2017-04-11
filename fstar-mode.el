@@ -1024,9 +1024,19 @@ never contains more than one entry (with ID nil).")
   "Return non-nil if OVERLAY is an fstar-subp issue overlay."
   (overlay-get overlay 'fstar-subp-issue))
 
-(defun fstar-subp-issue-overlays ()
-  "Find all -subp issues overlays in the current buffer."
-  (-filter #'fstar-subp-issue-overlay-p (overlays-in (point-min) (point-max))))
+(defun fstar-subp-orphaned-issue-overlay-p (overlay)
+  "Return non-nil if OVERLAY is an orphaned fstar-subp issue overlay."
+  (and (overlay-get overlay 'fstar-subp-issue)
+       (let ((parent (overlay-get overlay 'fstar-subp-issue-parent-overlay)))
+         (or (null parent) (null (overlay-buffer parent))))))
+
+(defun fstar-subp-issue-overlays (beg end)
+  "Find all -subp issues overlays in BEG END."
+  (-filter #'fstar-subp-issue-overlay-p (overlays-in beg end)))
+
+(defun fstar-subp-issue-orphaned-overlays (beg end)
+  "Find all -subp issues overlays in BEG END."
+  (-filter #'fstar-subp-orphaned-issue-overlay-p (overlays-in beg end)))
 
 (defun fstar-subp-issue-overlays-at (pt)
   "Find all -subp issues overlays at point PT."
@@ -1049,12 +1059,16 @@ look in the entire buffer."
         (lambda (o1 o2) (< (overlay-start o1) (overlay-start o2)))))
 
 (defun fstar-subp-remove-tracking-overlays ()
-  "Remove all F* overlays in the current buffer."
-  (mapcar #'delete-overlay (fstar-subp-tracking-overlays)))
+  "Remove all F* tracking overlays in the current buffer."
+  (mapc #'delete-overlay (fstar-subp-tracking-overlays)))
 
-(defun fstar-subp-remove-issues-overlays ()
-  "Remove all F* overlays in the current buffer."
-  (mapcar #'delete-overlay (fstar-subp-issue-overlays)))
+(defun fstar-subp-remove-issue-overlays (beg end)
+  "Remove all F* issue overlays in BEG .. END."
+  (mapc #'delete-overlay (fstar-subp-issue-overlays beg end)))
+
+(defun fstar-subp-remove-orphaned-issue-overlays (beg end)
+  "Remove all F* issue overlays in BEG .. END whose overlay is dead."
+  (mapc #'delete-overlay (fstar-subp-issue-orphaned-overlays beg end)))
 
 ;;;; Overlay status legend in modeline
 
@@ -1352,8 +1366,8 @@ Table of continuations was %s" response id conts)))
       (unless (equal leftovers "")
         (message "F* subprocess died early: %s" leftovers)))
     (kill-buffer))
+  (fstar-subp-remove-issue-overlays (point-min) (point-max))
   (fstar-subp-remove-tracking-overlays)
-  (fstar-subp-remove-issues-overlays)
   (fstar-subp--clear-continuations)
   (setq fstar-subp--process nil
         fstar-subp--next-query-id 0))
@@ -1565,14 +1579,17 @@ Recall that the legacy F* protocol doesn't ack pops."
     (`error 'fstar-subp-overlay-error-face)
     (`warning 'fstar-subp-overlay-warning-face)))
 
-(defun fstar-subp-highlight-issue (issue)
-  "Highlight ISSUE in current buffer."
+(defun fstar-subp-highlight-issue (issue parent)
+  "Highlight ISSUE in current buffer.
+PARENT is the overlay whose processing caused this issue to be
+reported."
   (let* ((from (fstar--row-col-offset (fstar-issue-line-from issue)
                                  (fstar-issue-col-from issue)))
          (to (fstar--row-col-offset (fstar-issue-line-to issue)
                                (fstar-issue-col-to issue)))
          (overlay (make-overlay from (max to (1+ from)) (current-buffer) t nil)))
     (overlay-put overlay 'fstar-subp-issue t)
+    (overlay-put overlay 'fstar-subp-issue-parent-overlay parent)
     (overlay-put overlay 'face (fstar-subp-issue-face issue))
     (overlay-put overlay 'help-echo #'fstar-subp--help-echo)
     (overlay-put overlay 'fstar-subp-message (fstar-issue-message issue))
@@ -1580,9 +1597,9 @@ Recall that the legacy F* protocol doesn't ack pops."
     (when (fboundp 'pulse-momentary-highlight-region)
       (pulse-momentary-highlight-region from to))))
 
-(defun fstar-subp-highlight-issues (issues)
-  "Highlight ISSUES."
-  (mapcar #'fstar-subp-highlight-issue issues))
+(defun fstar-subp-highlight-issues (issues parent)
+  "Highlight ISSUES caused by processing of PARENT overlay."
+  (mapc (lambda (i) (fstar-subp-highlight-issue i parent)) issues))
 
 (defun fstar-subp-jump-to-issue (issue)
   "Jump to ISSUE in current buffer."
@@ -1595,7 +1612,7 @@ Recall that the legacy F* protocol doesn't ack pops."
            (expand-file-name (fstar-issue-filename issue))))
 
 (defun fstar-subp-parse-and-highlight-issues (status response overlay)
-  "Parse issues (relative to OVERLAY) in RESPONSE and display them.
+  "Parse issues in RESPONSE (caused by processing OVERLAY) and display them.
 Complain if STATUS is `failure' and RESPONSE doesn't contain issues."
   (let* ((raw-issues (fstar-subp-parse-issues response))
          (issues (mapcar (lambda (i) (fstar-subp-cleanup-issue i overlay)) raw-issues))
@@ -1609,7 +1626,7 @@ Complain if STATUS is `failure' and RESPONSE doesn't contain issues."
     (fstar-log 'info "Highlighting issues: %s" issues)
     (when local-issues
       (fstar-subp-jump-to-issue (car local-issues))
-      (fstar-subp-highlight-issues local-issues)
+      (fstar-subp-highlight-issues local-issues overlay)
       (display-local-help))))
 
 
@@ -1795,8 +1812,8 @@ If NO-ERROR is set, do not report an error if the region is empty."
         (unless no-error
           (user-error "Nothing more to process!"))
       (let ((overlay (make-overlay beg end (current-buffer) nil nil)))
+        (fstar-subp-remove-orphaned-issue-overlays (point-min) (point-max))
         (overlay-put overlay 'fstar-subp--lax fstar-subp--lax)
-        (fstar-subp-remove-issues-overlays)
         (fstar-subp-set-status overlay 'pending)
         (fstar-subp--set-queue-timer)))))
 
