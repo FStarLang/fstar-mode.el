@@ -8,6 +8,7 @@
 (depends-on "quick-peek")
 (depends-on "yasnippet")
 (depends-on "flycheck")
+(depends-on "let-alist")
 
 (development
  (depends-on "company-quickhelp"))

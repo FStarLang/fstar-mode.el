@@ -55,6 +55,7 @@
 (require 'quick-peek)
 (require 'yasnippet)
 (require 'flycheck)
+(require 'let-alist)
 (require 'company-quickhelp nil t)
 
 ;;; Compatibility
@@ -207,8 +208,11 @@ after."
 (define-obsolete-function-alias 'fstar-subp-toggle-debug 'fstar-toggle-debug "0.4")
 
 (defconst fstar--log-buffer-keywords
-  '((";;;" . font-lock-constant-face)
+  '(("!!!" . font-lock-warning-face)
     (">>>" . font-lock-constant-face)
+    ("\\(;;;\\)\\(.*\\)"
+     (1 font-lock-constant-face)
+     (2 font-lock-comment-face prepend))
     ("^#done-n?ok" . font-lock-builtin-face)))
 
 (defun fstar--log-buffer ()
@@ -230,7 +234,8 @@ LEVEL is one of `info', `input', `output'."
   (with-current-buffer (fstar--log-buffer)
     (goto-char (point-max))
     (let* ((raw (apply #'format format args))
-           (head (cdr (assq kind '((info . ";;; ") (in . ">>> ") (out . ""))))))
+           (head (cdr (assq kind '((info . ";;; ") (in . ">>> ")
+                                   (warning . "!!! ") (out . ""))))))
       (fstar-assert head)
       (insert (replace-regexp-in-string "^" head raw)
               (if (eq kind 'out) "" "\n")))))
@@ -261,6 +266,7 @@ enable all experimental features."
       (info . "0.9.4.1")
       (info-includes-symbol . "0.9.4.2")
       (completion . "0.9.4.2")
+      (interactive-json . "24.0")
       (docs . "42.0")
       (match . "42.0")
       (flycheck-interactive . "42.0"))))
@@ -881,20 +887,25 @@ With BACKWARDS, go back among indentation points."
 
 ;;; Interactive proofs (fstar-subp)
 
-(defconst fstar-subp--success "ok")
-(defconst fstar-subp--failure "nok")
-(defconst fstar-subp--done "\n#done-")
+(cl-defstruct fstar-subp-query
+  query args)
 
-(defconst fstar-subp--cancel "#pop")
-(defconst fstar-subp--footer "\n#end #done-ok #done-nok")
+(defconst fstar-subp-legacy--success "ok")
+(defconst fstar-subp-legacy--failure "nok")
+(defconst fstar-subp-legacy--done "\n#done-")
+
+(defconst fstar-subp-legacy--cancel "#pop")
+(defconst fstar-subp-legacy--footer "\n#end #done-ok #done-nok")
 
 (defconst fstar-subp-statuses '(pending busy processed))
 
 (defvar-local fstar-subp--process nil
   "Interactive F* process running in the background.")
 
-(defvar-local fstar-subp--continuation nil
-  "Indicates which continuation to run on next output from F* subprocess.")
+(defvar-local fstar-subp--continuations (make-hash-table :test 'equal)
+  "Indicates which continuation to run on next output from F* subprocess.
+This is a map from query ID to continuation.  In legacy mode, it
+never contains more than one entry (with ID nil).")
 
 (defvar fstar-subp--lax nil
   "Whether to process newly sent regions in lax mode.")
@@ -1122,11 +1133,11 @@ If PROC is nil, use the current buffer's `fstar-subp--process'."
 
 (defun fstar-subp--busy-p ()
   "Return t if current `fstar-subp--process' is live and busy."
-  (and (fstar-subp-live-p) fstar-subp--continuation))
+  (and (fstar-subp-live-p) (> (hash-table-count fstar-subp--continuations) 0)))
 
 (defun fstar-subp-available-p ()
   "Return t if current `fstar-subp--process' is live and idle."
-  (and (fstar-subp-live-p) (not fstar-subp--continuation)))
+  (and (fstar-subp-live-p) (= (hash-table-count fstar-subp--continuations) 0)))
 
 (defun fstar-subp--ensure-available (error-fn &optional feature)
   "Raise an error with ERROR-FN if F* isn't available.
@@ -1139,13 +1150,28 @@ FEATURE, if specified."
   (unless (fstar-subp-live-p)
     (funcall error-fn "Please start F* before jumping to a definition")))
 
+(defun fstar-subp--serialize-query (query id)
+  "Serialize QUERY with ID to JSON."
+  (let ((json-encoding-pretty-print nil)
+        (dummy-alist '(("dummy" . nil))))
+    (json-encode `(("query-id" . ,id)
+                   ("query" . ,(fstar-subp-query-query query))
+                   ("args" . ,(or (fstar-subp-query-args query) dummy-alist))))))
+
+(defvar-local fstar-subp--next-query-id 0)
+
 (defun fstar-subp--query (query continuation)
   "Send QUERY to F* subprocess; handle results with CONTINUATION."
-  (fstar-log 'in "%s" query)
-  (fstar-assert (not fstar-subp--continuation))
-  (setq fstar-subp--continuation continuation)
-  (fstar-subp-start)
-  (process-send-string fstar-subp--process (concat query "\n")))
+  (let ((id nil))
+    (when (fstar-subp-query-p query)
+      (setq id (number-to-string (cl-incf fstar-subp--next-query-id)))
+      (setq query (fstar-subp--serialize-query query id)))
+    (fstar-log 'in "%s" query)
+    (if continuation
+        (puthash id continuation fstar-subp--continuations)
+      (remhash id fstar-subp--continuations))
+    (fstar-subp-start)
+    (process-send-string fstar-subp--process (concat query "\n"))))
 
 (defun fstar-subp--query-and-wait-1 (start query results-cell max-delay continuation)
   "Issues QUERY and wait for an answer for up to MAX-DELAY after START.
@@ -1164,7 +1190,7 @@ RESULTS-CELL) to t when invoked."
 (defun fstar-subp--query-and-wait (query max-sync-delay)
   "Issue QUERY and try to return RESULTS synchronously.
 Wait for MAX-SYNC-DELAY seconds at most.  If results were
-received while waiting return a cons (t . (SUCCESS RESULTS)).
+received while waiting return a cons (t . (STATUS RESULTS)).
 Otherwise, return a cons ('needs-callback . _).  In the latter
 case, the caller should write a callback to the `cdr' of the
 return value."
@@ -1174,30 +1200,30 @@ return value."
     ;; Issue query immediately and wait for a bit
     (fstar-subp--query-and-wait-1
      start query results-cell max-sync-delay
-     (lambda (success results)
+     (lambda (status results)
        (setf (car results-cell) t)
-       (setf (cdr results-cell) (list success results))
+       (setf (cdr results-cell) (list status results))
        (when (cdr callback-cell)
          (apply (cdr callback-cell) (cdr results-cell)))))
     ;; Check for results
     (cond
      ((car results-cell) ;; Got results in time!
-      (fstar-log 'info "Fetching results for %S took %.2fms"
-            query (* 1000 (float-time (time-since start))))
+      (fstar-log 'info "[%.2fms] Fetched results for %S"
+            (* 1000 (float-time (time-since start))) query)
       results-cell)
      (t ;; Results are late.  Set callback to company-supplied one.
       (fstar-log 'info "Results for %S are late" query)
       callback-cell))))
 
-(defun fstar-subp-find-response (proc)
-  "Find full response in PROC's buffer; handle it if found."
+(defun fstar-subp-legacy--find-response (proc)
+  "Find full response in PROC's legacy-mode buffer; handle it if found."
   (setq ansi-color-context-region nil)
   (ansi-color-filter-region (point-min) (point-max))
   (goto-char (point-min)) ;; FIXME better protocol wouldn't require re-scans
-  (when (search-forward fstar-subp--done nil t)
+  (when (search-forward fstar-subp-legacy--done nil t)
     (let* ((status        (cond
-                           ((looking-at fstar-subp--success) t)
-                           ((looking-at fstar-subp--failure) nil)
+                           ((looking-at fstar-subp-legacy--success) 'success)
+                           ((looking-at fstar-subp-legacy--failure) 'failure)
                            (t 'unknown)))
            (resp-beg      (point-min))
            (resp-end      (point-at-bol))
@@ -1207,23 +1233,86 @@ return value."
       (delete-region resp-beg resp-real-end)
       (when (fstar-subp-live-p proc)
         (fstar-subp-with-source-buffer proc
-          (unless (booleanp status)
+          (unless (memq status '(success failure))
             (fstar-subp-kill)
             (error "Unknown status [%s] from F* subprocess \
 \(response was [%s])" status response))
-          (fstar-subp-process-response status response))))))
+          (fstar-subp--process-response nil status response))))))
 
-(defun fstar-subp-process-response (success response)
-  "Process SUCCESS and RESPONSE from F* subprocess."
+(defun fstar-subp-json--parse-status (status)
+  "Convert STATUS to a symbol indicating success."
+  (pcase status
+    ((or "success" "failure") (intern status))
+    (_ (warn "Unknown status %S from F* subprocess" status)
+       `failure)))
+
+(defun fstar-subp-json--read-response (beg end)
+  "Read JSON message from BEG to END."
+  (goto-char beg)
+  (let* ((json-null nil)
+         (json-false :json-false)
+         (json-key-type 'symbol)
+         (json-array-type 'list)
+         (json-object-type 'alist)
+         (json (when (eq (char-after) ?\{)
+                 (condition-case nil (json-read)
+                   (json-error nil)))))
+    (cond
+     ((null json)
+      (ignore (fstar-log 'warning "%s" (buffer-substring beg end))
+              (message "[F* raw output] %s" (buffer-substring beg end))))
+     ((/= (point) end)
+      (ignore (fstar-log 'warning "Junk follows JSON message: %s" (buffer-substring beg end))))
+     (t
+      (fstar-log 'info "EOM received; status is %S" (let-alist json .status))
+      json))))
+
+(defun fstar-subp-json--find-response (proc)
+  "Find full response in PROC's json-mode buffer; handle it if found."
+  (while (search-forward "\n" nil t)
+    (let* ((js-end (1- (point)))
+           (json (and (> js-end (point-min)) ;; Strip empty lines
+                      (fstar-subp-json--read-response (point-min) js-end))))
+      (goto-char (point-min))
+      (delete-region (point-min) (1+ js-end))
+      (when (and json (fstar-subp-live-p proc))
+        (let-alist json
+          (fstar-subp-with-source-buffer proc
+            (pcase .kind
+              ("message"
+               (fstar-subp--process-message .level .contents))
+              ("response"
+               (let ((status (fstar-subp-json--parse-status .status)))
+                 (fstar-subp--process-response .query-id status .response)))))))))
+  ;; Skip to end of partial response
+  (goto-char (point-max)))
+
+(defun fstar-subp-find-response (proc)
+  "Find full response in PROC's buffer; handle it if found."
+  (if (fstar--has-feature 'interactive-json)
+      (fstar-subp-json--find-response proc)
+    (fstar-subp-legacy--find-response proc)))
+
+(defun fstar-subp--process-message (level contents)
+  "Process CONTENTS of real-time feedback message at LEVEL."
+  (let ((header (format "[F* %s] " level)))
+    (setq contents (string-trim contents))
+    (message "%s" (replace-regexp-in-string "^" header contents))))
+
+(defun fstar-subp--process-response (id status response)
+  "Process STATUS and RESPONSE for query ID from F* subprocess."
   (let* ((source-buffer (current-buffer))
-         (continuation fstar-subp--continuation))
-    (unless continuation
-      (fstar-subp-kill)
-      (error "Invalid state: Received output, but no continuation was registered"))
-    (setq fstar-subp--continuation nil)
+         (continuation (gethash id fstar-subp--continuations)))
+    (when (null continuation)
+      (let ((conts (format "%S" fstar-subp--continuations)))
+        (fstar-subp-kill)
+        (error "Invalid state: Received orphan response %S to query %S.
+Table of continuations was %s" response id conts)))
+    (remhash id fstar-subp--continuations)
     (unwind-protect
-        (funcall continuation success response)
-      (run-with-timer 0 nil #'fstar-subp-process-queue source-buffer))))
+        (funcall continuation status response)
+      (with-current-buffer source-buffer
+        (fstar-subp--set-queue-timer)))))
 
 (defun fstar-subp-warn-unexpected-output (string)
   "Warn user about unexpected output STRING."
@@ -1233,12 +1322,14 @@ return value."
   "Handle PROC's output (STRING)."
   (when string
     (fstar-log 'out "%s" string)
-    (if (fstar-subp-live-p proc)
-        (fstar-subp-with-process-buffer proc
-          (goto-char (point-max))
-          (insert string)
-          (fstar-subp-find-response proc))
-      (run-with-timer 0 nil #'fstar-subp-warn-unexpected-output string))))
+    (let ((proc-buf (process-buffer proc)))
+      (if (buffer-live-p proc-buf)
+          (fstar-subp-with-process-buffer proc
+            (save-excursion
+              (goto-char (point-max))
+              (insert string))
+            (fstar-subp-find-response proc))
+        (run-with-timer 0 nil #'fstar-subp-warn-unexpected-output string)))))
 
 (defun fstar-subp-sentinel (proc signal)
   "Handle PROC's SIGNAL."
@@ -1249,6 +1340,11 @@ return value."
     (fstar-subp-with-source-buffer proc
       (fstar-subp-killed))))
 
+(defun fstar-subp--clear-continuations ()
+  "Get rid of all pending continuations."
+  (maphash (lambda (_ cont) (funcall cont 'interrupted nil)) fstar-subp--continuations)
+  (clrhash fstar-subp--continuations))
+
 (defun fstar-subp-killed ()
   "Clean up current source buffer."
   (fstar-subp-with-process-buffer fstar-subp--process
@@ -1258,8 +1354,9 @@ return value."
     (kill-buffer))
   (fstar-subp-remove-tracking-overlays)
   (fstar-subp-remove-issues-overlays)
-  (setq fstar-subp--continuation nil
-        fstar-subp--process nil))
+  (fstar-subp--clear-continuations)
+  (setq fstar-subp--process nil
+        fstar-subp--next-query-id 0))
 
 (defun fstar-subp-kill ()
   "Kill F* subprocess and clean up current buffer."
@@ -1349,14 +1446,23 @@ returns without doing anything."
 
 ;;;; Parsing and display issues
 
-(defun fstar-subp--overlay-continuation (overlay success response)
-  "Handle the results (SUCCESS and RESPONSE) of processing OVERLAY."
-  (fstar-subp-remove-issues-overlays)
-  (fstar-subp-parse-and-highlight-issues success response overlay)
-  (if success
-      (fstar-subp-set-status overlay 'processed)
-    (fstar-subp-remove-unprocessed)
-    (fstar-subp--query fstar-subp--cancel nil)))
+(defun fstar-subp--pop ()
+  "Issue a `pop' query.
+Recall that the legacy F* protocol doesn't ack pops."
+  (if (fstar--has-feature 'interactive-json)
+      (fstar-subp--query (make-fstar-subp-query :query "pop" :args nil) #'ignore)
+    (fstar-subp--query fstar-subp-legacy--cancel nil)))
+
+(defun fstar-subp--overlay-continuation (overlay status response)
+  "Handle the results (STATUS and RESPONSE) of processing OVERLAY."
+  (unless (eq status 'interrupted)
+    (fstar-subp-parse-and-highlight-issues status response overlay)
+    (if (eq status 'success)
+        (fstar-subp-set-status overlay 'processed)
+      (fstar-subp-remove-unprocessed)
+      ;; Legacy protocol requires a pop after failed pushes
+      (unless (fstar--has-feature 'interactive-json)
+        (fstar-subp--pop)))))
 
 (cl-defstruct fstar-issue
   level filename line-from line-to col-from col-to message)
@@ -1364,19 +1470,19 @@ returns without doing anything."
 (defconst fstar-subp-issue-location-regexp
   "\\(.*?\\)(\\([[:digit:]]+\\),\\([[:digit:]]+\\)-\\([[:digit:]]+\\),\\([[:digit:]]+\\))")
 
-(defconst fstar-subp-issue-regexp
+(defconst fstar-subp-legacy--issue-regexp
   (concat "^" fstar-subp-issue-location-regexp "\\s-*:\\s-*"))
 
-(defconst fstar-subp-also-see-regexp
+(defconst fstar-subp-legacy--also-see-regexp
   (concat "(Also see: " fstar-subp-issue-location-regexp ")"))
 
-(defun fstar-subp-parse-issue (limit)
+(defun fstar-subp-legacy--parse-issue (limit)
   "Construct an issue object from the current match data up to LIMIT."
   (pcase-let* ((issue-level 'error)
                (message (buffer-substring (match-end 0) limit))
                (`(,filename ,line-from ,col-from ,line-to ,col-to)
                 (or (save-match-data
-                      (when (string-match fstar-subp-also-see-regexp message)
+                      (when (string-match fstar-subp-legacy--also-see-regexp message)
                         (prog1 (fstar--match-strings-no-properties '(1 2 3 4 5) message)
                           (setq message (substring message 0 (match-beginning 0))))))
                     (fstar--match-strings-no-properties '(1 2 3 4 5)))))
@@ -1393,17 +1499,32 @@ returns without doing anything."
                       :col-to (string-to-number col-to)
                       :message message)))
 
+(defun fstar-subp-json--parse-issue (json)
+  "Convert JSON issue into fstar-mode issue."
+  (let-alist json
+    (make-fstar-issue :level (intern .level)
+                      :filename .range.fname
+                      :line-from (elt .range.beg 0)
+                      :line-to (elt .range.end 0)
+                      :col-from (elt .range.beg 1)
+                      :col-to (elt .range.end 1)
+                      :message .message)))
+
 (defun fstar-subp-parse-issues (response)
   "Parse RESPONSE into a list of issues."
-  (unless (equal response "")
-    (with-temp-buffer
-      (insert response)
-      (let ((bound (point-max)))
-        (goto-char (point-max))
-        ;; Matching backwards makes it easy to capture multi-line issues.
-        (cl-loop while (re-search-backward fstar-subp-issue-regexp nil t)
-                 collect (fstar-subp-parse-issue bound)
-                 do (setq bound (match-beginning 0)))))))
+  (cond
+   ((fstar--has-feature 'interactive-json)
+    (mapcar #'fstar-subp-json--parse-issue response))
+   ((stringp response)
+    (unless (equal response "")
+      (with-temp-buffer
+        (insert response)
+        (let ((bound (point-max)))
+          (goto-char (point-max))
+          ;; Matching backwards makes it easy to capture multi-line issues.
+          (cl-loop while (re-search-backward fstar-subp-legacy--issue-regexp nil t)
+                   collect (fstar-subp-legacy--parse-issue bound)
+                   do (setq bound (match-beginning 0)))))))))
 
 (defun fstar-subp-cleanup-issue (issue &optional ov)
   "Fixup ISSUE: include a file name, and adjust line numbers wrt OV."
@@ -1473,15 +1594,15 @@ returns without doing anything."
   (string= (expand-file-name buffer-file-name)
            (expand-file-name (fstar-issue-filename issue))))
 
-(defun fstar-subp-parse-and-highlight-issues (success response overlay)
+(defun fstar-subp-parse-and-highlight-issues (status response overlay)
   "Parse issues (relative to OVERLAY) in RESPONSE and display them.
-Complain if SUCCESS is nil and RESPONSE doesn't contain issues."
+Complain if STATUS is `failure' and RESPONSE doesn't contain issues."
   (let* ((raw-issues (fstar-subp-parse-issues response))
          (issues (mapcar (lambda (i) (fstar-subp-cleanup-issue i overlay)) raw-issues))
          (partitioned (-group-by #'fstar-subp--local-issue-p issues))
          (local-issues (cdr (assq t partitioned)))
          (other-issues (cdr (assq nil partitioned))))
-    (unless (or success issues)
+    (when (and (eq status 'failure) (null issues))
       (warn "No issues found in response despite prover failure: [%s]" response))
     (when other-issues
       (message "F* reported issues in other files: [%S]" other-issues))
@@ -1508,41 +1629,73 @@ Complain if SUCCESS is nil and RESPONSE doesn't contain issues."
            unless (fstar-subp-status-eq overlay 'processed)
            do (delete-overlay overlay)))
 
-(defun fstar-subp-cleanup-region (buffer beg end)
-  "Make a clean copy of range BEG..END in BUFFER before sending it to F*."
+(defun fstar-subp-legacy--strip-comments (str)
+  "Remove comments in STR (replace them with spaces).
+This was needed when control and data were mixed."
   (with-temp-buffer
     (set-syntax-table fstar-syntax-table)
     (fstar-setup-comments)
     (comment-normalize-vars)
-    (insert-buffer-substring buffer beg end)
+    (insert str)
     (goto-char (point-min))
     (let (start)
       (while (setq start (comment-search-forward nil t))
         (goto-char start)
         (forward-comment 1)
-        (save-match-data ;; FIXME do we still need to strip comments?
+        (save-match-data
           (let* ((comment (buffer-substring-no-properties start (point)))
                  (replacement (replace-regexp-in-string "." " " comment t t)))
             (delete-region start (point))
             (insert replacement)))))
     (buffer-substring-no-properties (point-min) (point-max))))
 
-(defun fstar-subp--push-header (pos kind)
-  "Prepare a header for a region starting at POS.
-KIND is one of `lax', `light', or `full'."
-  (format "#push %d %d%s"
-          (line-number-at-pos pos)
-          (fstar-subp--column-number-at-pos pos)
-          (pcase kind (`lax " #lax") (`light " #light") (_ ""))))
+(defun fstar-subp--clean-buffer-substring (beg end)
+  "Make a clean copy of range BEG..END before sending it to F*."
+  (if (fstar--has-feature 'interactive-json)
+      (buffer-substring-no-properties beg end)
+    (fstar-subp-legacy--strip-comments (buffer-substring-no-properties beg end))))
 
-(defun fstar-subp-send-region (beg end kind continuation)
-  "Send the region between BEG and END to the inferior F* process.
-KIND indicates how to check BEG..END (one of `lax', `light', or
-`full').  Handle results with CONTINUATION."
-  (interactive "r")
-  (let* ((payload (fstar-subp-cleanup-region (current-buffer) beg end))
-         (msg (concat (fstar-subp--push-header beg kind) "\n" payload fstar-subp--footer)))
-    (fstar-subp--query msg continuation)))
+(defun fstar--subp-push-peek-query-1 (query pos kind code)
+  "Helper for push/peek (QUERY) with POS KIND and CODE."
+  (make-fstar-subp-query
+   :query query
+   :args `(("kind" . ,(symbol-name kind))
+           ("code" . ,code)
+           ("line" . ,(line-number-at-pos pos))
+           ("column" . ,(fstar-subp--column-number-at-pos pos)))))
+
+(defun fstar-subp--push-query (pos kind code)
+  "Prepare a push query for a region starting at POS.
+KIND is one of `lax', `full'.  CODE is the code to push."
+  (if (fstar--has-feature 'interactive-json)
+      (fstar--subp-push-peek-query-1 "push" pos kind code)
+    (format "#push %d %d%s\n%s%s"
+            (line-number-at-pos pos)
+            (fstar-subp--column-number-at-pos pos)
+            (pcase kind (`lax " #lax") (`full ""))
+            code
+            fstar-subp-legacy--footer)))
+
+(defun fstar-subp--peek-query (pos kind code)
+  "Prepare a peek query for a region starting at POS.
+KIND is one of `syntax' or `light'.  CODE is the code to
+push."
+  (fstar-assert (fstar--has-feature 'interactive-json))
+  (fstar--subp-push-peek-query-1 "peek" pos kind code))
+
+(defun fstar-subp-push-region (beg end kind continuation)
+  "Push the region between BEG and END to the inferior F* process.
+KIND indicates how to check BEG..END (one of `lax', `full').
+Handle results with CONTINUATION."
+  (let* ((payload (fstar-subp--clean-buffer-substring beg end)))
+    (fstar-subp--query (fstar-subp--push-query beg kind payload) continuation)))
+
+(defun fstar-subp-peek-region (beg end kind continuation)
+  "Ask the inferior F* process about the region between BEG and END.
+KIND indicates how to check BEG..END (one of `syntax', `light').
+Handle results with CONTINUATION."
+  (let* ((payload (fstar-subp--clean-buffer-substring beg end)))
+    (fstar-subp--query (fstar-subp--peek-query beg kind payload) continuation)))
 
 (defun fstar-subp-overlay-attempt-modification (overlay &rest _args)
   "Allow or prevent attempts to modify OVERLAY.
@@ -1589,19 +1742,28 @@ Modifications are only allowed if it is safe to retract up to the beginning of t
   (fstar-subp-start)
   (fstar-subp-set-status overlay 'busy)
   (let ((lax (overlay-get overlay 'fstar-subp--lax)))
-    (fstar-subp-send-region
-     (overlay-start overlay) (overlay-end overlay) (if lax 'lax nil)
+    (fstar-subp-push-region
+     (overlay-start overlay) (overlay-end overlay) (if lax 'lax 'full)
      (apply-partially #'fstar-subp--overlay-continuation overlay))))
+
+(defvar-local fstar-subp--queue-timer nil)
+
+(defun fstar-subp--set-queue-timer ()
+  "Set the queue timer for the current buffer."
+  (unless fstar-subp--queue-timer
+    (setq fstar-subp--queue-timer
+          (run-with-timer 0 nil #'fstar-subp-process-queue (current-buffer)))))
 
 (defun fstar-subp-process-queue (buffer)
   "Process the next pending overlay of BUFFER, if any."
   (with-current-buffer buffer
     (fstar-subp-start)
+    (setq fstar-subp--queue-timer nil)
     (unless (fstar-subp--busy-p)
       (-if-let* ((overlay (car-safe (fstar-subp-tracking-overlays 'pending))))
           (progn (fstar-log 'info "Processing queue")
                  (fstar-subp-process-overlay overlay))
-        (fstar-log 'info "Queue is empty %S" (mapcar #'fstar-subp-status (fstar-subp-tracking-overlays)))))))
+        (fstar-log 'info "Queue is empty (%d overlays)" (length (fstar-subp-tracking-overlays)))))))
 
 ;;;; Advancing and retracting
 
@@ -1634,9 +1796,9 @@ If NO-ERROR is set, do not report an error if the region is empty."
           (user-error "Nothing more to process!"))
       (let ((overlay (make-overlay beg end (current-buffer) nil nil)))
         (overlay-put overlay 'fstar-subp--lax fstar-subp--lax)
+        (fstar-subp-remove-issues-overlays)
         (fstar-subp-set-status overlay 'pending)
-        (fstar-subp-process-queue (current-buffer))))))
-
+        (fstar-subp--set-queue-timer)))))
 
 (defcustom fstar-subp-block-sep
   (concat "\\(?:\\'\\|\n\\(?:[[:space:]]*\n\\)+"
@@ -1683,9 +1845,10 @@ Ignores separators found in comments."
 
 (defun fstar-subp-pop-overlay (overlay)
   "Remove overlay OVERLAY and issue the corresponding #pop command."
-  (fstar-assert (fstar-subp-available-p))
-  (fstar-subp--query fstar-subp--cancel nil)
-  (delete-overlay overlay))
+  ;; F* might be busy, but not with overlays
+  (fstar-assert (null (fstar-subp-tracking-overlays 'busy)))
+  (delete-overlay overlay)
+  (fstar-subp--pop))
 
 (defun fstar-subp-retract-one (overlay)
   "Retract OVERLAY, with some error checking."
@@ -1755,12 +1918,15 @@ into blocks; process it as one large block instead."
    :checker 'fstar-interactive
    :filename (fstar-issue-filename issue)))
 
-(defun fstar-subp--flycheck-continuation (callback _status response)
-  "Forward results of #light check (STATUS and RESPONSE) to CALLBACK."
-  (let* ((raw-issues (fstar-subp-parse-issues response))
-         (issues (mapcar #'fstar-subp-cleanup-issue raw-issues)))
-    (fstar-log 'info "Highlighting #light issues: %s" issues)
-    (funcall callback 'finished (mapcar #'fstar-subp--make-flycheck-issue issues))))
+(defun fstar-subp--flycheck-continuation (callback status response)
+  "Forward results of Flycheck check (STATUS and RESPONSE) to CALLBACK."
+  (if (eq status 'interrupted)
+      (funcall callback 'interruped nil)
+    (let* ((raw-issues (fstar-subp-parse-issues response))
+           (issues (mapcar #'fstar-subp-cleanup-issue raw-issues)))
+      (fstar-log 'info "Highlighting Flycheck issues: %S" issues)
+      (funcall callback 'finished
+               (mapcar #'fstar-subp--make-flycheck-issue issues)))))
 
 (defun fstar-subp--start-syntax-check (_checker callback)
   "Start a light syntax check; pass results to CALLBACK."
@@ -1768,11 +1934,10 @@ into blocks; process it as one large block instead."
       (let ((beg (fstar-subp-unprocessed-beginning))
             (end (fstar-subp--next-unprocessed-start 3))) ;; FIXME customize number
         (if (< beg end)
-            (fstar-subp-send-region
+            (fstar-subp-peek-region
              beg end 'light
              (apply-partially #'fstar-subp--flycheck-continuation callback))
           (funcall callback 'finished nil)))
-    ;; FIXME check that this is the right status
     (funcall callback 'interrupted nil)))
 
 (flycheck-define-generic-checker 'fstar-interactive
@@ -1795,19 +1960,26 @@ buffer."
 
 (defun fstar-subp--positional-info-query (pos)
   "Prepare a header for an info query at POS."
-  (if (fstar--has-feature 'info-includes-symbol)
-      (format "#info %s <input> %d %d"
-              (or (fstar--fqn-at-point pos) "")
+  (if (fstar--has-feature 'interactive-json)
+      (make-fstar-subp-query
+       :query "lookup-positional"
+       :args `(("filename" . "<input>")
+               ("symbol" . ,(or (fstar--fqn-at-point pos) ""))
+               ("line" . ,(line-number-at-pos pos))
+               ("column" . ,(fstar-subp--column-number-at-pos pos))))
+    (if (fstar--has-feature 'info-includes-symbol)
+        (format "#info %s <input> %d %d"
+                (or (fstar--fqn-at-point pos) "")
+                (line-number-at-pos pos)
+                (fstar-subp--column-number-at-pos pos))
+      (format "#info <input> %d %d"
               (line-number-at-pos pos)
-              (fstar-subp--column-number-at-pos pos))
-    (format "#info <input> %d %d"
-            (line-number-at-pos pos)
-            (fstar-subp--column-number-at-pos pos))))
+              (fstar-subp--column-number-at-pos pos)))))
 
-(defconst fstar-subp--info-response-header-regex
+(defconst fstar-subp-legacy--info-response-header-regex
   "^(defined at \\(.+?\\)(\\([0-9]+\\),\\([0-9]+\\)-\\([0-9]+\\),\\([0-9]+\\))) *\\([^ ]+\\) *: +")
 
-(defconst fstar-subp--info-response-body-regex
+(defconst fstar-subp-legacy--info-response-body-regex
   "\\([^\0]+?\\)\\(?:#doc \\([^\0]+?\\)\\)?\\'")
 
 (cl-defstruct fstar-symbol-info
@@ -1831,16 +2003,16 @@ to use HELP-KBD to show documentation."
   (-when-let* ((doc (fstar-symbol-info-doc info)))
     (fstar--highlight-docstring doc)))
 
-(defun fstar-subp--parse-info (response)
+(defun fstar-subp-legacy--parse-info (response)
   "Parse info structure from RESPONSE."
-  (when (string-match fstar-subp--info-response-header-regex response)
+  (when (string-match fstar-subp-legacy--info-response-header-regex response)
     (pcase-let* ((body (substring response (match-end 0)))
                  (`(,file ,start-r ,start-c ,end-r ,end-c ,name)
                   (mapcar #'fstar--string-trim
                           (fstar--match-strings-no-properties
                            '(1 2 3 4 5 6) response)))
                  (`(,type ,doc)
-                  (and (string-match fstar-subp--info-response-body-regex body)
+                  (and (string-match fstar-subp-legacy--info-response-body-regex body)
                        (mapcar #'fstar--string-trim (fstar--match-strings-no-properties
                                                 '(1 2) body)))))
       (make-fstar-symbol-info
@@ -1851,23 +2023,36 @@ to use HELP-KBD to show documentation."
        :type type
        :doc doc))))
 
+(defun fstar-subp-json--parse-info (json)
+  "Parse info structure from JSON."
+  (let-alist json
+    (make-fstar-symbol-info
+     :source-file .defined-at.fname
+     :name .name
+     :def-start (cons (elt .defined-at.beg 0) (elt .defined-at.beg 1))
+     :def-end (cons (elt .defined-at.end 0) (elt .defined-at.end 1))
+     :type .type
+     :doc .documentation)))
+
 (defun fstar-subp--pos-check-wrapper (pos continuation)
   "Construct a continuation that runs CONTINUATION if point is POS.
 Otherwise, call CONTINUATION with nil.  Same if the query fails.
 If POS is nil, the POS check is ignored."
   (declare (indent 1))
-  (lambda (success response)
-    (if (and success (or (null pos) (eq (point) pos)))
+  (lambda (status response)
+    (if (and (eq status 'success) (or (null pos) (eq (point) pos)))
         (funcall continuation response)
       (funcall continuation nil))))
 
 (defun fstar-subp--info-wrapper (continuation pos)
-  "Handle the results (SUCCESS and RESPONSE) of an #info query at POS.
-If response is valid, forward results to CONTINUATION.  With nil
-POS, this function can also handle results of position-less #info queries."
+  "Handle the results of a lookup query at POS.
+If response is valid, forward results to CONTINUATION.  With nil POS, this
+function can also handle results of position-less lookup queries."
   (fstar-subp--pos-check-wrapper pos
     (lambda (response)
-      (-if-let* ((info (and response (fstar-subp--parse-info response))))
+      (-if-let* ((info (and response (if (fstar--has-feature 'interactive-json)
+                                         (fstar-subp-json--parse-info response)
+                                       (fstar-subp-legacy--parse-info response)))))
           (funcall continuation info)
         (funcall continuation nil)))))
 
@@ -1888,11 +2073,11 @@ asynchronously after the fact)."
       (let* ((query (fstar-subp--positional-info-query (point)))
              (retv (fstar-subp--query-and-wait query 0.01)))
         (pcase retv
-          (`(t . (,success ,results))
+          (`(t . (,status ,results))
            (funcall (fstar-subp--info-wrapper
                      (apply-partially #'fstar--eldoc-continuation #'identity)
                      (point))
-                    success results))
+                    status results))
           (`(needs-callback . ,_)
            (setf (cdr retv)
                  (fstar-subp--info-wrapper
@@ -1982,7 +2167,10 @@ Try visiting the source file with \\[fstar-jump-to-definition]?"))))
 (defun fstar--insert-match-continuation (type response)
   "Handle RESPONSE to a #show-match query.
 TYPE is used in error messages"
-  (-if-let* ((branches (and response (split-string response "\n"))))
+  (-if-let* ((branches (and response
+                            (if (fstar--has-feature 'interactive-json)
+                                response
+                              (split-string response "\n")))))
       (let* ((name-str (car branches))
              (branch-strs (mapconcat #'fstar--format-one-branch (cdr branches) "\n"))
              (match (format "match ${%s} with\n%s" name-str branch-strs))
@@ -1998,7 +2186,12 @@ TYPE is used in error messages"
 
 (defun fstar-subp--show-match-query (type)
   "Prepare a #show-match query for TYPE."
-  (format "#show-match %s" (replace-regexp-in-string "\n" " " type)))
+  (setq type (replace-regexp-in-string "\n" " " type))
+  (if (fstar--has-feature 'interactive-json)
+      (make-fstar-subp-query
+       :query "lookup-positionless"
+       :args `(("type" . ,type)))
+    (format "#show-match %s" type)))
 
 (defun fstar-insert-match (type)
   "Insert a match on TYPE at point."
@@ -2107,30 +2300,47 @@ that variable."
 (defun fstar-subp--completion-query (prefix)
   "Prepare a #completions query from PREFIX."
   (fstar-assert (not (string-match-p " " prefix)))
-  (format "#completions %s #" prefix))
+  (if (fstar--has-feature 'interactive-json)
+      (make-fstar-subp-query
+       :query "autocomplete"
+       :args `(("partial-symbol" . ,prefix)))
+    (format "#completions %s #" prefix)))
 
-(defun fstar-subp-company--parse-candidate (line)
+(defun fstar-subp-company-legacy--prepare-candidate (line)
   "Extract a candidate from LINE."
-  (unless (string= line "")
-    (pcase-let ((`(,match-end ,ns ,candidate) (split-string line " ")))
-      (setq match-end (string-to-number match-end))
-      (add-text-properties 0 (length candidate) `(match ,match-end ns ,ns) candidate)
-      candidate)))
+  (pcase (split-string line " ")
+    (`(,match-end ,ns ,candidate)
+     (setq match-end (string-to-number match-end))
+     (propertize candidate 'match match-end 'ns ns))))
 
-(defun fstar-subp-company--candidates-continuation (callback success response)
-  "Handle the results (SUCCESS and RESPONSE) of a #completion query for PREFIX.
+(defun fstar-subp-company-json--prepare-candidate (record)
+  "Extract a candidate from RECORD."
+  (pcase-let* ((`(,match-end ,ns ,candidate) record))
+    (propertize candidate 'match match-end 'ns ns)))
+
+(defun fstar-subp-company--candidates-continuation (callback status response)
+  "Handle the results (STATUS and RESPONSE) of a #completion query for PREFIX.
 Return (CALLBACK CANDIDATES)."
-  (when success
-    (save-match-data
-      (let* ((lines (split-string response "\n"))
-             (candidates (mapcar #'fstar-subp-company--parse-candidate lines)))
-        (funcall callback (delq nil candidates))))))
+  (pcase status
+    ((or `failure `interrupted)
+     (funcall callback nil))
+    (`success
+     (save-match-data
+       (funcall callback
+                (if (fstar--has-feature 'interactive-json)
+                    (mapcar #'fstar-subp-company-json--prepare-candidate response)
+                  (delq nil (mapcar #'fstar-subp-company-legacy--prepare-candidate
+                                    (split-string response "\n")))))))))
 
 (defun fstar-subp--positionless-info-query (symbol)
   "Prepare a header for an info query for SYMBOL."
   (when (equal symbol "")
     (user-error "Looking up an empty name"))
-  (format "#info %s" symbol))
+  (if (fstar--has-feature 'interactive-json)
+      (make-fstar-subp-query
+       :query "lookup-positionless"
+       :args `(("symbol" . ,symbol)))
+    (format "#info %s" symbol)))
 
 (defun fstar-subp-company--candidate-fqn (candidate)
   "Compute the fully qualified name of CANDIDATE."
@@ -2196,8 +2406,8 @@ URL https://github.com/company-mode/company-mode/issues/654), and
 then returns an :async cons, as required by company-mode."
   (let ((retv (fstar-subp--query-and-wait (fstar-subp--completion-query prefix) 0.03)))
     (pcase retv
-      (`(t . (,success ,results))
-       (fstar-subp-company--candidates-continuation #'identity success results))
+      (`(t . (,status ,results))
+       (fstar-subp-company--candidates-continuation #'identity status results))
       (`(needs-callback . ,_)
        `(:async . ,(lambda (cb)
                      (setf (cdr retv)
