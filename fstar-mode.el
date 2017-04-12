@@ -260,16 +260,12 @@ enable all experimental features."
   :group 'fstar
   :type 'string)
 
-(eval-and-compile
-  (defconst fstar--features-min-version-alist
-    '((absolute-linums-in-errors . "0.9.3.0-beta2")
-      (info . "0.9.4.1")
-      (info-includes-symbol . "0.9.4.2")
-      (completion . "0.9.4.2")
-      (interactive-json . "24.0")
-      (docs . "42.0")
-      (match . "42.0")
-      (flycheck-interactive . "42.0"))))
+(defconst fstar--features-min-version-alist
+  '((absolute-linums-in-errors . "0.9.3.0-beta2")
+    (lookup . "0.9.4.1")
+    (info-includes-symbol . "0.9.4.2")
+    (autocomplete . "0.9.4.2")
+    (json-subp . "42")))
 
 (defun fstar--query-vernum (executable)
   "Ask F* EXECUTABLE for its version number."
@@ -282,7 +278,8 @@ enable all experimental features."
   (let* ((version-string (fstar--query-vernum executable)))
     (if (string-match "^F\\* \\([- .[:alnum:]]+\\)" version-string)
         (setq fstar--vernum (match-string 1 version-string))
-      (message "F*: Can't parse version number from %S" version-string)
+      (message "F*: Can't parse version number from %S; assuming %s"
+               version-string fstar-assumed-vernum)
       (setq fstar--vernum "unknown"))))
 
 (defun fstar--has-feature (feature &optional error-fn)
@@ -976,6 +973,21 @@ never contains more than one entry (with ID nil).")
      (with-current-buffer buf
        ,@body)))
 
+;;;; Compatibility
+
+(defvar-local fstar-subp--features nil
+  "Dynamic list of features offered by the current subprocess.")
+
+(defun fstar-subp--has-feature (feature &optional error-fn)
+  "Check if FEATURE is available in current F* subprocess.
+If not, raise an error with ERROR-FN (if supplied)."
+  (if (assoc feature fstar--features-min-version-alist)
+      (fstar--has-feature feature error-fn)
+    (or (member feature fstar-subp--features)
+        (and error-fn
+             (funcall error-fn "This feature isn't available \
+in your version of F*.  You're running version %s" fstar--vernum)))))
+
 ;;;; Utilities
 
 (defun fstar-in-comment-p ()
@@ -1157,12 +1169,12 @@ If PROC is nil, use the current buffer's `fstar-subp--process'."
   "Raise an error with ERROR-FN if F* isn't available.
 Also raise an error if current subprocess doesn't meet version requirements for
 FEATURE, if specified."
-  (when feature
-    (fstar--has-feature feature error-fn))
+  (unless (fstar-subp-live-p)
+    (funcall error-fn "Please start F* before using this feature"))
   (when (fstar-subp--busy-p)
     (funcall error-fn "F* seems busy; please wait until processing is complete"))
-  (unless (fstar-subp-live-p)
-    (funcall error-fn "Please start F* before jumping to a definition")))
+  (when feature
+    (fstar-subp--has-feature feature error-fn)))
 
 (defun fstar-subp--serialize-query (query id)
   "Serialize QUERY with ID to JSON."
@@ -1295,6 +1307,8 @@ return value."
             (pcase .kind
               ("message"
                (fstar-subp--process-message .level .contents))
+              ("protocol-info"
+               (fstar-subp--process-protocol-info .version .features))
               ("response"
                (let ((status (fstar-subp-json--parse-status .status)))
                  (fstar-subp--process-response .query-id status .response)))))))))
@@ -1312,6 +1326,13 @@ return value."
   (let ((header (format "[F* %s] " level)))
     (setq contents (string-trim contents))
     (message "%s" (replace-regexp-in-string "^" header contents))))
+
+(defun fstar-subp--process-protocol-info (_vernum features)
+  "Register information (VERNUM and FEATURES) about the current protocol."
+  (setq features (mapcar 'intern features))
+  (setq-local fstar-subp--features features)
+  (fstar-subp-with-process-buffer fstar-subp--process
+    (setq-local fstar-subp--features features)))
 
 (defun fstar-subp--process-response (id status response)
   "Process STATUS and RESPONSE for query ID from F* subprocess."
@@ -1370,7 +1391,8 @@ Table of continuations was %s" response id conts)))
   (fstar-subp-remove-tracking-overlays)
   (fstar-subp--clear-continuations)
   (setq fstar-subp--process nil
-        fstar-subp--next-query-id 0))
+        fstar-subp--next-query-id 0
+        fstar-subp--features nil))
 
 (defun fstar-subp-kill ()
   "Kill F* subprocess and clean up current buffer."
@@ -1967,7 +1989,7 @@ buffer."
   :verify (lambda (checker) (append (fstar--flycheck-verify-enabled checker)
                                (fstar--flycheck-verify-subp-available)))
   :predicate (lambda ()
-               (and (fstar--has-feature 'flycheck-interactive)
+               (and (fstar-subp--has-feature 'peek)
                     (fstar--flycheck-enabled 'fstar-interactive)
                     (fstar-subp--can-run-flycheck))))
 
@@ -2085,7 +2107,7 @@ then returns nil (in that case, results are displayed
 asynchronously after the fact)."
   (-if-let* ((hole-info (get-text-property (point) 'fstar--match-var-type)))
       (format "This hole has type `%s'" (car hole-info))
-    (when (and (fstar--has-feature 'info) (fstar-subp-available-p)
+    (when (and (fstar-subp--has-feature 'lookup) (fstar-subp-available-p)
                (not (fstar-subp--in-issue-p (point))))
       (let* ((query (fstar-subp--positional-info-query (point)))
              (retv (fstar-subp--query-and-wait query 0.01)))
@@ -2437,7 +2459,7 @@ Candidates are provided by the F* subprocess.
 COMMAND, ARG: see `company-backends'."
   (interactive '(interactive))
   ;; (fstar-log 'info "fstar-subp-company-backend: %S %S" command arg)
-  (when (fstar--has-feature 'completion)
+  (when (fstar-subp--has-feature 'autocomplete)
     (pcase command
       (`interactive
        (company-begin-backend #'fstar-subp-company-backend))
