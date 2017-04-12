@@ -1390,9 +1390,10 @@ Table of continuations was %s" response id conts)))
   (fstar-subp-remove-issue-overlays (point-min) (point-max))
   (fstar-subp-remove-tracking-overlays)
   (fstar-subp--clear-continuations)
-  (setq fstar-subp--process nil
-        fstar-subp--next-query-id 0
-        fstar-subp--features nil))
+  (setq fstar--vernum nil
+        fstar-subp--process nil
+        fstar-subp--features nil
+        fstar-subp--next-query-id 0))
 
 (defun fstar-subp-kill ()
   "Kill F* subprocess and clean up current buffer."
