@@ -2230,7 +2230,7 @@ TYPE is used in error messages"
   (setq type (replace-regexp-in-string "\n" " " type))
   (if (fstar--has-feature 'interactive-json)
       (make-fstar-subp-query
-       :query "lookup-positionless"
+       :query "show-match"
        :args `(("type" . ,type)))
     (format "#show-match %s" type)))
 
