@@ -2002,11 +2002,12 @@ buffer."
   "Prepare a header for an info query at POS."
   (if (fstar--has-feature 'interactive-json)
       (make-fstar-subp-query
-       :query "lookup-positional"
-       :args `(("filename" . "<input>")
-               ("symbol" . ,(or (fstar--fqn-at-point pos) ""))
-               ("line" . ,(line-number-at-pos pos))
-               ("column" . ,(fstar-subp--column-number-at-pos pos))))
+       :query "lookup"
+       :args `(("symbol" . ,(or (fstar--fqn-at-point pos) ""))
+               ("location" .
+                (("filename" . "<input>")
+                 ("line" . ,(line-number-at-pos pos))
+                 ("column" . ,(fstar-subp--column-number-at-pos pos))))))
     (if (fstar--has-feature 'info-includes-symbol)
         (format "#info %s <input> %d %d"
                 (or (fstar--fqn-at-point pos) "")
@@ -2378,7 +2379,7 @@ Return (CALLBACK CANDIDATES)."
     (user-error "Looking up an empty name"))
   (if (fstar--has-feature 'interactive-json)
       (make-fstar-subp-query
-       :query "lookup-positionless"
+       :query "lookup"
        :args `(("symbol" . ,symbol)))
     (format "#info %s" symbol)))
 
