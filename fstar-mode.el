@@ -1255,7 +1255,7 @@ return value."
            (resp-end      (point-at-bol))
            (resp-real-end (point-at-eol))
            (response      (fstar--string-trim (buffer-substring resp-beg resp-end))))
-      (fstar-log 'info "EOM received; status is [%s]" status)
+      (fstar-log 'info "Complete message received (status: %S)" status)
       (delete-region resp-beg resp-real-end)
       (when (fstar-subp-live-p proc)
         (fstar-subp-with-source-buffer proc
@@ -1290,7 +1290,7 @@ return value."
      ((/= (point) end)
       (ignore (fstar-log 'warning "Junk follows JSON message: %s" (buffer-substring beg end))))
      (t
-      (fstar-log 'info "EOM received; status is %S" (let-alist json .status))
+      (fstar-log 'info "Complete message received (status: %S)" (let-alist json .status))
       json))))
 
 (defun fstar-subp-json--find-response (proc)
@@ -1645,7 +1645,8 @@ Complain if STATUS is `failure' and RESPONSE doesn't contain issues."
       (warn "No issues found in response despite prover failure: [%s]" response))
     (when other-issues
       (message "F* reported issues in other files: [%S]" other-issues))
-    (fstar-log 'info "Highlighting issues: %s" issues)
+    (when issues
+      (fstar-log 'info "Highlighting issues: %s" issues))
     (when local-issues
       (fstar-subp-jump-to-issue (car local-issues))
       (fstar-subp-highlight-issues local-issues overlay)
