@@ -1290,7 +1290,8 @@ return value."
      ((/= (point) end)
       (ignore (fstar-log 'warning "Junk follows JSON message: %s" (buffer-substring beg end))))
      (t
-      (fstar-log 'info "Complete message received (status: %S)" (let-alist json .status))
+      (fstar-log 'info "Complete message received: (status: %S; message: %S)"
+            (let-alist json .status) json)
       json))))
 
 (defun fstar-subp-json--find-response (proc)
