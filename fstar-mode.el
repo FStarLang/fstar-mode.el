@@ -1302,17 +1302,19 @@ return value."
                       (fstar-subp-json--read-response (point-min) js-end))))
       (goto-char (point-min))
       (delete-region (point-min) (1+ js-end))
-      (when (and json (fstar-subp-live-p proc))
+      (when json
         (let-alist json
           (fstar-subp-with-source-buffer proc
             (pcase .kind
               ("message"
                (fstar-subp--process-message .level .contents))
               ("protocol-info"
-               (fstar-subp--process-protocol-info .version .features))
+               (when (fstar-subp-live-p proc)
+                 (fstar-subp--process-protocol-info .version .features)))
               ("response"
                (let ((status (fstar-subp-json--parse-status .status)))
-                 (fstar-subp--process-response .query-id status .response)))))))))
+                 (when (fstar-subp-live-p proc)
+                   (fstar-subp--process-response .query-id status .response))))))))))
   ;; Skip to end of partial response
   (goto-char (point-max)))
 
