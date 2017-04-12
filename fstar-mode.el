@@ -2417,7 +2417,7 @@ CALLBACK is the company-mode asynchronous meta callback."
 CALLBACK is the company-mode asynchronous doc-buffer callback."
   (funcall callback (-when-let* ((doc (and info
                                            (fstar-lookup-result-p info)
-                                           (fstar-lookup-result-doc info))))
+                                           (fstar-lookup-result-docstring info))))
                       (company-doc-buffer doc))))
 
 (defun fstar-subp-company--async-doc-buffer (candidate callback)
