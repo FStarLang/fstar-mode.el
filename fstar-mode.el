@@ -211,7 +211,7 @@ after."
   '(("!!!" . font-lock-warning-face)
     (">>>" . font-lock-constant-face)
     ("\\(;;;\\)\\(.*\\)"
-     (1 font-lock-constant-face)
+     (1 font-lock-constant-face prepend)
      (2 font-lock-comment-face prepend))
     ("^#done-n?ok" . font-lock-builtin-face)))
 
@@ -2717,6 +2717,7 @@ Function is public to make it easier to debug `fstar-subp-prover-args'."
              (tramp-process-connection-type nil)
              (args (fstar-subp-get-prover-args))
              (proc (fstar-subp--start-process buf f*-abs args)))
+        (fstar-log 'info "")
         (fstar-log 'info "Started F* interactive: %S" (cons f*-abs args))
         (set-process-query-on-exit-flag proc nil)
         (set-process-filter proc #'fstar-subp-filter)
