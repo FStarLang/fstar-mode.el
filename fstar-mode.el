@@ -295,6 +295,9 @@ enable all experimental features."
     (autocomplete . "0.9.4.2")
     (json-subp . "42")))
 
+(defvar-local fstar--features nil
+  "List of available F* features.")
+
 (defun fstar--query-vernum (executable)
   "Ask F* EXECUTABLE for its version number."
   (with-temp-buffer
@@ -308,20 +311,21 @@ enable all experimental features."
         (setq fstar--vernum (match-string 1 version-string))
       (message "F*: Can't parse version number from %S; assuming %s"
                version-string fstar-assumed-vernum)
-      (setq fstar--vernum "unknown"))))
+      (setq fstar--vernum "unknown")))
+  (let ((vernum (if (equal fstar--vernum "unknown") fstar-assumed-vernum fstar--vernum)))
+    (pcase-dolist (`(,feature . ,min-version) fstar--features-min-version-alist)
+      (when (version<= min-version vernum)
+        (push feature fstar--features)))))
 
 (defun fstar--has-feature (feature &optional error-fn)
-  "Check if FEATURE from `fstar--features-min-version-alist' is available.
+  "Check if FEATURE is available in the current F*.
 If not, call ERROR-FN if supplied with a relevant message."
-  (let* ((min-version (cdr (assq feature fstar--features-min-version-alist)))
-         (vernum (if (equal fstar--vernum "unknown") fstar-assumed-vernum fstar--vernum)))
-    (fstar-assert (stringp min-version))
-    (or (null vernum)
-        (version<= min-version vernum)
-        (ignore
-         (and error-fn
-              (funcall error-fn "This feature isn't available in F* < %s.  \
-You're running version %s" min-version fstar--vernum))))))
+  (or (null fstar--vernum)
+      (memq feature fstar--features)
+      (ignore
+       (and error-fn
+            (funcall error-fn "This feature isn't available \
+in your version of F*.  You're running version %s" fstar--vernum)))))
 
 ;;; Flycheck
 
@@ -1001,21 +1005,6 @@ never contains more than one entry (with ID nil).")
      (with-current-buffer buf
        ,@body)))
 
-;;;; Compatibility
-
-(defvar-local fstar-subp--features nil
-  "Dynamic list of features offered by the current subprocess.")
-
-(defun fstar-subp--has-feature (feature &optional error-fn)
-  "Check if FEATURE is available in current F* subprocess.
-If not, raise an error with ERROR-FN (if supplied)."
-  (if (assoc feature fstar--features-min-version-alist)
-      (fstar--has-feature feature error-fn)
-    (or (member feature fstar-subp--features)
-        (and error-fn
-             (funcall error-fn "This feature isn't available \
-in your version of F*.  You're running version %s" fstar--vernum)))))
-
 ;;;; Utilities
 
 (defun fstar-in-comment-p ()
@@ -1202,7 +1191,7 @@ FEATURE, if specified."
   (when (fstar-subp--busy-p)
     (funcall error-fn "F* seems busy; please wait until processing is complete"))
   (when feature
-    (fstar-subp--has-feature feature error-fn)))
+    (fstar--has-feature feature error-fn)))
 
 (defun fstar-subp--serialize-query (query id)
   "Serialize QUERY with ID to JSON."
@@ -1358,12 +1347,12 @@ return value."
     (setq contents (string-trim contents))
     (message "%s" (replace-regexp-in-string "^" header contents))))
 
-(defun fstar-subp--process-protocol-info (_vernum features)
-  "Register information (VERNUM and FEATURES) about the current protocol."
-  (setq features (mapcar 'intern features))
-  (setq-local fstar-subp--features features)
+(defun fstar-subp--process-protocol-info (_vernum proto-features)
+  "Register information (VERNUM and PROTO-FEATURES) about the protocol."
+  (setq proto-features (mapcar #'intern proto-features))
+  (setq fstar--features (append proto-features fstar--features))
   (fstar-subp-with-process-buffer fstar-subp--process
-    (setq-local fstar-subp--features features)))
+    (setq fstar--features (append proto-features fstar--features))))
 
 (defun fstar-subp--process-response (id status response)
   "Process STATUS and RESPONSE for query ID from F* subprocess."
@@ -1422,8 +1411,8 @@ Table of continuations was %s" response id conts)))
   (fstar-subp-remove-tracking-overlays)
   (fstar-subp--clear-continuations)
   (setq fstar--vernum nil
+        fstar--features nil
         fstar-subp--process nil
-        fstar-subp--features nil
         fstar-subp--next-query-id 0))
 
 (defun fstar-subp-kill ()
@@ -2022,7 +2011,7 @@ buffer."
   :verify (lambda (checker) (append (fstar--flycheck-verify-enabled checker)
                                (fstar--flycheck-verify-subp-available)))
   :predicate (lambda ()
-               (and (fstar-subp--has-feature 'peek)
+               (and (fstar--has-feature 'peek)
                     (fstar--flycheck-enabled 'fstar-interactive)
                     (fstar-subp--can-run-flycheck))))
 
@@ -2141,7 +2130,7 @@ then returns nil (in that case, results are displayed
 asynchronously after the fact)."
   (-if-let* ((hole-info (get-text-property (point) 'fstar--match-var-type)))
       (format "This hole has type `%s'" (car hole-info))
-    (when (and (fstar-subp--has-feature 'lookup) (fstar-subp-available-p)
+    (when (and (fstar--has-feature 'lookup) (fstar-subp-available-p)
                (not (fstar-subp--in-issue-p (point))))
       (let* ((query (fstar-subp--positional-lookup-query (point)))
              (retv (fstar-subp--query-and-wait query 0.01)))
@@ -2493,7 +2482,7 @@ Candidates are provided by the F* subprocess.
 COMMAND, ARG: see `company-backends'."
   (interactive '(interactive))
   ;; (fstar-log 'info "fstar-subp-company-backend: %S %S" command arg)
-  (when (fstar-subp--has-feature 'autocomplete)
+  (when (fstar--has-feature 'autocomplete)
     (pcase command
       (`interactive
        (company-begin-backend #'fstar-subp-company-backend))
@@ -2636,11 +2625,12 @@ error referring to PROG as PROG-NAME and VAR-NAME."
 
 (defun fstar-subp-make-buffer ()
   "Create a buffer for the F* subprocess."
-  (let ((vernum fstar--vernum))
+  (let ((vernum fstar--vernum)
+        (features fstar--features))
     (with-current-buffer (generate-new-buffer
                           (format " *F* interactive for %s*" (buffer-name)))
       (add-hook 'kill-buffer-hook #'fstar-subp-buffer-killed t t)
-      (setq fstar--vernum vernum)
+      (setq fstar--vernum vernum fstar--features features)
       (buffer-disable-undo)
       (current-buffer))))
 
