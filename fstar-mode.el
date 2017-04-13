@@ -248,6 +248,34 @@ FORMAT and ARGS are as in `message'."
   `(when fstar-debug
      (fstar--log ,kind ,format ,@args)))
 
+(defun fstar--write-transcript-1 (fname lines)
+  "Write (nreverse LINES) to FNAME."
+  (with-temp-buffer
+    (dolist (line (nreverse lines))
+      (insert line "\n"))
+    (write-region (point-min) (point-max) fname)))
+
+(defun fstar-write-transcript (prefix)
+  "Write latest transcript to a PREFIX.IN and PREFIX.OUT."
+  (interactive "FSave transcript as: ")
+  (unless fstar-debug
+    (user-error "Use `fstar-toggle-debug' to collect traces"))
+  (with-current-buffer (fstar--log-buffer)
+    (goto-char (point-max))
+    (unless (re-search-backward "^;;; \n" nil t)
+      (user-error "Could not find a complete transcript to save"))
+    (let ((log (buffer-substring-no-properties (match-end 0) (point-max)))
+          (exclude-re (concat "^" (regexp-opt '(">>> " "!!! " ";;; "))))
+          (in nil) (out nil))
+      (dolist (line (delete "" (split-string log "\n")))
+        (cond
+         ((string-match "^>>> " line)
+          (push (substring line (match-end 0)) in))
+         ((not (string-match-p exclude-re line))
+          (unless (equal line "") (push line out)))))
+      (fstar--write-transcript-1 (concat prefix ".in") in)
+      (fstar--write-transcript-1 (concat prefix ".out") out))))
+
 ;;; Compatibility across F* versions
 
 (defvar-local fstar--vernum nil
