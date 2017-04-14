@@ -51,7 +51,6 @@ Key                 | Action
 Key                             | Action
 --------------------------------|----------------------------------
 `M-.`                           | :zap: :sparkles: Jump to definition
-`C-c C-d` (*d*ocumentation)     | :zap: :sparkles: Show documentation of symbol at point
 `<menu>`, `M-<f12>`             | :zap: :sparkles: Show type and docs in a small inline window (repeat to hide the window)
 `C-c C-s C-e` (*e*val)          | :zap: :unicorn: Evaluate (reduce) an expression
 `C-c C-s C-s` (*s*earch)        | :zap: :unicorn: Search F*'s global context for functions and theorems
@@ -68,8 +67,9 @@ Key                     | Action
 
 Proof-General            | :atom: Atom   | Action
 -------------------------|---------------|----------------------------------------------------------
-`C-c C-n`                | `C-S-n`       | :zap: Send the next paragraph (terminated by two empty lines) to F*
+`C-c C-n`                | `C-S-n`       | :zap: Send the next paragraph to F*
 `C-c C-u` or `C-c C-p`   | `C-S-p`       | :zap: Retract the last paragraph
+`C-c C-.`                | `C-S-.`       | :zap: Jump to beginning of unprocessed section
 `C-c RET` or `C-c C-RET` | `C-S-i`       | :zap: Send everything up to the current point to F*
 `C-c C-l`                | `C-S-l`       | :zap: Send everything up to the current point to F*, in lax mode
 `C-c C-x`                | `C-M-c`       | :zap: Kill the F* subprocess

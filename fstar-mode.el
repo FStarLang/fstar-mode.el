@@ -162,7 +162,7 @@ It's often incorrect to add commands to `eldoc-message-commands',
 as that leads to outdated information being displayed when the
 command is asynchronous.  For example, adding
 `fstar-insert-match-dwim' to `eldoc-message-commands' causes
-eldoc to show the type of the whole *before* destruction, not
+eldoc to show the type of the hole *before* destruction, not
 after."
   (eldoc-print-current-symbol-info))
 
@@ -857,7 +857,7 @@ leads to the binder's start."
     (define-key map (kbd "<backtab>") #'fstar-unindent)
     (define-key map (kbd "S-TAB") #'fstar-unindent)
     (define-key map (kbd "C-h M-w") #'fstar-copy-help-at-point)
-    (define-key map (kbd "C-c C-d") #'fstar-doc-at-point-dwim)
+    ;; (define-key map (kbd "C-c C-d") #'fstar-doc-at-point-dwim)
     (define-key map (kbd "<menu>") #'fstar-quick-peek)
     (define-key map (kbd "M-<f12>") #'fstar-quick-peek)
     (define-key map (kbd "C-c C-s C-c") #'fstar-insert-match-dwim)
@@ -1934,6 +1934,11 @@ Ignores separators found in comments."
       (fstar-subp-next-block-sep nil))
     (point)))
 
+(defun fstar-subp-goto-beginning-of-unprocessed ()
+  "Go to beginning of unprocessed region."
+  (interactive)
+  (goto-char (fstar-subp-unprocessed-beginning)))
+
 (defun fstar-subp-advance-next ()
   "Process buffer until `fstar-subp-block-sep'."
   (interactive)
@@ -2167,7 +2172,7 @@ function can also handle results of position-less lookup queries."
 (defun fstar--eldoc-continuation (continuation info)
   "Pass highlighted type information from INFO to CONTINUATION."
   (when info
-    (funcall continuation (fstar-lookup-result-sig info "\\[fstar-doc-at-point-dwim]"))))
+    (funcall continuation (fstar-lookup-result-sig info "\\[fstar-doc]"))))
 
 (defun fstar--eldoc-function ()
   "Compute an eldoc string for current point.
@@ -2178,7 +2183,8 @@ asynchronously after the fact)."
       (format "This hole has type `%s'" (car hole-info))
     (when (and (fstar--has-feature 'lookup) (fstar-subp-available-p)
                (not (fstar-subp--in-issue-p (point))))
-      (let* ((query (fstar-subp--positional-lookup-query (point) '(type)))
+      (let* ((query (fstar-subp--positional-lookup-query (point)
+                      '(type documentation))) ;; Needs doc for C-c C-s C-d hint
              (retv (fstar-subp--query-and-wait query 0.01)))
         (pcase retv
           (`(t . (,status ,results))
@@ -2268,7 +2274,7 @@ asynchronously after the fact)."
                    #'fstar--doc-at-point-continuation (point)))))
 
 (defun fstar-doc (id)
-  "Show type and information about ID.
+  "Show information and documentation about ID.
 Interactively, prompt for ID."
   (interactive '(interactive))
   (fstar-subp--ensure-available #'user-error 'lookup/documentation)
@@ -2920,6 +2926,7 @@ Function is public to make it easier to debug `fstar-subp-prover-args'."
     ("C-c RET"        "C-S-i" fstar-subp-advance-or-retract-to-point)
     ("C-c <C-return>" "C-S-i" fstar-subp-advance-or-retract-to-point)
     ("C-c C-l"        "C-S-l" fstar-subp-advance-or-retract-to-point-lax)
+    ("C-c C-."        "C-S-." fstar-subp-goto-beginning-of-unprocessed)
     ("C-c C-x"        "C-M-c" fstar-subp-kill-one-or-many)
     ("C-c C-c"        "C-M-S-c" fstar-subp-kill-z3))
   "Proof-General and Atom bindings table.")
