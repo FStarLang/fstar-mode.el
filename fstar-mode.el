@@ -191,6 +191,14 @@ after."
   (with-parsed-tramp-file-name buffer-file-name vec
     (tramp-find-executable vec prog nil)))
 
+(defun fstar--hide-help-window (buf)
+  "Hide window displaying BUF, if any.
+Return value indicates whether a window was hidden."
+  (-when-let* ((doc-wins (and (buffer-live-p (get-buffer buf))
+                              (get-buffer-window-list buf nil t))))
+    (mapc (apply-partially #'quit-window nil) doc-wins)
+    t))
+
 ;;; Debugging
 
 (defvar fstar-debug nil
@@ -842,6 +850,7 @@ leads to the binder's start."
     (define-key map (kbd "M-<f12>") #'fstar-quick-peek)
     (define-key map (kbd "C-c C-s C-c") #'fstar-insert-match-dwim)
     (define-key map (kbd "C-c C-s C-e") #'fstar-eval)
+    (define-key map (kbd "C-c C-s C-s") #'fstar-quit-windows)
     map))
 
 (defun fstar-newline-and-indent (arg)
@@ -2202,10 +2211,8 @@ Try visiting the source file with \\[fstar-jump-to-definition]?"))))
 (defun fstar-doc-at-point-dwim ()
   "Show documentation of identifier at point, if any."
   (interactive)
-  (-if-let* ((same-command (eq last-command this-command))
-             (doc-wins (and (buffer-live-p (get-buffer fstar--doc-buffer-name))
-                            (get-buffer-window-list fstar--doc-buffer-name nil t))))
-      (mapc (apply-partially #'quit-window nil) doc-wins)
+  (unless (and (eq last-command this-command)
+               (fstar--hide-help-buffer fstar--doc-buffer-name))
     (fstar-subp--ensure-available #'user-error 'lookup/documentation)
     (fstar-subp--query (fstar-subp--positional-lookup-query (point))
                   (fstar-subp--lookup-wrapper #'fstar--doc-at-point-continuation (point)))))
@@ -2356,6 +2363,12 @@ Interactively, use the current region or prompt."
   (fstar-subp--query (fstar-subp--eval-query term)
                 (apply-partially #'fstar-subp--eval-continuation term)))
 
+;;; Hide windows
+
+(defun fstar-quit-windows ()
+  "Hide all temporary F* windows."
+  (interactive)
+  (mapc #'fstar--hide-help-window `(,fstar--doc-buffer-name ,fstar--search-buffer-name)))
 
 ;;;; xref-like features
 
