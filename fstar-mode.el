@@ -757,16 +757,16 @@ leads to the binder's start."
       (with-no-warnings (font-lock-fontify-buffer)))
     (buffer-string)))
 
-(defun fstar--highlight-docstring-buffer ()
-  "Highlight current buffer as an F* docstring."
+(defun fstar--highlight-docstring-region (beg end)
+  "Highlight BEG..END as an F* docstring."
   (let ((inhibit-read-only t))
-    (goto-char (point-min))
-    (while (search-forward "[" nil t)
+    (goto-char beg)
+    (while (search-forward "[" end t)
       (let* ((beg (point))
              (end (ignore-errors (backward-char) (forward-sexp) (1- (point))))
              (str (and end (buffer-substring-no-properties beg end))))
         (if (null str)
-            (goto-char (point-max))
+            (goto-char end)
           (goto-char beg)
           (delete-region beg end)
           (insert (fstar-highlight-string str)))))))
@@ -774,8 +774,8 @@ leads to the binder's start."
 (defun fstar--highlight-docstring (str)
   "Highlight STR as an F* docstring."
   (with-temp-buffer
-    (insert (string-trim str))
-    (fstar--highlight-docstring-buffer)
+    (insert str)
+    (fstar--highlight-docstring-region (point-min) (point-max))
     (buffer-string)))
 
 (defun fstar-setup-font-lock ()
@@ -2086,12 +2086,12 @@ buffer."
   "Format signature of INFO.
 When HELP-KBD is non nil and info includes a docstring, suggest
 to use HELP-KBD to show documentation."
-  (concat
-   (let* ((type (fstar--unparens (fstar-lookup-result-type info))))
-     (fstar-highlight-string (format "%s: %s" (fstar-lookup-result-name info) type)))
-   (if (and help-kbd (fstar-lookup-result-doc info))
-       (substitute-command-keys (format " (%s for help)" help-kbd))
-     "")))
+  (concat (fstar-highlight-string (format "%s: %s"
+                                     (fstar-lookup-result-name info)
+                                     (fstar-lookup-result-type info)))
+          (and help-kbd (fstar-lookup-result-doc info)
+               (substitute-command-keys (format " (%s for help)" help-kbd)))))
+
 
 (defun fstar-lookup-result-docstring (info)
   "Format docstring of INFO, if any."
@@ -2115,8 +2115,8 @@ to use HELP-KBD to show documentation."
        :name name
        :def-start (cons (string-to-number start-r) (string-to-number start-c))
        :def-end (cons (string-to-number end-r) (string-to-number end-c))
-       :type type
-       :doc doc))))
+       :type (and type (fstar--unparens type))
+       :doc (fstar--string-trim doc)))))
 
 (defun fstar-subp-json--parse-info (json)
   "Parse info structure from JSON."
@@ -2126,8 +2126,8 @@ to use HELP-KBD to show documentation."
      :name .name
      :def-start (cons (elt .defined-at.beg 0) (elt .defined-at.beg 1))
      :def-end (cons (elt .defined-at.end 0) (elt .defined-at.end 1))
-     :type .type
-     :doc .documentation)))
+     :type (and .type (fstar--unparens .type)) ;; FIXME remove once F* is fixed
+     :doc (fstar--string-trim .documentation))))
 
 (defun fstar-subp--pos-check-wrapper (pos continuation)
   "Construct a continuation that runs CONTINUATION if point is POS.
