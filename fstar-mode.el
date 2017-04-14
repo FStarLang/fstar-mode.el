@@ -714,12 +714,24 @@ leads to the binder's start."
       (setq-local fstar-enabled-modules '(font-lock prettify))
       (fstar-mode))))
 
+(defun fstar--cleanup-type (type)
+  "Clean up TYPE."
+  (replace-regexp-in-string "\\(?:uu___:\\|[@#][0-9]+\\_>\\)" "" type t t))
+
+(defun fstar--unparens (str)
+  "Remove parentheses surrounding STR, if any."
+  (if (and (> (length str) 2)
+           (eq (aref str 0) ?\()
+           (eq (aref str (1- (length str))) ?\)))
+      (substring str 1 (- (length str) 1))
+    str))
+
 (defun fstar-highlight-string (str)
   "Highlight STR as F* code."
   (fstar--init-scratchpad)
   (with-current-buffer fstar--scratchpad
     (erase-buffer)
-    (insert str)
+    (insert (fstar--cleanup-type str))
     (if (fboundp 'font-lock-ensure)
         (font-lock-ensure)
       (with-no-warnings (font-lock-fontify-buffer)))
@@ -2053,10 +2065,8 @@ buffer."
 When HELP-KBD is non nil and info includes a docstring, suggest
 to use HELP-KBD to show documentation."
   (concat
-   (let* ((type (fstar-lookup-result-type info))
-          (clean-type (replace-regexp-in-string "uu___:" "" type)))
-     (fstar-highlight-string
-      (format "%s: %s" (fstar-lookup-result-name info) clean-type)))
+   (let* ((type (fstar--unparens (fstar-lookup-result-type info))))
+     (fstar-highlight-string (format "%s: %s" (fstar-lookup-result-name info) type)))
    (if (and help-kbd (fstar-lookup-result-doc info))
        (substitute-command-keys (format " (%s for help)" help-kbd))
      "")))
@@ -2183,7 +2193,7 @@ asynchronously after the fact)."
   (-if-let* ((doc (and info (fstar-lookup-result-doc info))))
       (with-help-window fstar--doc-buffer-name
         (with-current-buffer standard-output
-          (insert (fstar--unwrap-paragraphs doc))
+          (insert (fstar--unwrap-paragraphs (string-trim doc)))
           (fstar--highlight-docstring-buffer)))
     (message
      (substitute-command-keys "No documentation found. \
@@ -2321,7 +2331,7 @@ that variable."
                        (if (string-match-p "\n" term) "\n" " ")
                        (fstar--reduction-arrow "↓" "βδιζ")
                        (if (string-match-p "\n" response) "\n" " ")
-                       (fstar-highlight-string response)))
+                       (fstar-highlight-string (fstar--unparens response))))
     (`failure (message "Evaluation of [%s] failed: %s"
                        (fstar-highlight-string term)
                        (string-trim response)))))
