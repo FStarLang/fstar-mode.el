@@ -204,6 +204,13 @@ Return value indicates whether a window was hidden."
     (mapc (apply-partially #'quit-window nil) doc-wins)
     t))
 
+(defun fstar--read-string (prompt default)
+  "Read a string with PROMPT and DEFAULT.
+Prompt should have one string placeholder to accommodate DEFAULT."
+  (let ((default-info (if default (format " (default %s)" default) "")))
+    (setq prompt (format prompt default-info)))
+  (read-string prompt nil nil default))
+
 ;;; Debugging
 
 (defvar fstar-debug nil
@@ -2363,8 +2370,7 @@ Interactively, use the current region or prompt."
     (setq term
           (if (region-active-p)
               (buffer-substring-no-properties (region-beginning) (region-end))
-            (read-from-minibuffer "Term to reduce: "
-                                  nil nil nil nil (fstar--fqn-at-point (point))))))
+            (fstar--read-string "Term to reduce%s: " (fstar--fqn-at-point)))))
   (setq term (string-trim term))
   (fstar-subp--query (fstar-subp--eval-query term)
                 (apply-partially #'fstar-subp--eval-continuation term)))
@@ -2407,8 +2413,7 @@ the search buffer."
   (interactive '(interactive))
   (fstar-subp--ensure-available #'user-error 'compute)
   (when (eq terms 'interactive)
-    (setq terms (read-from-minibuffer
-                 "Search terms: " nil nil nil nil (fstar--fqn-at-point (point)))))
+    (setq terms (fstar--read-string "Search terms%s: " (fstar--fqn-at-point))))
   (setq terms (string-trim terms))
   (fstar-subp--query (fstar-subp--search-query terms)
                 (apply-partially #'fstar-subp--search-continuation terms)))
