@@ -42,6 +42,7 @@ Key                 | Action
 `TAB`               | Indent
 `S-TAB`             | Unindent
 `C-RET`             | :zap: :sparkles: Autocomplete word at point
+`C-c C-s C-q`       | :zap: :sparkles: Close temporary windows opened by fstar-mode
 
 
 ### Documentation, type hints, and computation
@@ -52,6 +53,7 @@ Key                 | Action
 `C-c C-d`           | :zap: :sparkles: Show documentation of symbol at point (repeat to hide docs)
 `<menu>`, `M-<f12>` | :zap: :sparkles: Show type and docs in a small inline window (repeat to hide the window)
 `C-c C-s C-e`       | :zap: :unicorn: Evaluate (reduce) an expression
+`C-c C-s C-s`       | :zap: :unicorn: Search F*'s global context for functions and theorems
 
 ### Matching
 
