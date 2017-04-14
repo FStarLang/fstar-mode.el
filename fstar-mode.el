@@ -2055,12 +2055,14 @@ buffer."
 
 ;;;; Info queries
 
-(defun fstar-subp--positional-lookup-query (pos)
-  "Prepare a header for an info query at POS."
+(defun fstar-subp--positional-lookup-query (pos fields)
+  "Prepare a header for an info query at POS with FIELDS."
+  (declare (indent 1))
   (if (fstar--has-feature 'json-subp)
       (make-fstar-subp-query
        :query "lookup"
        :args `(("symbol" . ,(or (fstar--fqn-at-point pos) ""))
+               ("requested-info" . ,fields)
                ("location" .
                 (("filename" . "<input>")
                  ("line" . ,(line-number-at-pos pos))
@@ -2081,7 +2083,7 @@ buffer."
   "\\([^\0]+?\\)\\(?:#doc \\([^\0]+?\\)\\)?\\'")
 
 (cl-defstruct fstar-lookup-result
-  source-file name def-start def-end type doc)
+  source-file name def-start def-end type doc def)
 
 (defun fstar-lookup-result-sig (info &optional help-kbd)
   "Format signature of INFO.
@@ -2117,7 +2119,8 @@ to use HELP-KBD to show documentation."
        :def-start (cons (string-to-number start-r) (string-to-number start-c))
        :def-end (cons (string-to-number end-r) (string-to-number end-c))
        :type (and type (fstar--unparens type))
-       :doc (fstar--string-trim doc)))))
+       :doc (fstar--string-trim doc)
+       :def nil))))
 
 (defun fstar-subp-json--parse-info (json)
   "Parse info structure from JSON."
@@ -2128,7 +2131,8 @@ to use HELP-KBD to show documentation."
      :def-start (cons (elt .defined-at.beg 0) (elt .defined-at.beg 1))
      :def-end (cons (elt .defined-at.end 0) (elt .defined-at.end 1))
      :type (and .type (fstar--unparens .type)) ;; FIXME remove once F* is fixed
-     :doc (fstar--string-trim .documentation))))
+     :doc (fstar--string-trim .documentation)
+     :def (fstar--unparens .definition))))
 
 (defun fstar-subp--pos-check-wrapper (pos continuation)
   "Construct a continuation that runs CONTINUATION if point is POS.
@@ -2166,7 +2170,7 @@ asynchronously after the fact)."
       (format "This hole has type `%s'" (car hole-info))
     (when (and (fstar--has-feature 'lookup) (fstar-subp-available-p)
                (not (fstar-subp--in-issue-p (point))))
-      (let* ((query (fstar-subp--positional-lookup-query (point)))
+      (let* ((query (fstar-subp--positional-lookup-query (point) '(type)))
              (retv (fstar-subp--query-and-wait query 0.01)))
         (pcase retv
           (`(t . (,status ,results))
@@ -2228,8 +2232,10 @@ Try visiting the source file with \\[fstar-jump-to-definition]?"))))
   (unless (and (eq last-command this-command)
                (fstar--hide-buffer fstar--doc-buffer-name))
     (fstar-subp--ensure-available #'user-error 'lookup/documentation)
-    (fstar-subp--query (fstar-subp--positional-lookup-query (point))
-                  (fstar-subp--lookup-wrapper #'fstar--doc-at-point-continuation (point)))))
+    (fstar-subp--query (fstar-subp--positional-lookup-query (point)
+                    '(type defined-at documentation))
+                  (fstar-subp--lookup-wrapper
+                   #'fstar--doc-at-point-continuation (point)))))
 
 ;;;; Insert a match
 
@@ -2456,8 +2462,10 @@ the search buffer."
   "Jump to definition of identifier at point, if any."
   (interactive)
   (fstar-subp--ensure-available #'user-error 'lookup)
-  (fstar-subp--query (fstar-subp--positional-lookup-query (point))
-                (fstar-subp--lookup-wrapper #'fstar--jump-to-definition-continuation (point))))
+  (fstar-subp--query (fstar-subp--positional-lookup-query (point)
+                  '(defined-at))
+                (fstar-subp--lookup-wrapper
+                 #'fstar--jump-to-definition-continuation (point))))
 
 ;;;; Quick-peek
 
@@ -2476,8 +2484,10 @@ the search buffer."
   (interactive)
   (fstar-subp--ensure-available #'user-error 'lookup)
   (when (= (quick-peek-hide) 0)
-    (fstar-subp--query (fstar-subp--positional-lookup-query (point))
-                  (fstar-subp--lookup-wrapper #'fstar--quick-peek-continuation (point)))))
+    (fstar-subp--query (fstar-subp--positional-lookup-query (point)
+                    '(type documentation))
+                  (fstar-subp--lookup-wrapper
+                   #'fstar--quick-peek-continuation (point)))))
 
 ;;;; Company
 
@@ -2516,14 +2526,16 @@ Return (CALLBACK CANDIDATES)."
                   (delq nil (mapcar #'fstar-subp-company-legacy--prepare-candidate
                                     (split-string response "\n")))))))))
 
-(defun fstar-subp--positionless-lookup-query (symbol)
-  "Prepare a header for an info query for SYMBOL."
+(defun fstar-subp--positionless-lookup-query (symbol fields)
+  "Prepare a header for an info query for SYMBOL with FIELDS."
+  (declare (indent 1))
   (when (equal symbol "")
     (user-error "Looking up an empty name"))
   (if (fstar--has-feature 'json-subp)
       (make-fstar-subp-query
        :query "lookup"
-       :args `(("symbol" . ,symbol)))
+       :args `(("symbol" . ,symbol)
+               ("requested-info" . ,fields)))
     (format "#info %s" symbol)))
 
 (defun fstar-subp-company--candidate-fqn (candidate)
@@ -2532,12 +2544,14 @@ Return (CALLBACK CANDIDATES)."
     (if (string= ns "") candidate
       (concat ns "." candidate))))
 
-(defun fstar-subp-company--async-lookup (candidate continuation)
-  "Pass info about CANDIDATE to CONTINUATION.
+(defun fstar-subp-company--async-lookup (candidate fields continuation)
+  "Pass info FIELDS about CANDIDATE to CONTINUATION.
 If F* is busy, call CONTINUATION directly with symbol `busy'."
+  (declare (indent 2))
   (if (fstar-subp-available-p)
       (fstar-subp--query
-       (fstar-subp--positionless-lookup-query (fstar-subp-company--candidate-fqn candidate))
+       (fstar-subp--positionless-lookup-query
+           (fstar-subp-company--candidate-fqn candidate) fields)
        (fstar-subp--lookup-wrapper continuation nil))
     (funcall continuation 'busy)))
 
@@ -2551,8 +2565,8 @@ CALLBACK is the company-mode asynchronous meta callback."
 
 (defun fstar-subp-company--async-meta (candidate callback)
   "Find type of CANDIDATE and pass it to CALLBACK."
-  (fstar-subp-company--async-lookup
-   candidate (apply-partially #'fstar-subp-company--meta-continuation callback)))
+  (fstar-subp-company--async-lookup candidate '(type)
+    (apply-partially #'fstar-subp-company--meta-continuation callback)))
 
 (defun fstar-subp-company--doc-buffer-continuation (callback info)
   "Forward documentation INFO to CALLBACK.
@@ -2564,8 +2578,9 @@ CALLBACK is the company-mode asynchronous doc-buffer callback."
 
 (defun fstar-subp-company--async-doc-buffer (candidate callback)
   "Find documentation of CANDIDATE and pass it to CALLBACK."
-  (fstar-subp-company--async-lookup
-   candidate (apply-partially #'fstar-subp-company--doc-buffer-continuation callback)))
+  (fstar-subp-company--async-lookup candidate
+      '(type defined-at documentation)
+    (apply-partially #'fstar-subp-company--doc-buffer-continuation callback)))
 
 (defun fstar-subp-company--location-continuation (callback info)
   "Forward type INFO to CALLBACK.
@@ -2580,8 +2595,8 @@ CALLBACK is the company-mode asynchronous meta callback."
 
 (defun fstar-subp-company--async-location (candidate callback)
   "Find location of CANDIDATE and pass it to CALLBACK."
-  (fstar-subp-company--async-lookup
-   candidate (apply-partially #'fstar-subp-company--location-continuation callback)))
+  (fstar-subp-company--async-lookup candidate '(defined-at)
+    (apply-partially #'fstar-subp-company--location-continuation callback)))
 
 (defun fstar-subp-company-candidates (prefix)
   "Compute candidates for PREFIX.
