@@ -2095,6 +2095,12 @@ to use HELP-KBD to show documentation."
           (and help-kbd (fstar-lookup-result-doc info)
                (substitute-command-keys (format " (%s for help)" help-kbd)))))
 
+(defun fstar-lookup-result-def-loc (info)
+  "Format a location information from INFO."
+  (format "%s:%d:%d"
+          (fstar-lookup-result-source-file info) ;; FIXME hyperlink
+          (car (fstar-lookup-result-def-start info))
+          (cdr (fstar-lookup-result-def-start info))))
 
 (defun fstar-lookup-result-docstring (info)
   "Format docstring of INFO, if any."
@@ -2215,16 +2221,38 @@ asynchronously after the fact)."
 
 (defconst fstar--doc-buffer-name "*fstar-doc*")
 
+(defun fstar--doc-buffer-populate-1 (title value)
+  "Insert TITLE and VALUE to current buffer."
+  (declare (indent 1))
+  (when value
+    (insert "\n\n" (propertize title 'face '(:height 0.9))
+            "\n" (fstar--indent-str value 2))))
+
+(defun fstar--doc-buffer-populate (info)
+  "Compute contents of doc buffer from INFO."
+  (let* ((doc (fstar-lookup-result-doc info))
+         (type (fstar-lookup-result-type info))
+         (def (fstar-lookup-result-def info))
+         (name (fstar-lookup-result-name info))
+         (def-loc (fstar-lookup-result-def-loc info))
+         (title (propertize name 'face '(:height 1.5)))
+         (subtitle (propertize def-loc 'face '(:height 0.9))))
+    (save-excursion
+      (insert title "\n" subtitle)
+      (fstar--doc-buffer-populate-1 "Type"
+        (and type (fstar-highlight-string type)))
+      (fstar--doc-buffer-populate-1 "Definition"
+        (and def (fstar-highlight-string def)))
+      (fstar--doc-buffer-populate-1 "Documentation"
+        (and doc (fstar--highlight-docstring (fstar--unwrap-paragraphs doc)))))))
+
 (defun fstar--doc-at-point-continuation (info)
-  "Show documentation in INFO."
-  (-if-let* ((doc (and info (fstar-lookup-result-doc info))))
+  "Show documentation and type in INFO."
+  (if info
       (with-help-window fstar--doc-buffer-name
         (with-current-buffer standard-output
-          (insert (fstar--unwrap-paragraphs (string-trim doc)))
-          (fstar--highlight-docstring-buffer)))
-    (message
-     (substitute-command-keys "No documentation found. \
-Try visiting the source file with \\[fstar-jump-to-definition]?"))))
+          (fstar--doc-buffer-populate info)))
+    (message "No information found.")))
 
 (defun fstar-doc-at-point-dwim ()
   "Show documentation of identifier at point, if any."
@@ -2571,10 +2599,12 @@ CALLBACK is the company-mode asynchronous meta callback."
 (defun fstar-subp-company--doc-buffer-continuation (callback info)
   "Forward documentation INFO to CALLBACK.
 CALLBACK is the company-mode asynchronous doc-buffer callback."
-  (funcall callback (-when-let* ((doc (and info
-                                           (fstar-lookup-result-p info)
-                                           (fstar-lookup-result-docstring info))))
-                      (company-doc-buffer doc))))
+  (funcall callback (when info
+                      (with-current-buffer
+                          (get-buffer-create "*company-documentation*")
+                        (erase-buffer)
+                        (fstar--doc-buffer-populate info)
+                        (current-buffer)))))
 
 (defun fstar-subp-company--async-doc-buffer (candidate callback)
   "Find documentation of CANDIDATE and pass it to CALLBACK."
