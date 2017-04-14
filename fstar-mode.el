@@ -131,9 +131,14 @@ returning a string (the full path to the SMT solver)."
 
 ;;; Utilities
 
-(defun fstar--indent-str (str amount)
-  "Indent all newlines of STR by AMOUNT."
-  (replace-regexp-in-string "\n" (concat "\n" (make-string amount ?\s)) str))
+(defun fstar--indent-str (str amount &optional skip-first-line)
+  "Indent all lines of STR by AMOUNT.
+If AMOUNT is a string, use that as indentation.
+With SKIP-FIRST-LINE, don't indent the first one."
+  (let ((indent (if (stringp amount) amount (make-string amount ?\s))))
+    (if skip-first-line
+        (replace-regexp-in-string "\n" (concat "\n" indent) str)
+      (replace-regexp-in-string "^" indent str))))
 
 (defun fstar--property-range (pos prop)
   "Find range around POS with consistent non-nil value of PROP."
@@ -245,7 +250,7 @@ LEVEL is one of `info', `input', `output'."
            (head (cdr (assq kind '((info . ";;; ") (in . ">>> ")
                                    (warning . "!!! ") (out . ""))))))
       (fstar-assert head)
-      (insert (replace-regexp-in-string "^" head raw)
+      (insert (fstar--indent-str raw head)
               (if (eq kind 'out) "" "\n")))))
 
 (defmacro fstar-log (kind format &rest args)
@@ -1368,7 +1373,7 @@ return value."
   "Process CONTENTS of real-time feedback message at LEVEL."
   (let ((header (format "[F* %s] " level)))
     (setq contents (string-trim contents))
-    (message "%s" (replace-regexp-in-string "^" header contents))))
+    (message "%s" (fstar--indent-str contents header))))
 
 (defun fstar-subp--process-protocol-info (_vernum proto-features)
   "Register information (VERNUM and PROTO-FEATURES) about the protocol."
@@ -2255,7 +2260,7 @@ TYPE is used in error messages"
       (let* ((name-str (car branches))
              (branch-strs (mapconcat #'fstar--format-one-branch (cdr branches) "\n"))
              (match (format "match ${%s} with\n%s" name-str branch-strs))
-             (indented (fstar--indent-str match (current-column))))
+             (indented (fstar--indent-str match (current-column) t)))
         (let ((yas-indent-line nil))
           (fstar--expand-snippet (fstar--prepare-match-snippet indented))))
     (message "No match found for type `%s'." type)))
@@ -2375,7 +2380,7 @@ Interactively, use the current region or prompt."
             (propertize  "\n" 'line-height `(nil . 1.5) 'line-spacing 0.2))
     (let ((from (point))
           (type (fstar--unparens .type)))
-      (insert (fstar-highlight-string (replace-regexp-in-string "^" "  " type)))
+      (insert (fstar-highlight-string (fstar--indent-str type 2)))
       (font-lock-append-text-property from (point) 'face '(:height 0.9)))))
 
 (defun fstar-subp--search-continuation (terms status response)
