@@ -354,7 +354,7 @@ in your version of F*.  You're running version %s" fstar--vernum)))))
   :group 'fstar
   :type '(choice (const :tag "No Flycheck support" nil)
                  (const :tag "Whole-buffer verification (slow)" 'fstar)
-                 (const :tag "Light syntax checking (fast)" 'fstar-interactive)))
+                 (const :tag "Lightweight typechecking (fast)" 'fstar-interactive)))
 
 (make-variable-buffer-local 'fstar-flycheck-checker)
 
@@ -973,6 +973,8 @@ With BACKWARDS, go back among indentation points."
 This is a map from query ID to continuation.  In legacy mode, it
 never contains more than one entry (with ID nil).")
 
+(defvar-local fstar-subp--queue-timer nil)
+
 (defvar fstar-subp--lax nil
   "Whether to process newly sent regions in lax mode.")
 
@@ -1451,6 +1453,7 @@ Table of continuations was %s" response id conts)))
   (setq fstar--vernum nil
         fstar--features nil
         fstar-subp--process nil
+        fstar-subp--queue-timer nil
         fstar-subp--next-query-id 0))
 
 (defun fstar-subp-kill ()
@@ -1845,8 +1848,6 @@ Modifications are only allowed if it is safe to retract up to the beginning of t
      (overlay-start overlay) (overlay-end overlay) (if lax 'lax 'full)
      (apply-partially #'fstar-subp--overlay-continuation overlay))))
 
-(defvar-local fstar-subp--queue-timer nil)
-
 (defun fstar-subp--set-queue-timer ()
   "Set the queue timer for the current buffer."
   (unless fstar-subp--queue-timer
@@ -1856,8 +1857,8 @@ Modifications are only allowed if it is safe to retract up to the beginning of t
 (defun fstar-subp-process-queue (buffer)
   "Process the next pending overlay of BUFFER, if any."
   (with-current-buffer buffer
-    (fstar-subp-start)
     (setq fstar-subp--queue-timer nil)
+    (fstar-subp-start)
     (unless (fstar-subp--busy-p)
       (-if-let* ((overlay (car-safe (fstar-subp-tracking-overlays 'pending))))
           (progn (fstar-log 'info "Processing queue")
@@ -2025,7 +2026,7 @@ into blocks; process it as one large block instead."
 (defun fstar-subp--flycheck-continuation (callback status response)
   "Forward results of Flycheck check (STATUS and RESPONSE) to CALLBACK."
   (if (eq status 'interrupted)
-      (funcall callback 'interruped nil)
+      (funcall callback 'interrupted nil)
     (let* ((raw-issues (fstar-subp-parse-issues response))
            (issues (mapcar #'fstar-subp-cleanup-issue raw-issues)))
       (fstar-log 'info "Highlighting Flycheck issues: %S" issues)
@@ -2039,7 +2040,7 @@ into blocks; process it as one large block instead."
             (end (fstar-subp--next-unprocessed-start 3))) ;; FIXME customize number
         (if (< beg end)
             (fstar-subp-peek-region
-             beg end 'light
+             beg end 'lax ;; FIXME make configurable
              (apply-partially #'fstar-subp--flycheck-continuation callback))
           (funcall callback 'finished nil)))
     (funcall callback 'interrupted nil)))
@@ -2900,7 +2901,7 @@ Function is public to make it easier to debug `fstar-subp-prover-args'."
   "Start an F* subprocess attached to the current buffer, if none exists."
   (unless (and buffer-file-name (file-exists-p buffer-file-name))
     (error "Can't start F* subprocess without a backing file (save this buffer first)"))
-  (unless fstar-subp--process
+  (unless (process-live-p fstar-subp--process)
     (let ((f*-abs (fstar-subp-find-fstar)))
       (fstar--init-compatibility-layer f*-abs)
       (let* ((buf (fstar-subp-make-buffer))
