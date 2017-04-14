@@ -191,7 +191,7 @@ after."
   (with-parsed-tramp-file-name buffer-file-name vec
     (tramp-find-executable vec prog nil)))
 
-(defun fstar--hide-help-window (buf)
+(defun fstar--hide-buffer (buf)
   "Hide window displaying BUF, if any.
 Return value indicates whether a window was hidden."
   (-when-let* ((doc-wins (and (buffer-live-p (get-buffer buf))
@@ -2213,7 +2213,7 @@ Try visiting the source file with \\[fstar-jump-to-definition]?"))))
   "Show documentation of identifier at point, if any."
   (interactive)
   (unless (and (eq last-command this-command)
-               (fstar--hide-help-buffer fstar--doc-buffer-name))
+               (fstar--hide-buffer fstar--doc-buffer-name))
     (fstar-subp--ensure-available #'user-error 'lookup/documentation)
     (fstar-subp--query (fstar-subp--positional-lookup-query (point))
                   (fstar-subp--lookup-wrapper #'fstar--doc-at-point-continuation (point)))))
@@ -2395,7 +2395,7 @@ Interactively, use the current region or prompt."
   (make-fstar-subp-query :query "search"
                          :args `(("terms" . ,terms))))
 
-(defun fstar-search-dwim (terms)
+(defun fstar-search (terms)
   "Query F* subprocess for matches against TERMS and display the results.
 Interactively, prompt for terms.  Repeating this command hides
 the search buffer."
@@ -2413,7 +2413,7 @@ the search buffer."
 (defun fstar-quit-windows ()
   "Hide all temporary F* windows."
   (interactive)
-  (mapc #'fstar--hide-help-window `(,fstar--doc-buffer-name ,fstar--search-buffer-name)))
+  (mapc #'fstar--hide-buffer `(,fstar--doc-buffer-name ,fstar--search-buffer-name)))
 
 ;;;; xref-like features
 
