@@ -1074,8 +1074,9 @@ never contains more than one entry (with ID nil).")
     (modify-syntax-entry ?. "_" tbl)
     tbl))
 
-(defun fstar--fqn-at-point (pos)
-  "Return symbol at POS."
+(defun fstar--fqn-at-point (&optional pos)
+  "Return symbol at POS (default: point)."
+  (setq pos (or pos (point)))
   (with-syntax-table fstar--fqn-at-point-syntax-table
     (save-excursion
       (goto-char pos)
