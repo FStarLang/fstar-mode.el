@@ -829,6 +829,7 @@ leads to the binder's start."
     (define-key map (kbd "<menu>") #'fstar-quick-peek)
     (define-key map (kbd "M-<f12>") #'fstar-quick-peek)
     (define-key map (kbd "C-c C-s C-c") #'fstar-insert-match-dwim)
+    (define-key map (kbd "C-c C-s C-e") #'fstar-eval)
     map))
 
 (defun fstar-newline-and-indent (arg)
@@ -2304,6 +2305,48 @@ that variable."
     (or (fstar--destruct-match-var-at-point)
         (fstar-insert-match (fstar--read-type-name)))))
 
+;;;; Eval
+
+(defun fstar--reduction-arrow (arrow rules)
+  "Annotate ARROW with RULES."
+  (concat (propertize arrow 'face 'minibuffer-prompt)
+          (propertize rules ;;'display '(raise -0.3)
+                      'face '((:height 0.7) minibuffer-prompt))))
+
+(defun fstar-subp--eval-continuation (term status response)
+  "Handle results (STATUS, RESPONSE) of evaluating TERM."
+  (pcase status
+    (`success (message "%s%s%s%s%s"
+                       (fstar-highlight-string term)
+                       (if (string-match-p "\n" term) "\n" " ")
+                       (fstar--reduction-arrow "↓" "βδιζ")
+                       (if (string-match-p "\n" response) "\n" " ")
+                       (fstar-highlight-string response)))
+    (`failure (message "Evaluation of [%s] failed: %s"
+                       (fstar-highlight-string term)
+                       (string-trim response)))))
+
+(defun fstar-subp--eval-query (term)
+  "Prepare a `compute' query for TERM."
+  (make-fstar-subp-query :query "compute"
+                         :args `(("term" . ,term))))
+
+(defun fstar-eval (term)
+  "Eval TERM in F* subprocess and display the result.
+Interactively, use the current region or prompt."
+  (interactive '(interactive))
+  (fstar-subp--ensure-available #'user-error 'compute)
+  (when (eq term 'interactive)
+    (setq term
+          (if (region-active-p)
+              (buffer-substring-no-properties (region-beginning) (region-end))
+            (read-from-minibuffer "Term to reduce: "
+                                  nil nil nil nil (fstar--fqn-at-point (point))))))
+  (setq term (string-trim term))
+  (fstar-subp--query (fstar-subp--eval-query term)
+                (apply-partially #'fstar-subp--eval-continuation term)))
+
+
 ;;;; xref-like features
 
 (defun fstar--save-point ()
@@ -2712,6 +2755,7 @@ Function is public to make it easier to debug `fstar-subp-prover-args'."
         (set-process-query-on-exit-flag proc nil)
         (set-process-filter proc #'fstar-subp-filter)
         (set-process-sentinel proc #'fstar-subp-sentinel)
+        (set-process-coding-system proc 'utf-8 'utf-8)
         (process-put proc 'fstar-subp-source-buffer (current-buffer))
         (setq fstar-subp--process proc)))))
 
@@ -2779,8 +2823,8 @@ Function is public to make it easier to debug `fstar-subp-prover-args'."
              (goto-char comment-start-pos)
              (cond
               ((looking-at "(\\*\\*\\*[ \t\n]") '(:inherit font-lock-doc-face :height 2.5))
-              ((looking-at "(\\*\\*\\+[ \t\n]") '(:inherit font-lock-doc-face :height 1.8))
-              ((looking-at "(\\*\\*\\![ \t\n]") '(:inherit font-lock-doc-face :height 1.5))
+              ((looking-at "(\\*\\*?\\+[ \t\n]") '(:inherit font-lock-doc-face :height 1.8))
+              ((looking-at "(\\*\\*?\\![ \t\n]") '(:inherit font-lock-doc-face :height 1.5))
               ((looking-at "(\\*\\*[ \t\n]")  font-lock-doc-face)
               (t font-lock-comment-face)))))))
 
