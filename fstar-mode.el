@@ -707,7 +707,7 @@ leads to the binder's start."
 
 (defun fstar--init-scratchpad ()
   "Get or create scratchpad buffer of current F* buffer."
-  (unless fstar--scratchpad
+  (unless (buffer-live-p fstar--scratchpad)
     (setq fstar--scratchpad
           (get-buffer-create (format fstar--scratchpad-name (buffer-name))))
     (with-current-buffer fstar--scratchpad
