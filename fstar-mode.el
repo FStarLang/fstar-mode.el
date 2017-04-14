@@ -863,7 +863,9 @@ leads to the binder's start."
     (define-key map (kbd "C-c C-s C-c") #'fstar-insert-match-dwim)
     (define-key map (kbd "C-c C-s C-e") #'fstar-eval)
     (define-key map (kbd "C-c C-s C-s") #'fstar-search)
-    (define-key map (kbd "C-c C-s C-s") #'fstar-quit-windows)
+    (define-key map (kbd "C-c C-s C-d") #'fstar-doc)
+    (define-key map (kbd "C-c C-s C-p") #'fstar-print)
+    (define-key map (kbd "C-c C-s C-q") #'fstar-quit-windows)
     map))
 
 (defun fstar-newline-and-indent (arg)
@@ -2264,6 +2266,32 @@ asynchronously after the fact)."
                     '(type defined-at documentation))
                   (fstar-subp--lookup-wrapper
                    #'fstar--doc-at-point-continuation (point)))))
+
+(defun fstar-doc (id)
+  "Show type and information about ID.
+Interactively, prompt for ID."
+  (interactive '(interactive))
+  (fstar-subp--ensure-available #'user-error 'lookup/documentation)
+  (when (eq id 'interactive)
+    (setq id (fstar--read-string "Show docs for%s: " (fstar--fqn-at-point))))
+  (fstar-subp--query (fstar-subp--positionless-lookup-query id
+                  '(type defined-at documentation))
+                (fstar-subp--lookup-wrapper
+                 #'fstar--doc-at-point-continuation (point))))
+
+;;; Print
+
+(defun fstar-print (id)
+  "Show definition of ID.
+Interactively, prompt for ID."
+  (interactive '(interactive))
+  (fstar-subp--ensure-available #'user-error 'lookup/definition)
+  (when (eq id 'interactive)
+    (setq id (fstar--read-string "Show definition of%s: " (fstar--fqn-at-point))))
+  (fstar-subp--query (fstar-subp--positionless-lookup-query id
+                  '(type defined-at documentation definition))
+                (fstar-subp--lookup-wrapper
+                 #'fstar--doc-at-point-continuation (point))))
 
 ;;;; Insert a match
 

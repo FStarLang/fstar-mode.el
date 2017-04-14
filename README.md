@@ -33,6 +33,8 @@ F*-mode requires Emacs 24.3 or newer, and is distributed through [MELPA](https:/
 :sparkles: indicates features added since the latest F* release.<br/>
 :unicorn: indicates features that require yet-unmerged patches to F*.<br/>
 
+The common prefix for fstar-mode keybindings in `C-c C-s` (*s*earch).
+
 ### General
 
 Key                 | Action
@@ -44,22 +46,23 @@ Key                 | Action
 `C-RET`             | :zap: :sparkles: Autocomplete word at point
 `C-c C-s C-q`       | :zap: :sparkles: Close temporary windows opened by fstar-mode
 
-
 ### Documentation, type hints, and computation
 
-Key                 | Action
---------------------|----------------------------------
-`M-.`               | :zap: :sparkles: Jump to definition
-`C-c C-d`           | :zap: :sparkles: Show documentation of symbol at point (repeat to hide docs)
-`<menu>`, `M-<f12>` | :zap: :sparkles: Show type and docs in a small inline window (repeat to hide the window)
-`C-c C-s C-e`       | :zap: :unicorn: Evaluate (reduce) an expression
-`C-c C-s C-s`       | :zap: :unicorn: Search F*'s global context for functions and theorems
+Key                             | Action
+--------------------------------|----------------------------------
+`M-.`                           | :zap: :sparkles: Jump to definition
+`C-c C-d` (*d*ocumentation)     | :zap: :sparkles: Show documentation of symbol at point
+`<menu>`, `M-<f12>`             | :zap: :sparkles: Show type and docs in a small inline window (repeat to hide the window)
+`C-c C-s C-e` (*e*val)          | :zap: :unicorn: Evaluate (reduce) an expression
+`C-c C-s C-s` (*s*earch)        | :zap: :unicorn: Search F*'s global context for functions and theorems
+`C-c C-s C-d` (*d*ocumentation) | :zap: :unicorn: Show type and documentation of a symbol
+`C-c C-s C-p` (*p*rint)         | :zap: :unicorn: Show type, documentation, and full definition of a symbol
 
 ### Matching
 
-Key                 | Action
---------------------|----------------------------------
-`C-c C-s C-c`       | :zap: :unicorn: Case split: insert a match, or refine match at point
+Key                     | Action
+------------------------|----------------------------------
+`C-c C-s C-c` (*c*ases) | :zap: :unicorn: Case split: insert a match, or refine match at point
 
 ### Interactive mode
 
@@ -80,6 +83,7 @@ These keybindings are available during completion only:
 
 Key     | Action
 --------|------------------------------------------------
+`C-h`   | Show documentation of current completion candidate
 `C-w`   | Show definition of current completion candidate
 `C-s`   | Search among completion candidates
 
