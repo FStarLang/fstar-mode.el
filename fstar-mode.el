@@ -462,7 +462,7 @@ to ‘%S’ to use this checker." checker))
   `(,@fstar-syntax-preprocessor-directives ,@fstar-syntax-structural-headers))
 
 (defconst fstar-syntax-structural-qualifiers
-  '("new" "abstract" "logic" "assume"
+  '("new" "abstract" "logic" "assume" "visible"
     "unfold" "irreducible" "inline_for_extraction" "noeq" "noextract"
     "private" "opaque" "total" "default" "reifiable" "reflectable"))
 
