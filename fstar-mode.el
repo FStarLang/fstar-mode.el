@@ -850,6 +850,7 @@ leads to the binder's start."
     (define-key map (kbd "M-<f12>") #'fstar-quick-peek)
     (define-key map (kbd "C-c C-s C-c") #'fstar-insert-match-dwim)
     (define-key map (kbd "C-c C-s C-e") #'fstar-eval)
+    (define-key map (kbd "C-c C-s C-s") #'fstar-search)
     (define-key map (kbd "C-c C-s C-s") #'fstar-quit-windows)
     map))
 
@@ -2362,6 +2363,50 @@ Interactively, use the current region or prompt."
   (setq term (string-trim term))
   (fstar-subp--query (fstar-subp--eval-query term)
                 (apply-partially #'fstar-subp--eval-continuation term)))
+
+;;;; Search
+
+(defconst fstar--search-buffer-name "*fstar-search*")
+
+(defun fstar-subp--search-insert-result (result)
+  "Insert formatted RESULT of search."
+  (let-alist result
+    (insert (propertize .lid 'face 'font-lock-function-name-face)
+            (propertize  "\n" 'line-height `(nil . 1.5) 'line-spacing 0.2))
+    (let ((from (point))
+          (type (fstar--unparens .type)))
+      (insert (fstar-highlight-string (replace-regexp-in-string "^" "  " type)))
+      (font-lock-append-text-property from (point) 'face '(:height 0.9)))))
+
+(defun fstar-subp--search-continuation (terms status response)
+  "Handle results (STATUS, RESPONSE) of searching for TERMS."
+  (pcase status
+    (`success
+     (with-help-window fstar--doc-buffer-name
+       (with-current-buffer standard-output
+         (dolist (result response)
+           (fstar-subp--search-insert-result result)
+           (insert "\n")))))
+    (`failure
+     (message "Search for [%s] failed: %s" terms (string-trim response)))))
+
+(defun fstar-subp--search-query (terms)
+  "Prepare a `search' terms for TERMS."
+  (make-fstar-subp-query :query "search"
+                         :args `(("terms" . ,terms))))
+
+(defun fstar-search-dwim (terms)
+  "Query F* subprocess for matches against TERMS and display the results.
+Interactively, prompt for terms.  Repeating this command hides
+the search buffer."
+  (interactive '(interactive))
+  (fstar-subp--ensure-available #'user-error 'compute)
+  (when (eq terms 'interactive)
+    (setq terms (read-from-minibuffer
+                 "Search terms: " nil nil nil nil (fstar--fqn-at-point (point)))))
+  (setq terms (string-trim terms))
+  (fstar-subp--query (fstar-subp--search-query terms)
+                (apply-partially #'fstar-subp--search-continuation terms)))
 
 ;;; Hide windows
 
