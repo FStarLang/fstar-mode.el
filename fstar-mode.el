@@ -49,6 +49,7 @@
 (require 'help-at-pt)
 (require 'ansi-color)
 (require 'replace)
+(require 'easymenu)
 (require 'tramp)
 (require 'tramp-sh)
 
@@ -3001,8 +3002,9 @@ Function is public to make it easier to debug `fstar-subp-prover-args'."
 
 (defun fstar-subp-start ()
   "Start an F* subprocess attached to the current buffer, if none exists."
+  (interactive)
   (unless (and buffer-file-name (file-exists-p buffer-file-name))
-    (error "Can't start F* subprocess without a backing file (save this buffer first)"))
+    (user-error "Can't start F* subprocess without a backing file (save this buffer first)"))
   (unless (process-live-p fstar-subp--process)
     (let ((f*-abs (fstar-subp-find-fstar)))
       (fstar--init-compatibility-layer f*-abs)
@@ -3073,6 +3075,62 @@ Function is public to make it easier to debug `fstar-subp-prover-args'."
 (defun fstar-teardown-interactive ()
   "Cleanup F* interactive mode."
   (help-at-pt-cancel-timer))
+
+
+;;; Menu
+
+(defun fstar-customize ()
+  "Open `fstar-mode'\\='s customization menu."
+  (interactive)
+  (customize-group 'fstar))
+
+(easy-menu-define fstar-mode-menu fstar-mode-map
+  ;; Putting the menu in `fstar-mode-map' (a local map) ensures that it appears after
+  ;; all global menus (File, Edit, …)
+  #("F✪'s main menu" 1 2 (composition ((1 . "\t✪\t"))))
+  '(#("F✪" 1 2 (composition ((1 . "\t✪\t"))))
+    ("Navigation"
+     ["Visit interface file"
+      fstar-visit-interface-or-implementation :visible (not (fstar--visiting-interface-p))]
+     ["Visit implementation file"
+      fstar-visit-interface-or-implementation :visible (fstar--visiting-interface-p)]
+     ["Show an outline of this file"
+      fstar-outline]
+     ["Close all temporary F* windows"
+      fstar-quit-windows])
+    (#("F✪ subprocess" 1 2 (composition ((1 . "\t✪\t"))))
+     [#("Start F✪ subprocess" 7 8 (composition ((1 . "\t✪\t"))))
+      fstar-subp-start (not (process-live-p fstar-subp--process))]
+     ["Interrupt Z3"
+      fstar-subp-kill-z3 (fstar-subp--busy-p)]
+     [#("Kill F✪ subprocess" 6 7 (composition ((1 . "\t✪\t"))))
+      fstar-subp-kill-one-or-many (process-live-p fstar-subp--process)])
+    ("Proof state"
+     ["Typecheck next definition"
+      fstar-subp-advance-next]
+     ["Retract last definition"
+      fstar-subp-retract-last]
+     ["Typecheck everything up to point"
+      fstar-subp-advance-or-retract-to-point]
+     ["Typecheck everything up to point (lax)"
+      fstar-subp-advance-or-retract-to-point-lax]
+     ["Typecheck whole buffer (lax)"
+      fstar-subp-advance-to-point-max-lax])
+    ("Interactive queries"
+     ["Evaluate an expression"
+      fstar-eval (fstar-subp-available-p)]
+     ["Show type and docs of an identifier"
+      fstar-doc (fstar-subp-available-p)]
+     ["Show definition of an identifier"
+      fstar-print (fstar-subp-available-p)]
+     ["Search for functions or theorems"
+      fstar-search (fstar-subp-available-p)]
+     ["Quick peek"
+      fstar-quick-peek (fstar-subp-available-p)])
+    ("Utilities"
+     ["Copy error message at point"
+      fstar-copy-help-at-point])
+    ["Configuration" fstar-customize]))
 
 ;;; Main mode
 
