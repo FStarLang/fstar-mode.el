@@ -915,7 +915,18 @@ leads to the binder's start."
   (setq-local font-lock-syntactic-face-function #'fstar-syntactic-face-function)
   (setq-local syntax-propertize-function fstar-mode-syntax-propertize-function))
 
-;;; Mode map
+;;; Keymaps
+
+(define-prefix-command 'fstar-query-map)
+(define-key 'fstar-query-map (kbd "C-o") #'fstar-outline)
+(define-key 'fstar-query-map (kbd "C-c") #'fstar-insert-match-dwim)
+(define-key 'fstar-query-map (kbd "C-e") #'fstar-eval)
+(define-key 'fstar-query-map (kbd "C-s") #'fstar-search)
+(define-key 'fstar-query-map (kbd "C-d") #'fstar-doc)
+(define-key 'fstar-query-map (kbd "C-p") #'fstar-print)
+(define-key 'fstar-query-map (kbd "C-q") #'fstar-quit-windows)
+(define-key 'fstar-query-map (kbd "h w") #'fstar-browse-wiki)
+(define-key 'fstar-query-map (kbd "h W") #'fstar-browse-wiki-in-browser)
 
 (defvar fstar-mode-map
   (let ((map (make-sparse-keymap)))
@@ -931,13 +942,7 @@ leads to the binder's start."
     (define-key map (kbd "C-c C-a") #'fstar-visit-interface-or-implementation)
     (define-key map (kbd "<menu>") #'fstar-quick-peek)
     (define-key map (kbd "M-<f12>") #'fstar-quick-peek)
-    (define-key map (kbd "C-c C-s C-o") #'fstar-outline)
-    (define-key map (kbd "C-c C-s C-c") #'fstar-insert-match-dwim)
-    (define-key map (kbd "C-c C-s C-e") #'fstar-eval)
-    (define-key map (kbd "C-c C-s C-s") #'fstar-search)
-    (define-key map (kbd "C-c C-s C-d") #'fstar-doc)
-    (define-key map (kbd "C-c C-s C-p") #'fstar-print)
-    (define-key map (kbd "C-c C-s C-q") #'fstar-quit-windows)
+    (define-key map (kbd "C-c C-s") 'fstar-query-map)
     map))
 
 (defun fstar-newline-and-indent (arg)
