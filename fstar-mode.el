@@ -28,8 +28,9 @@
 ;; This file implements support for F* programming in Emacs, including:
 ;;
 ;; * Syntax highlighting
-;; * Unicode math (with prettify-symbols-mode)
-;; * Indentation
+;; * Unicode math (prettify-symbols-mode)
+;; * Documentation and search
+;; * Simple indentation
 ;; * Type hints (Eldoc)
 ;; * Autocompletion (Company)
 ;; * Type-aware snippets (Yasnippet)
@@ -58,7 +59,7 @@
 (require 'let-alist)
 (require 'company-quickhelp nil t)
 
-;;; Compatibility
+;;; Compatibility with older Emacsen
 
 (defmacro fstar-assert (&rest args)
   "Call `cl-assert' on ARGS, if available."
@@ -83,13 +84,11 @@
   "Trim S, or return nil if nil."
   (when s (string-trim-left (string-trim-right s))))
 
-;;; Group
+;;; Customization
 
 (defgroup fstar nil
   "F* mode."
   :group 'languages)
-
-;;; Customization
 
 (defcustom fstar-executable "fstar.exe"
   "Where to find F*.
@@ -210,6 +209,44 @@ Prompt should have one string placeholder to accommodate DEFAULT."
   (let ((default-info (if default (format " (default %s)" default) "")))
     (setq prompt (format prompt default-info)))
   (read-string prompt nil nil default))
+
+(defun fstar-in-comment-p ()
+  "Return non-nil if point is inside a comment."
+  (nth 4 (syntax-ppss)))
+
+(defun fstar-subp--column-number-at-pos (pos)
+  "Return column number at POS."
+  (save-excursion (goto-char pos) (- (point) (point-at-bol))))
+
+(defun fstar--goto (line column)
+  "Go to position indicated by LINE, COLUMN."
+  (goto-char (point-min))
+  (forward-line (1- line))
+  ;; min makes sure that we don't spill to the next line.
+  (forward-char (min (- (point-at-eol) (point-at-bol)) column)))
+
+(defun fstar--row-col-offset (line column)
+  "Convert a (LINE, COLUMN) pair into a buffer offset."
+  ;; LATER: This would be much easier if the interactive mode returned
+  ;; an offset instead of a line an column.
+  (save-excursion
+    (fstar--goto line column)
+    (point)))
+
+(defun fstar--match-strings-no-properties (ids &optional str)
+  "Get (match-string-no-properties ID STR) for each ID in IDS."
+  (mapcar (lambda (num) (match-string-no-properties num str)) ids))
+
+(defvar fstar--fqn-at-point-syntax-table)
+
+(defun fstar--fqn-at-point (&optional pos)
+  "Return symbol at POS (default: point)."
+  (setq pos (or pos (point)))
+  (with-syntax-table fstar--fqn-at-point-syntax-table
+    (save-excursion
+      (goto-char pos)
+      (-when-let* ((s (symbol-at-point)))
+        (substring-no-properties (symbol-name s))))))
 
 ;;; Debugging
 
@@ -347,7 +384,7 @@ If not, call ERROR-FN if supplied with a relevant message."
             (funcall error-fn "This feature isn't available \
 in your version of F*.  You're running version %s" fstar--vernum)))))
 
-;;; Flycheck
+;;; Whole-buffer Flycheck
 
 (defcustom fstar-flycheck-checker 'fstar-interactive
   "Which Flycheck checker to use in F*-mode."
@@ -446,8 +483,6 @@ to ‘%S’ to use this checker." checker))
     (prettify-symbols-mode)))
 
 ;;; Font-Lock
-
-;; Loosely derived from https://github.com/FStarLang/atom-fstar/blob/master/grammars/fstar.cson
 
 (defconst fstar-syntax-structural-headers
   '("open" "module" "include"
@@ -833,6 +868,11 @@ leads to the binder's start."
     table)
   "Syntax table for F*.")
 
+(defconst fstar--fqn-at-point-syntax-table
+  (let ((tbl (make-syntax-table fstar-syntax-table)))
+    (modify-syntax-entry ?. "_" tbl)
+    tbl))
+
 (defconst fstar-mode-syntax-propertize-function
   (let ((opener-1 (string-to-syntax ". 1"))
         (opener-2 (string-to-syntax ". 2")))
@@ -844,6 +884,34 @@ leads to the binder's start."
                   (put-text-property pt (+ pt 1) 'syntax-table opener-1)
                   (put-text-property (+ pt 1) (+ pt 2) 'syntax-table opener-2)
                   (ignore (goto-char (point-at-eol))))))))))
+
+;;; Comment syntax
+
+(defun fstar-syntactic-face-function (args)
+  "Choose face to display based on ARGS."
+  (pcase-let ((`(_ _ _ ,in-string _ _ _ _ ,comment-start-pos _) args))
+    (cond (in-string ;; Strings
+           font-lock-string-face)
+          (comment-start-pos ;; Comments ('//' doesnt have a comment-depth
+           (save-excursion
+             (goto-char comment-start-pos)
+             (cond
+              ((looking-at "(\\*\\*\\*[ \t\n]") '(:inherit font-lock-doc-face :height 2.5))
+              ((looking-at "(\\*\\*?\\+[ \t\n]") '(:inherit font-lock-doc-face :height 1.8))
+              ((looking-at "(\\*\\*?\\![ \t\n]") '(:inherit font-lock-doc-face :height 1.5))
+              ((looking-at "(\\*\\*[ \t\n]")  font-lock-doc-face)
+              (t font-lock-comment-face)))))))
+
+(defun fstar-setup-comments ()
+  "Set comment-related variables for F*."
+  (setq-local comment-multi-line t)
+  (setq-local comment-use-syntax t)
+  (setq-local comment-start      "(*")
+  (setq-local comment-continue   " *")
+  (setq-local comment-end        "*)")
+  (setq-local comment-start-skip fstar-comment-start-skip)
+  (setq-local font-lock-syntactic-face-function #'fstar-syntactic-face-function)
+  (setq-local syntax-propertize-function fstar-mode-syntax-propertize-function))
 
 ;;; Mode map
 
@@ -951,6 +1019,15 @@ With BACKWARDS, go back among indentation points."
   (kill-local-variable 'electric-indent-inhibit)
   (kill-local-variable 'indent-line-function))
 
+;;; Hide windows
+
+(defvar fstar--all-temp-buffer-names nil)
+
+(defun fstar-quit-windows ()
+  "Hide all temporary F* windows."
+  (interactive)
+  (mapc #'fstar--hide-buffer fstar--all-temp-buffer-names))
+
 ;;; Interactive proofs (fstar-subp)
 
 (cl-defstruct fstar-subp-query
@@ -1044,50 +1121,7 @@ never contains more than one entry (with ID nil).")
      (with-current-buffer buf
        ,@body)))
 
-;;;; Utilities
-
-(defun fstar-in-comment-p ()
-  "Return non-nil if point is inside a comment."
-  (nth 4 (syntax-ppss)))
-
-(defun fstar-subp--column-number-at-pos (pos)
-  "Return column number at POS."
-  (save-excursion (goto-char pos) (- (point) (point-at-bol))))
-
-(defun fstar--goto (line column)
-  "Go to position indicated by LINE, COLUMN."
-  (goto-char (point-min))
-  (forward-line (1- line))
-  ;; min makes sure that we don't spill to the next line.
-  (forward-char (min (- (point-at-eol) (point-at-bol)) column)))
-
-(defun fstar--row-col-offset (line column)
-  "Convert a (LINE, COLUMN) pair into a buffer offset."
-  ;; LATER: This would be much easier if the interactive mode returned
-  ;; an offset instead of a line an column.
-  (save-excursion
-    (fstar--goto line column)
-    (point)))
-
-(defun fstar--match-strings-no-properties (ids &optional str)
-  "Get (match-string-no-properties ID STR) for each ID in IDS."
-  (mapcar (lambda (num) (match-string-no-properties num str)) ids))
-
-(defconst fstar--fqn-at-point-syntax-table
-  (let ((tbl (make-syntax-table fstar-syntax-table)))
-    (modify-syntax-entry ?. "_" tbl)
-    tbl))
-
-(defun fstar--fqn-at-point (&optional pos)
-  "Return symbol at POS (default: point)."
-  (setq pos (or pos (point)))
-  (with-syntax-table fstar--fqn-at-point-syntax-table
-    (save-excursion
-      (goto-char pos)
-      (-when-let* ((s (symbol-at-point)))
-        (substring-no-properties (symbol-name s))))))
-
-;;;; Overlay classification
+;;; ;; Overlay classification
 
 (defun fstar-subp-issue-overlay-p (overlay)
   "Return non-nil if OVERLAY is an fstar-subp issue overlay."
@@ -1139,7 +1173,7 @@ look in the entire buffer."
   "Remove all F* issue overlays in BEG .. END whose overlay is dead."
   (mapc #'delete-overlay (fstar-subp-issue-orphaned-overlays beg end)))
 
-;;;; Overlay status legend in modeline
+;;; ;; Overlay status legend in modeline
 
 (defconst fstar-subp--overlay-legend-mode-line
   (let ((sp (propertize " " 'display '(space :width 1.5)))
@@ -1206,7 +1240,7 @@ FN instead."
   ;;     (advice-remove fn #'fstar-subp--overlay-legend-help-function)))
   )
 
-;;;; Basic subprocess operations
+;;; ;; Basic subprocess operations
 
 (defun fstar-subp-live-p (&optional proc)
   "Return t if the PROC is a live F* subprocess.
@@ -1542,7 +1576,7 @@ returns without doing anything."
           (signal-process pid 'int)
           (message "Sent SIGINT to %S" args))))))
 
-;;;; Parsing and display issues
+;;; ;; Parsing and display issues
 
 (defun fstar-subp--pop ()
   "Issue a `pop' query.
@@ -1715,7 +1749,7 @@ Complain if STATUS is `failure' and RESPONSE doesn't contain issues."
       (display-local-help))))
 
 
-;;;; Tracking and updating overlays
+;;; ;; Tracking and updating overlays
 
 (defun fstar-subp-status (overlay)
   "Get status of OVERLAY."
@@ -1865,7 +1899,7 @@ Modifications are only allowed if it is safe to retract up to the beginning of t
                  (fstar-subp-process-overlay overlay))
         (fstar-log 'info "Queue is empty (%d overlays)" (length (fstar-subp-tracking-overlays)))))))
 
-;;;; Advancing and retracting
+;;; ;; Advancing and retracting
 
 (defun fstar-subp-unprocessed-beginning ()
   "Find the beginning of the unprocessed buffer area."
@@ -2006,7 +2040,9 @@ into blocks; process it as one large block instead."
   (let ((fstar-subp--lax t))
     (fstar-subp-advance-or-retract-to-point arg)))
 
-;;;; Flycheck
+;;; ;; Features based on subp
+
+;;; ;; ;; Dynamic Flycheck
 
 (defun fstar-subp--can-run-flycheck ()
   "Check whether it's a reasonable time to start a syntax check."
@@ -2061,7 +2097,7 @@ buffer."
 
 (add-to-list 'flycheck-checkers 'fstar-interactive)
 
-;;;; Info queries
+;;; ;; ;; Lookup queries
 
 (defun fstar-subp--positional-lookup-query (pos fields)
   "Prepare a header for an info query at POS with FIELDS."
@@ -2226,9 +2262,10 @@ asynchronously after the fact)."
   (when (fboundp 'advice-remove)
     (advice-remove 'eldoc-message #'fstar--eldoc-truncate-message)))
 
-;;;; Doc at point
+;;; ;; ;; Doc at point
 
 (defconst fstar--doc-buffer-name "*fstar-doc*")
+(push fstar--doc-buffer-name fstar--all-temp-buffer-names)
 
 (defun fstar--doc-buffer-populate-1 (title value)
   "Insert TITLE and VALUE to current buffer."
@@ -2286,7 +2323,7 @@ Interactively, prompt for ID."
                 (fstar-subp--lookup-wrapper
                  #'fstar--doc-at-point-continuation (point))))
 
-;;; Print
+;;; ;; ;; Print
 
 (defun fstar-print (id)
   "Show definition of ID.
@@ -2300,7 +2337,7 @@ Interactively, prompt for ID."
                 (fstar-subp--lookup-wrapper
                  #'fstar--doc-at-point-continuation (point))))
 
-;;;; Insert a match
+;;; ;; ;; Insert a match
 
 (defun fstar--split-match-var-annot (str)
   "Split var name and <<<>>> type annotation in STR."
@@ -2405,7 +2442,7 @@ that variable."
     (or (fstar--destruct-match-var-at-point)
         (fstar-insert-match (fstar--read-type-name)))))
 
-;;;; Eval
+;;; ;; ;; Eval
 
 (defun fstar--reduction-arrow (arrow rules)
   "Annotate ARROW with RULES."
@@ -2445,9 +2482,10 @@ Interactively, use the current region or prompt."
   (fstar-subp--query (fstar-subp--eval-query term)
                 (apply-partially #'fstar-subp--eval-continuation term)))
 
-;;;; Search
+;;; ;; ;; Search
 
 (defconst fstar--search-buffer-name "*fstar-search*")
+(push fstar--search-buffer-name fstar--all-temp-buffer-names)
 
 (defun fstar-subp--search-insert-result (result)
   "Insert formatted RESULT of search."
@@ -2488,14 +2526,7 @@ the search buffer."
   (fstar-subp--query (fstar-subp--search-query terms)
                 (apply-partially #'fstar-subp--search-continuation terms)))
 
-;;; Hide windows
-
-(defun fstar-quit-windows ()
-  "Hide all temporary F* windows."
-  (interactive)
-  (mapc #'fstar--hide-buffer `(,fstar--doc-buffer-name ,fstar--search-buffer-name)))
-
-;;;; xref-like features
+;;; ;; ;; Jump to definition
 
 (defun fstar--save-point ()
   "Save current position in mark ring and xref stack."
@@ -2530,7 +2561,7 @@ the search buffer."
                 (fstar-subp--lookup-wrapper
                  #'fstar--jump-to-definition-continuation (point))))
 
-;;;; Quick-peek
+;;; ;; ;; Quick-peek
 
 (defun fstar--quick-peek-continuation (info)
   "Show type from INFO in inline pop-up."
@@ -2552,7 +2583,7 @@ the search buffer."
                   (fstar-subp--lookup-wrapper
                    #'fstar--quick-peek-continuation (point)))))
 
-;;;; Company
+;;; ;; ;; Company
 
 (defun fstar-subp--completion-query (prefix)
   "Prepare a `completions' query from PREFIX."
@@ -2735,7 +2766,7 @@ COMMAND, ARG: see `company-backends'."
   (kill-local-variable 'company-tooltip-align-annotations)
   (kill-local-variable 'company-abort-manual-when-too-short))
 
-;;;; Busy spinner
+;;; ;; ;; Busy spinner
 
 (defvar-local fstar--spin-timer nil)
 
@@ -2793,7 +2824,7 @@ TIMER is the timer that caused this event to fire."
   "Disable dynamic F* icon."
   (fstar--spin-cancel))
 
-;;;; Starting the F* subprocess
+;;; ;; Starting the F* subprocess
 
 (defun fstar--check-executable (path prog-name var-name)
   "Check if PATH exists and is executable.
@@ -2918,7 +2949,7 @@ Function is public to make it easier to debug `fstar-subp-prover-args'."
         (process-put proc 'fstar-subp-source-buffer (current-buffer))
         (setq fstar-subp--process proc)))))
 
-;;;; Keybindings
+;;; ;; Keybindings
 
 (defconst fstar-subp-keybindings-table
   '(("C-c C-n"        "C-S-n" fstar-subp-advance-next)
@@ -2957,7 +2988,7 @@ Function is public to make it easier to debug `fstar-subp-prover-args'."
   :type '(choice (const :tag "Proof-General style bindings" pg)
                  (const :tag "Atom-style bindings" atom)))
 
-;;;; Main entry point
+;;; ;; Main fstar-subp entry point
 
 (defun fstar-setup-interactive ()
   "Setup interactive F* mode."
@@ -2970,34 +3001,6 @@ Function is public to make it easier to debug `fstar-subp-prover-args'."
 (defun fstar-teardown-interactive ()
   "Cleanup F* interactive mode."
   (help-at-pt-cancel-timer))
-
-;;; Comment syntax
-
-(defun fstar-syntactic-face-function (args)
-  "Choose face to display based on ARGS."
-  (pcase-let ((`(_ _ _ ,in-string _ _ _ _ ,comment-start-pos _) args))
-    (cond (in-string ;; Strings
-           font-lock-string-face)
-          (comment-start-pos ;; Comments ('//' doesnt have a comment-depth
-           (save-excursion
-             (goto-char comment-start-pos)
-             (cond
-              ((looking-at "(\\*\\*\\*[ \t\n]") '(:inherit font-lock-doc-face :height 2.5))
-              ((looking-at "(\\*\\*?\\+[ \t\n]") '(:inherit font-lock-doc-face :height 1.8))
-              ((looking-at "(\\*\\*?\\![ \t\n]") '(:inherit font-lock-doc-face :height 1.5))
-              ((looking-at "(\\*\\*[ \t\n]")  font-lock-doc-face)
-              (t font-lock-comment-face)))))))
-
-(defun fstar-setup-comments ()
-  "Set comment-related variables for F*."
-  (setq-local comment-multi-line t)
-  (setq-local comment-use-syntax t)
-  (setq-local comment-start      "(*")
-  (setq-local comment-continue   " *")
-  (setq-local comment-end        "*)")
-  (setq-local comment-start-skip fstar-comment-start-skip)
-  (setq-local font-lock-syntactic-face-function #'fstar-syntactic-face-function)
-  (setq-local syntax-propertize-function fstar-mode-syntax-propertize-function))
 
 ;;; Main mode
 
