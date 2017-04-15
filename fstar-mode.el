@@ -2750,6 +2750,16 @@ CALLBACK is the company-mode asynchronous doc-buffer callback."
       '(type defined-at documentation)
     (apply-partially #'fstar-subp-company--doc-buffer-continuation callback)))
 
+(defun fstar-subp-company--quickhelp-continuation (callback info)
+  "Forward documentation INFO to CALLBACK.
+CALLBACK is the company-mode asynchronous quickhelp callback."
+  (funcall callback (or (and info (fstar-lookup-result-doc info)) "")))
+
+(defun fstar-subp-company--async-quickhelp (candidate callback)
+  "Find documentation of CANDIDATE and pass it to CALLBACK."
+  (fstar-subp-company--async-lookup candidate '(documentation)
+    (apply-partially #'fstar-subp-company--quickhelp-continuation callback)))
+
 (defun fstar-subp-company--location-continuation (callback info)
   "Forward type INFO to CALLBACK.
 CALLBACK is the company-mode asynchronous meta callback."
@@ -2802,6 +2812,8 @@ COMMAND, ARG: see `company-backends'."
        `(:async . ,(apply-partially #'fstar-subp-company--async-meta arg)))
       (`doc-buffer
        `(:async . ,(apply-partially #'fstar-subp-company--async-doc-buffer arg)))
+      (`quickhelp-string
+       `(:async . ,(apply-partially #'fstar-subp-company--async-quickhelp arg)))
       (`location
        `(:async . ,(apply-partially #'fstar-subp-company--async-location arg)))
       (`sorted t)
