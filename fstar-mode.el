@@ -48,10 +48,11 @@
 (require 'eldoc)
 (require 'help-at-pt)
 (require 'ansi-color)
-(require 'replace)
 (require 'easymenu)
 (require 'tramp)
 (require 'tramp-sh)
+;; replace.el doesn't `provide' in Emacs < 26
+(ignore-errors (require 'replace))
 
 (require 'dash)
 (require 'company)
