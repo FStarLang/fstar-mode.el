@@ -927,6 +927,7 @@ leads to the binder's start."
     (define-key map (kbd "S-TAB") #'fstar-unindent)
     (define-key map (kbd "C-h M-w") #'fstar-copy-help-at-point)
     ;; (define-key map (kbd "C-c C-d") #'fstar-doc-at-point-dwim)
+    (define-key map (kbd "C-c C-a") #'fstar-visit-interface-or-implementation)
     (define-key map (kbd "<menu>") #'fstar-quick-peek)
     (define-key map (kbd "M-<f12>") #'fstar-quick-peek)
     (define-key map (kbd "C-c C-s C-o") #'fstar-outline)
@@ -1021,7 +1022,23 @@ With BACKWARDS, go back among indentation points."
   (kill-local-variable 'electric-indent-inhibit)
   (kill-local-variable 'indent-line-function))
 
-;;; Hide windows
+;;; Switching between interface and implementation
+
+(defun fstar-visit-interface-or-implementation ()
+  "Switch between interface and implementation."
+  (interactive)
+  (unless buffer-file-name
+    (user-error "Save this file before switching"))
+  (when (string-match "\\`\\(.*\\)\\.fst\\(i\\)?\\'" buffer-file-name)
+    (let ((other (if (match-end 2) ".fst" ".fsti")))
+      (find-file (concat (match-string 1 buffer-file-name) other)))))
+
+(defun fstar--visiting-interface-p ()
+  "Check whether current buffer is an interface file."
+  (and buffer-file-name
+       (string-match-p "\\.fsti\\'" buffer-file-name)))
+
+;;; Hiding windows
 
 (defvar fstar--all-temp-buffer-names nil)
 

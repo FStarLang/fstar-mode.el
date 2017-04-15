@@ -41,9 +41,9 @@ Key                       | Action
 --------------------------|----------------------------------
 `C-h .`                   | Show current error in echo area
 `C-h M-w`                 | Copy current error message
-`TAB`                     | Indent
-`S-TAB`                   | Unindent
+`TAB` / `S-TAB`           | Indent / Unindent
 `C-RET`                   | :zap: :sparkles: Autocomplete word at point
+`C-c C-a` (*a*lternate)   | :sparkles: Switch to interface file (and back to implementation)
 `C-c C-s C-o` (*o*utline) | :sparkles: Show an outline of the current buffer
 `C-c C-s C-q` (*q*uit)    | :sparkles: Close temporary windows opened by fstar-mode
 
