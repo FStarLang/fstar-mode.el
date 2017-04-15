@@ -53,6 +53,8 @@ Key                             | Action
 --------------------------------|----------------------------------
 `M-.`                           | :zap: :sparkles: Jump to definition
 `<menu>`, `M-<f12>`             | :zap: :sparkles: Show type and docs in a small inline window (repeat to hide the window)
+`C-c C-s h w` (*h*elp *W*iki)   | :zap: Browse F\*'s wiki in Emacs
+`C-c C-s h W` (*h*elp *W*iki)   | :zap: Browse F\*'s wiki in your browser
 `C-c C-s C-e` (*e*val)          | :zap: :unicorn: Evaluate (reduce) an expression
 `C-c C-s C-s` (*s*earch)        | :zap: :unicorn: Search F*'s global context for functions and theorems
 `C-c C-s C-d` (*d*ocumentation) | :zap: :unicorn: Show type and documentation of a symbol

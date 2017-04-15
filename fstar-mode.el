@@ -61,6 +61,16 @@
 (require 'let-alist)
 (require 'company-quickhelp nil t)
 
+(defconst fstar--script-full-path
+  (or (and load-in-progress load-file-name)
+      (bound-and-true-p byte-compile-current-file)
+      (buffer-file-name))
+  "Full path of this script.")
+
+(defconst fstar--directory
+  (file-name-directory fstar--script-full-path)
+  "Full path to directory of this script.")
+
 ;;; Compatibility with older Emacsen
 
 (defmacro fstar-assert (&rest args)
@@ -1043,6 +1053,91 @@ With BACKWARDS, go back among indentation points."
   "Check whether current buffer is an interface file."
   (and buffer-file-name
        (string-match-p "\\.fsti\\'" buffer-file-name)))
+
+;;; Wiki
+
+(defconst fstar--wiki-directory
+  (expand-file-name "wiki" fstar--directory))
+
+(defconst fstar--wiki-url
+  "https://github.com/FStarLang/FStar.wiki.git")
+
+(defun fstar-wiki--run-git-command (reason progress-msg error-fmt &rest args)
+  "Run git with ARGS.
+REASON is used in error messages if Git isn't available.
+Progress is indicated with PROGRESS-MSG.  If git fails, print
+ERROR-FMT with error message."
+  (message "%s…" progress-msg)
+  (fstar-find-executable "git" (format "Git (needed to %s)" reason))
+  (with-temp-buffer
+    (unless (eq 0 (apply #'process-file "git" nil (current-buffer) nil args))
+      (error error-fmt (string-trim (buffer-string)))))
+  (message "%s… done." progress-msg))
+
+(defun fstar-wiki-init (&optional force)
+  "Download F*'s wiki to /wiki.
+No-op if the directory already exists and FORCE is nil.
+Return non-nil if a new clone was made."
+  (interactive "P")
+  (unless (and (file-directory-p fstar--wiki-directory) (not force))
+    (delete-directory fstar--wiki-directory t)
+    (fstar-wiki--run-git-command
+     "fetch F*'s wiki"
+     (format "Fetching F*'s wiki from %s" fstar--wiki-url)
+     (format "Could not clone %s to %s: “%%s”" fstar--wiki-url fstar--wiki-directory)
+     "clone" "--depth" "1" fstar--wiki-url fstar--wiki-directory)
+    t))
+
+(defun fstar-wiki-refresh (&optional force)
+  "Refresh clone of F*'s wiki.
+With FORCE, make a fresh clone."
+  (interactive)
+  (unless (fstar-wiki-init force)
+    (let ((label "refresh F*'s wiki")
+          (default-directory fstar--wiki-directory))
+      (fstar-wiki--run-git-command label
+                              (format "Fetching F*'s wiki from %s" fstar--wiki-url)
+                              (format "Could not fetch %s: “%%s”" fstar--wiki-url)
+                              "fetch" "origin" "master")
+      (fstar-wiki--run-git-command label
+                              "Resetting F*'s wiki to latest HEAD"
+                              "Could not reset wiki: “%s”"
+                              "reset" "--hard" "FETCH_HEAD")
+      (fstar-wiki--run-git-command label
+                              "Cleaning up orphaned wiki files"
+                              "Could not clean up wiki: “%s”"
+                              "clean" "-df"))))
+
+(defun fstar--wiki-titles ()
+  "List available articles on the F* wiki."
+  (unless (fstar-wiki-init)
+    (with-demoted-errors "Error while updating the wiki: %s"
+      (fstar-wiki-refresh)))
+  (let ((names nil))
+    (dolist (fname (directory-files fstar--wiki-directory))
+      (when (string-match "\\`\\(.*\\)\\.md\\'" fname)
+        (let* ((www-name (match-string 1 fname))
+               (clean (replace-regexp-in-string "-" " " www-name t t)))
+          (push (list clean fname www-name) names))))
+    (nreverse names)))
+
+(defun fstar-wiki--read-topic ()
+  "Read an F* wiki topic interactively."
+  (let* ((titles (fstar--wiki-titles))
+         (topic (completing-read "Topic (TAB to show all): " titles nil t)))
+    (or (assq topic titles)
+        (user-error "Unknown topic “%s”" topic))))
+
+(defun fstar-browse-wiki (fname)
+  "Visit FNAME in `fstar--wiki-directory'.
+Interactively, offer titles of F* wiki pages."
+  (interactive (list (nth 1 (fstar-wiki--read-topic))))
+  (find-file (expand-file-name fname fstar--wiki-directory)))
+
+(defun fstar-browse-wiki-in-browser (page-name)
+  "Visit PAGE-NAME on F*'s wiki on Github."
+  (interactive (list (nth 2 (fstar-wiki--read-topic))))
+  (browse-url (format "https://github.com/FStarLang/FStar/wiki/%s" page-name)))
 
 ;;; Hiding windows
 
@@ -2919,13 +3014,13 @@ TIMER is the timer that caused this event to fire."
   "Check if PATH exists and is executable.
 PROG-NAME and VAR-NAME are used in error messages."
   (unless (and path (file-exists-p path))
-    (user-error "%s (“%s”) not found; \
-please adjust `%s'" prog-name path var-name))
+    (user-error "%s (“%s”) not found%s" prog-name path var-name
+                (if var-name (format "; please adjust `%s'" var-name) "")))
   (unless (file-executable-p path)
-    (user-error "%s (“%s”) not executable; \
-please check the value of `%s'" prog-name path var-name)))
+    (user-error "%s (“%s”) not executable%s" prog-name path
+                (if var-name (format "; please check `%s'" var-name) ""))))
 
-(defun fstar-find-executable (prog prog-name var-name)
+(defun fstar-find-executable (prog prog-name &optional var-name)
   "Compute the absolute path to PROG.
 Check that the binary exists and is executable; if not, raise an
 error referring to PROG as PROG-NAME and VAR-NAME."
