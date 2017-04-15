@@ -2187,7 +2187,8 @@ Pass ARG to `fstar-subp-advance-or-retract-to-point'."
     (goto-char (point-min))
     (delete-region (point) (1+ (point-at-eol)))
     (insert (propertize title 'face '(:height 1.5)) "\n")
-    (font-lock--remove-face-from-text-property (point) (point-max) 'face 'match)))
+    (when (fboundp 'font-lock--remove-face-from-text-property)
+      (font-lock--remove-face-from-text-property (point) (point-max) 'face 'match))))
 
 (defvar fstar--outline-map
   (let ((map (make-sparse-keymap)))
