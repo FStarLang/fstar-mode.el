@@ -37,14 +37,15 @@ The common prefix for fstar-mode keybindings in `C-c C-s` (*s*earch).
 
 ### General
 
-Key                 | Action
---------------------|----------------------------------
-`C-h .`             | Show current error in echo area
-`C-h M-w`           | Copy current error message
-`TAB`               | Indent
-`S-TAB`             | Unindent
-`C-RET`             | :zap: :sparkles: Autocomplete word at point
-`C-c C-s C-q`       | :zap: :sparkles: Close temporary windows opened by fstar-mode
+Key                       | Action
+--------------------------|----------------------------------
+`C-h .`                   | Show current error in echo area
+`C-h M-w`                 | Copy current error message
+`TAB`                     | Indent
+`S-TAB`                   | Unindent
+`C-RET`                   | :zap: :sparkles: Autocomplete word at point
+`C-c C-s C-o` (*o*utline) | :sparkles: Show an outline of the current buffer
+`C-c C-s C-q` (*q*uit)    | :sparkles: Close temporary windows opened by fstar-mode
 
 ### Documentation, type hints, and computation
 

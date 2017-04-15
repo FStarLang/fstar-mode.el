@@ -48,6 +48,7 @@
 (require 'eldoc)
 (require 'help-at-pt)
 (require 'ansi-color)
+(require 'replace)
 (require 'tramp)
 (require 'tramp-sh)
 
@@ -928,6 +929,7 @@ leads to the binder's start."
     ;; (define-key map (kbd "C-c C-d") #'fstar-doc-at-point-dwim)
     (define-key map (kbd "<menu>") #'fstar-quick-peek)
     (define-key map (kbd "M-<f12>") #'fstar-quick-peek)
+    (define-key map (kbd "C-c C-s C-o") #'fstar-outline)
     (define-key map (kbd "C-c C-s C-c") #'fstar-insert-match-dwim)
     (define-key map (kbd "C-c C-s C-e") #'fstar-eval)
     (define-key map (kbd "C-c C-s C-s") #'fstar-search)
@@ -2039,6 +2041,49 @@ into blocks; process it as one large block instead."
   (interactive "P")
   (let ((fstar-subp--lax t))
     (fstar-subp-advance-or-retract-to-point arg)))
+
+;;; Outline
+
+(defun fstar--outline-close-and-goto (&optional _)
+  "Close occur buffer and go to position at point."
+  (interactive)
+  (let ((pos (occur-mode-find-occurrence))
+        (occur-buf (current-buffer)))
+    (switch-to-buffer (marker-buffer pos))
+    (goto-char pos)
+    (kill-buffer occur-buf)))
+
+(defun fstar--outline-cleanup (title)
+  "Clean up outline buffer and give it a proper TITLE."
+  (let ((inhibit-read-only t))
+    (goto-char (point-min))
+    (delete-region (point) (1+ (point-at-eol)))
+    (insert (propertize title 'face '(:height 1.5)) "\n")
+    (font-lock--remove-face-from-text-property (point) (point-max) 'face 'match)))
+
+(defvar fstar--outline-map
+  (let ((map (make-sparse-keymap)))
+    (set-keymap-parent map occur-mode-map)
+    (dolist (command '(occur-mode-goto-occurrence occur-mode-mouse-goto))
+      (substitute-key-definition command #'fstar--outline-close-and-goto map))
+    map))
+
+(defun fstar-outline ()
+  "Show an outline of the current buffer."
+  (interactive)
+  (let ((same-window-buffer-names '("*Occur*"))
+        (outline-buffer-title (format "Outline of ‘%s’\n" (buffer-name)))
+        (outline-buffer-name (format "*fstar-outline: %s*" (buffer-name))))
+    (-when-let* ((buf (get-buffer outline-buffer-name)))
+      (when (buffer-live-p buf)
+        (kill-buffer buf)))
+    (occur fstar-syntax-block-start-re)
+    (when (buffer-live-p (get-buffer "*Occur*"))
+      (with-current-buffer "*Occur*"
+        (rename-buffer outline-buffer-name t)
+        (toggle-truncate-lines t)
+        (use-local-map fstar--outline-map)
+        (fstar--outline-cleanup outline-buffer-title)))))
 
 ;;; ;; Features based on subp
 
