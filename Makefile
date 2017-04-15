@@ -2,6 +2,7 @@ EMACS ?= emacs
 EL := fstar-mode.el
 ELC := $(EL:.el=.elc)
 PACKAGE_DIR := $(shell cask package-directory)
+ERROR_ON_WARN ?= t
 
 $(ELC):%.elc:%.el
 	cask exec ${EMACS} -L . -Q --batch \
