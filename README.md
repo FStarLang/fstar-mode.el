@@ -68,12 +68,13 @@ Key                     | Action
 
 Proof-General            | :atom: Atom   | Action
 -------------------------|---------------|----------------------------------------------------------
-`C-c C-n`                | `C-S-n`       | :zap: Send the next paragraph to F*
-`C-c C-u` or `C-c C-p`   | `C-S-p`       | :zap: Retract the last paragraph
+`C-c C-n` (*n*ext)       | `C-S-n`       | :zap: Send the next paragraph to F*
+`C-c C-p` (*p*revious)   | `C-S-p`       | :zap: Retract the last paragraph
 `C-c C-.`                | `C-S-.`       | :zap: Jump to beginning of unprocessed section
 `C-c RET` or `C-c C-RET` | `C-S-i`       | :zap: Send everything up to the current point to F*
-`C-c C-l`                | `C-S-l`       | :zap: Send everything up to the current point to F*, in lax mode
-`C-c C-x`                | `C-M-c`       | :zap: Kill the F* subprocess
+`C-c C-l` (*l*ax)        | `C-S-l`       | :zap: Send everything up to the current point to F*, in lax mode
+`C-c C-b` (*b*uffer)     | `C-S-b`       | :zap: Send entire buffer to F* in lax mode
+`C-c C-x` (e*x*it)       | `C-M-c`       | :zap: Kill the F* subprocess
 `C-c C-c`                | `C-M-S-c`     | :zap: Send an interrupt signal to Z3.  This (generally) interrupts the currently running verification task.
 
 Use <kbd>M-x customize-variable RET fstar-interactive-keybinding-style RET</kbd> to pick a keybinding style. The default is Proof-General; the other option is Atom. Please be aware of the [current restrictions](https://github.com/FStarLang/FStar/wiki/Dealing-with-F%E2%98%85-dependencies#when-invoking-f-in-interactive-mode) on the interactive-mode.

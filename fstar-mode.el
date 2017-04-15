@@ -2059,6 +2059,15 @@ into blocks; process it as one large block instead."
   (let ((fstar-subp--lax t))
     (fstar-subp-advance-or-retract-to-point arg)))
 
+(defun fstar-subp-advance-to-point-max-lax (&optional arg)
+  "Like `fstar-subp-advance-or-retract-to-point' on `point-max', in lax mode.
+Pass ARG to `fstar-subp-advance-or-retract-to-point'."
+  (interactive "P")
+  (let ((fstar-subp--lax t))
+    (save-excursion
+      (goto-char (point-max))
+      (fstar-subp-advance-or-retract-to-point arg))))
+
 ;;; Outline
 
 (defun fstar--outline-close-and-goto (&optional _)
@@ -3021,6 +3030,7 @@ Function is public to make it easier to debug `fstar-subp-prover-args'."
     ("C-c <C-return>" "C-S-i" fstar-subp-advance-or-retract-to-point)
     ("C-c C-l"        "C-S-l" fstar-subp-advance-or-retract-to-point-lax)
     ("C-c C-."        "C-S-." fstar-subp-goto-beginning-of-unprocessed)
+    ("C-c C-b"        "C-S-b" fstar-subp-advance-to-point-max-lax)
     ("C-c C-x"        "C-M-c" fstar-subp-kill-one-or-many)
     ("C-c C-c"        "C-M-S-c" fstar-subp-kill-z3))
   "Proof-General and Atom bindings table.")
