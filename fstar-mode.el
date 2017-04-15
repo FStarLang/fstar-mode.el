@@ -2567,8 +2567,10 @@ TYPE is used in error messages"
 
 (defun fstar-insert-match (type)
   "Insert a match on TYPE at point."
-  (interactive (list (fstar--read-type-name)))
+  (interactive '(interactive))
   (fstar-subp--ensure-available #'user-error 'show-match)
+  (when (eq type 'interactive)
+    (setq type (fstar--read-type-name)))
   (fstar-subp--query (fstar-subp--show-match-query type)
                 (fstar-subp--pos-check-wrapper (point)
                   (apply-partially #'fstar--insert-match-continuation type))))
