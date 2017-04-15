@@ -33,50 +33,50 @@ F*-mode requires Emacs 24.3 or newer, and is distributed through [MELPA](https:/
 :sparkles: indicates features added since the latest F* release.<br/>
 :unicorn: indicates features that require yet-unmerged patches to F*.<br/>
 
-The common prefix for fstar-mode keybindings in `C-c C-s` (*s*earch).
+The common prefix for fstar-mode keybindings in `C-c C-s` (short for **s**tar).
 
 ### General
 
-Key                       | Action
---------------------------|----------------------------------
-`C-h .`                   | Show current error in echo area
-`C-h M-w`                 | Copy current error message
-`TAB` / `S-TAB`           | Indent / Unindent
-`C-RET`                   | :zap: :sparkles: Autocomplete word at point
-`C-c C-a` (*a*lternate)   | :sparkles: Switch to interface file (and back to implementation)
-`C-c C-s C-o` (*o*utline) | :sparkles: Show an outline of the current buffer
-`C-c C-s C-q` (*q*uit)    | :sparkles: Close temporary windows opened by fstar-mode
+Key                         | Action
+----------------------------|----------------------------------
+`C-h .`                     | Show current error in echo area
+`C-h M-w`                   | Copy current error message
+`TAB` / `S-TAB`             | Indent / Unindent
+`C-RET`                     | :zap: :sparkles: Autocomplete word at point
+`C-c C-a` (**a**lternate)   | :sparkles: Switch to interface file (and back to implementation)
+`C-c C-s C-o` (**o**utline) | :sparkles: Show an outline of the current buffer
+`C-c C-s C-q` (**q**uit)    | :sparkles: Close temporary windows opened by fstar-mode
 
 ### Documentation, type hints, and computation
 
-Key                             | Action
---------------------------------|----------------------------------
-`M-.`                           | :zap: :sparkles: Jump to definition
-`<menu>`, `M-<f12>`             | :zap: :sparkles: Show type and docs in a small inline window (repeat to hide the window)
-`C-c C-s h w` (*h*elp *W*iki)   | :zap: Browse F\*'s wiki in Emacs
-`C-c C-s h W` (*h*elp *W*iki)   | :zap: Browse F\*'s wiki in your browser
-`C-c C-s C-e` (*e*val)          | :zap: :unicorn: Evaluate (reduce) an expression
-`C-c C-s C-s` (*s*earch)        | :zap: :unicorn: Search F*'s global context for functions and theorems
-`C-c C-s C-d` (*d*ocumentation) | :zap: :unicorn: Show type and documentation of a symbol
-`C-c C-s C-p` (*p*rint)         | :zap: :unicorn: Show type, documentation, and full definition of a symbol
+Key                               | Action
+----------------------------------|----------------------------------
+`M-.`                             | :zap: :sparkles: Jump to definition
+`<menu>`, `M-<f12>`               | :zap: :sparkles: Show type and docs in a small inline window (repeat to hide the window)
+`C-c C-s C-e` (**e**val)          | :zap: :unicorn: Evaluate (reduce) an expression
+`C-c C-s C-s` (**s**earch)        | :zap: :unicorn: Search F*'s global context for functions and theorems
+`C-c C-s C-d` (**d**ocumentation) | :zap: :unicorn: Show type and documentation of a symbol
+`C-c C-s C-p` (**p**rint)         | :zap: :unicorn: Show type, documentation, and full definition of a symbol
+`C-c C-s h w` (**h**elp **w**iki) | :sparkles: Browse F\*'s wiki in Emacs
+`C-c C-s h W` (**h**elp **W**iki) | :sparkles: Browse F\*'s wiki in your browser
 
 ### Matching
 
-Key                     | Action
-------------------------|----------------------------------
-`C-c C-s C-c` (*c*ases) | :zap: :unicorn: Case split: insert a match, or refine match at point
+Key                       | Action
+--------------------------|----------------------------------
+`C-c C-s C-c` (**c**ases) | :zap: :unicorn: Case split: insert a match, or refine match at point
 
 ### Interactive mode
 
 Proof-General            | :atom: Atom   | Action
 -------------------------|---------------|----------------------------------------------------------
-`C-c C-n` (*n*ext)       | `C-S-n`       | :zap: Send the next paragraph to F*
-`C-c C-p` (*p*revious)   | `C-S-p`       | :zap: Retract the last paragraph
+`C-c C-n` (**n**ext)       | `C-S-n`       | :zap: Send the next paragraph to F*
+`C-c C-p` (**p**revious)   | `C-S-p`       | :zap: Retract the last paragraph
 `C-c C-.`                | `C-S-.`       | :zap: Jump to beginning of unprocessed section
 `C-c RET` or `C-c C-RET` | `C-S-i`       | :zap: Send everything up to the current point to F*
-`C-c C-l` (*l*ax)        | `C-S-l`       | :zap: Send everything up to the current point to F*, in lax mode
-`C-c C-b` (*b*uffer)     | `C-S-b`       | :zap: Send entire buffer to F* in lax mode
-`C-c C-x` (e*x*it)       | `C-M-c`       | :zap: Kill the F* subprocess
+`C-c C-l` (**l**ax)        | `C-S-l`       | :zap: Send everything up to the current point to F*, in lax mode
+`C-c C-b` (**b**uffer)     | `C-S-b`       | :zap: Send entire buffer to F* in lax mode
+`C-c C-x` (e**x**it)       | `C-M-c`       | :zap: Kill the F* subprocess
 `C-c C-c`                | `C-M-S-c`     | :zap: Send an interrupt signal to Z3.  This (generally) interrupts the currently running verification task.
 
 Use <kbd>M-x customize-variable RET fstar-interactive-keybinding-style RET</kbd> to pick a keybinding style. The default is Proof-General; the other option is Atom. Please be aware of the [current restrictions](https://github.com/FStarLang/FStar/wiki/Dealing-with-F%E2%98%85-dependencies#when-invoking-f-in-interactive-mode) on the interactive-mode.
