@@ -735,6 +735,8 @@ leads to the binder's start."
        (1 'fstar-universe-face))
       ("`.+?`"
        (0 'fstar-operator-face append))
+      ("^[[:space:]]*\\(@summary\\)\\_>"
+       (1 'font-lock-constant-face prepend))
       (,(concat "{\\(:" id "\\) *\\([^}]*\\)}")
        (1 'font-lock-builtin-face append)
        (2 'fstar-attribute-face append))
