@@ -2735,6 +2735,9 @@ a prefix argument, prompt for rules as well."
     (`success
      (with-help-window fstar--doc-buffer-name
        (with-current-buffer standard-output
+         (visual-line-mode)
+         (when (fboundp 'adaptive-wrap-prefix-mode)
+           (adaptive-wrap-prefix-mode))
          (dolist (result response)
            (fstar-subp--search-insert-result result)
            (insert "\n")))))
