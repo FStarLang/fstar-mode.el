@@ -2370,10 +2370,11 @@ If POS is nil, the POS check is ignored."
         (funcall continuation response)
       (funcall continuation nil))))
 
-(defun fstar-subp--lookup-wrapper (continuation pos)
+(defun fstar-subp--lookup-wrapper (pos continuation)
   "Handle the results of a lookup query at POS.
 If response is valid, forward results to CONTINUATION.  With nil POS, this
 function can also handle results of position-less lookup queries."
+  (declare (indent 1))
   (fstar-subp--pos-check-wrapper pos
     (lambda (response)
       (-if-let* ((info (and response (if (fstar--has-feature 'json-subp)
@@ -2401,15 +2402,13 @@ asynchronously after the fact)."
              (retv (fstar-subp--query-and-wait query 0.01)))
         (pcase retv
           (`(t . (,status ,results))
-           (funcall (fstar-subp--lookup-wrapper
-                     (apply-partially #'fstar--eldoc-continuation #'identity)
-                     (point))
+           (funcall (fstar-subp--lookup-wrapper (point)
+                      (apply-partially #'fstar--eldoc-continuation #'identity))
                     status results))
           (`(needs-callback . ,_)
            (setf (cdr retv)
-                 (fstar-subp--lookup-wrapper
-                  (apply-partially #'fstar--eldoc-continuation #'eldoc-message)
-                  (point)))
+                 (fstar-subp--lookup-wrapper (point)
+                   (apply-partially #'fstar--eldoc-continuation #'eldoc-message)))
            nil))))))
 
 (defun fstar--eldoc-truncate-message (fn &rest args)
@@ -2484,8 +2483,8 @@ asynchronously after the fact)."
     (fstar-subp--ensure-available #'user-error 'lookup/documentation)
     (fstar-subp--query (fstar-subp--positional-lookup-query (point)
                     '(type defined-at documentation))
-                  (fstar-subp--lookup-wrapper
-                   #'fstar--doc-at-point-continuation (point)))))
+                  (fstar-subp--lookup-wrapper (point)
+                    #'fstar--doc-at-point-continuation))))
 
 (defun fstar-doc (id)
   "Show information and documentation about ID.
@@ -2496,8 +2495,8 @@ Interactively, prompt for ID."
     (setq id (fstar--read-string "Show docs for%s: " (fstar--fqn-at-point))))
   (fstar-subp--query (fstar-subp--positionless-lookup-query id
                   '(type defined-at documentation))
-                (fstar-subp--lookup-wrapper
-                 #'fstar--doc-at-point-continuation (point))))
+                (fstar-subp--lookup-wrapper (point)
+                  #'fstar--doc-at-point-continuation)))
 
 ;;; ;; ;; Print
 
@@ -2510,8 +2509,8 @@ Interactively, prompt for ID."
     (setq id (fstar--read-string "Show definition of%s: " (fstar--fqn-at-point))))
   (fstar-subp--query (fstar-subp--positionless-lookup-query id
                   '(type defined-at documentation definition))
-                (fstar-subp--lookup-wrapper
-                 #'fstar--doc-at-point-continuation (point))))
+                (fstar-subp--lookup-wrapper (point)
+                  #'fstar--doc-at-point-continuation)))
 
 ;;; ;; ;; Insert a match
 
@@ -2758,8 +2757,8 @@ the search buffer."
   (when (= (quick-peek-hide) 0)
     (fstar-subp--query (fstar-subp--positional-lookup-query (point)
                     '(type documentation))
-                  (fstar-subp--lookup-wrapper
-                   #'fstar--quick-peek-continuation (point)))))
+                  (fstar-subp--lookup-wrapper (point)
+                    #'fstar--quick-peek-continuation))))
 
 ;;; ;; ;; Company
 
@@ -2824,7 +2823,7 @@ If F* is busy, call CONTINUATION directly with symbol `busy'."
       (fstar-subp--query
        (fstar-subp--positionless-lookup-query
            (fstar-subp-company--candidate-fqn candidate) fields)
-       (fstar-subp--lookup-wrapper continuation nil))
+       (fstar-subp--lookup-wrapper nil continuation))
     (funcall continuation 'busy)))
 
 (defun fstar-subp-company--meta-continuation (callback info)
