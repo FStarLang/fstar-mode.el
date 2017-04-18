@@ -43,17 +43,21 @@ Key                         | Action
 `C-h M-w`                   | Copy current error message
 `TAB` / `S-TAB`             | Indent / Unindent
 `C-RET`                     | :zap: :sparkles: Autocomplete word at point
-`C-c C-a` (**a**lternate)   | :sparkles: Switch to interface file (and back to implementation)
-`C-c C-s C-o` (**o**utline) | :sparkles: Show an outline of the current buffer
 `C-c C-s C-q` (**q**uit)    | :sparkles: Close temporary windows opened by fstar-mode
+
+### Navigation
+
+Key                                            | Action
+-----------------------------------------------|----------------------------------
+`M-.`, `C-x 4 .`, `C-x 5 .`                    | :zap: :sparkles: Jump to definition (same window, other window, other frame)
+`C-c C-a` (**a**lternate)                      | :sparkles: Switch to interface file (and back to implementation)
+`C-c C-s C-o` (**o**utline)                    | :sparkles: Show an outline of the current buffer
+`C-c C-s C-j C-d` (**j**ump to **d**ependency) | :zap: :unicorn: Jump to one of the dependencies of the current buffer
 
 ### Documentation, type hints, and computation
 
 Key                               | Action
 ----------------------------------|----------------------------------
-`M-.`                             | :zap: :sparkles: Jump to definition
-`C-x 4 .`                         | :zap: :sparkles: Jump to definition (other window)
-`C-x 5 .`                         | :zap: :sparkles: Jump to definition (other frame)
 `<menu>`, `M-<f12>`               | :zap: :sparkles: Show type and docs in a small inline window (repeat to hide the window)
 `C-c C-s C-e` (**e**val)          | :zap: :unicorn: Evaluate (reduce) an expression (`C-u` to pick reduction rules)
 `C-c C-s C-s` (**s**earch)        | :zap: :unicorn: Search F*'s global context for functions and theorems

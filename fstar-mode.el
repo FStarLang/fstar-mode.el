@@ -944,6 +944,7 @@ leads to the binder's start."
 (define-key 'fstar-query-map (kbd "C-d") #'fstar-doc)
 (define-key 'fstar-query-map (kbd "C-p") #'fstar-print)
 (define-key 'fstar-query-map (kbd "C-q") #'fstar-quit-windows)
+(define-key 'fstar-query-map (kbd "C-j C-d") #'fstar-visit-dependency)
 (define-key 'fstar-query-map (kbd "h w") #'fstar-browse-wiki)
 (define-key 'fstar-query-map (kbd "h W") #'fstar-browse-wiki-in-browser)
 
@@ -2818,6 +2819,50 @@ DISP should be nil (display in same window) or
   (interactive)
   (fstar-jump-to-definition-1 (point) 'frame))
 
+;;; ;; ;; Jump to dependency
+
+(defconst fstar--visit-dependency-buffer-name "*fstar: dependencies*")
+(push fstar--visit-dependency-buffer-name fstar--all-temp-buffer-names)
+
+(defun fstar--visit-dependency-visit-link (marker)
+  "Jump to file indicated by entry at MARKER."
+  (find-file (get-text-property (marker-position marker)
+                                'fstar--target (marker-buffer marker))))
+
+(defun fstar-subp--visit-dependency-continuation (source-buf response)
+  "Let user jump to one of the dependencies in RESPONSE.
+SOURCE-BUF indicates where the query was started from."
+  (-if-let* ((deps (and response (let-alist response .loaded-dependencies)))
+             (help-window-select t))
+      (with-help-window fstar--visit-dependency-buffer-name
+        (with-current-buffer standard-output
+          (setq deps (sort deps #'string<))
+          (let ((title (format "Dependencies of %s" (buffer-name source-buf))))
+            (insert (fstar--propertize-title title) "\n\n"))
+          (dolist (fname deps)
+            (insert "  ")
+            (insert-text-button fname 'fstar--target fname
+                                'face 'default 'follow-link t
+                                'action 'fstar--visit-dependency-visit-link)
+            (insert "\n"))
+          (goto-char (point-min))
+          (search-forward "\n\n  " nil t) ;; Find first entry
+          (set-marker help-window-point-marker (point))))
+    (message "Query `describe-repl' failed")))
+
+(defun fstar-subp--describe-repl-query ()
+  "Prepare a `describe-repl' query."
+  (make-fstar-subp-query :query "describe-repl" :args nil))
+
+(defun fstar-visit-dependency ()
+  "Jump to a file that the current file depends on."
+  (interactive)
+  (fstar-subp--ensure-available #'user-error 'describe-repl)
+  (fstar-subp--query (fstar-subp--describe-repl-query)
+                (fstar-subp--pos-check-wrapper (point)
+                  (apply-partially #'fstar-subp--visit-dependency-continuation
+                                   (current-buffer)))))
+
 ;;; ;; ;; Quick-peek
 
 (defun fstar--quick-peek-continuation (info)
@@ -3292,6 +3337,8 @@ Function is public to make it easier to debug `fstar-subp-prover-args'."
       fstar-visit-interface-or-implementation :visible (not (fstar--visiting-interface-p))]
      ["Visit implementation file"
       fstar-visit-interface-or-implementation :visible (fstar--visiting-interface-p)]
+     ["Visit a dependency of this file"
+      fstar-visit-dependency :visible (fstar-subp-available-p)]
      ["Show an outline of this file"
       fstar-outline]
      ["Close all temporary F* windows"
