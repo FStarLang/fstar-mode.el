@@ -1721,8 +1721,11 @@ Recall that the legacy F* protocol doesn't ack pops."
       (unless (fstar--has-feature 'json-subp)
         (fstar-subp--pop)))))
 
+(cl-defstruct fstar-location
+  filename line-from line-to col-from col-to)
+
 (cl-defstruct fstar-issue
-  level filename line-from line-to col-from col-to message)
+  level loc alternate-loc message)
 
 (defconst fstar-subp-issue-location-regexp
   "\\(.*?\\)(\\([[:digit:]]+\\),\\([[:digit:]]+\\)-\\([[:digit:]]+\\),\\([[:digit:]]+\\))")
@@ -1749,22 +1752,31 @@ Recall that the legacy F* protocol doesn't ack pops."
         (setq issue-level level)
         (setq message (substring message (length marker)))))
     (make-fstar-issue :level issue-level
-                      :filename filename
-                      :line-from (string-to-number line-from)
-                      :col-from (string-to-number col-from)
-                      :line-to (string-to-number line-to)
-                      :col-to (string-to-number col-to)
+                      :loc (make-fstar-location
+                            :filename filename
+                            :line-from (string-to-number line-from)
+                            :col-from (string-to-number col-from)
+                            :line-to (string-to-number line-to)
+                            :col-to (string-to-number col-to))
+                      :alternate-loc nil
                       :message message)))
+
+(defun fstar-subp-json--parse-location (json)
+  "Convert JSON info an fstar-mode location."
+  (let-alist json
+    (make-fstar-location
+     :filename .fname
+     :line-from (elt .beg 0)
+     :line-to (elt .end 0)
+     :col-from (elt .beg 1)
+     :col-to (elt .end 1))))
 
 (defun fstar-subp-json--parse-issue (json)
   "Convert JSON issue into fstar-mode issue."
   (let-alist json
     (make-fstar-issue :level (intern .level)
-                      :filename .range.fname
-                      :line-from (elt .range.beg 0)
-                      :line-to (elt .range.end 0)
-                      :col-from (elt .range.beg 1)
-                      :col-to (elt .range.end 1)
+                      :loc (fstar-subp-json--parse-location .range)
+                      :alternate-loc nil
                       :message .message)))
 
 (defun fstar-subp-parse-issues (response)
@@ -1785,14 +1797,15 @@ Recall that the legacy F* protocol doesn't ack pops."
 
 (defun fstar-subp-cleanup-issue (issue &optional ov)
   "Fixup ISSUE: include a file name, and adjust line numbers wrt OV."
-  (when (member (fstar-issue-filename issue) '("unknown" "<input>"))
-    (cl-assert buffer-file-name)
-    (setf (fstar-issue-filename issue) buffer-file-name))
-  (unless (or (fstar--has-feature 'absolute-linums-in-errors) (null ov))
-    (let ((linum (1- (line-number-at-pos (overlay-start ov)))))
-      (setf (fstar-issue-line-from issue) (+ (fstar-issue-line-from issue) linum))
-      (setf (fstar-issue-line-to issue) (+ (fstar-issue-line-to issue) linum))))
-  issue)
+  (let ((loc (fstar-issue-loc issue)))
+    (when (member (fstar-location-filename loc) '("unknown" "<input>"))
+      (cl-assert buffer-file-name) ;; FIXME "unknown"
+      (setf (fstar-location-filename loc) buffer-file-name))
+    (unless (or (fstar--has-feature 'absolute-linums-in-errors) (null ov))
+      (let ((linum (1- (line-number-at-pos (overlay-start ov)))))
+        (cl-incf (fstar-location-line-from loc) linum)
+        (cl-incf (fstar-location-line-to loc) linum)))
+    issue))
 
 (defun fstar-subp--in-issue-p (pt)
   "Check if PT is covered by an F* issue overlay."
@@ -1826,10 +1839,11 @@ Recall that the legacy F* protocol doesn't ack pops."
   "Highlight ISSUE in current buffer.
 PARENT is the overlay whose processing caused this issue to be
 reported."
-  (let* ((from (fstar--row-col-offset (fstar-issue-line-from issue)
-                                 (fstar-issue-col-from issue)))
-         (to (fstar--row-col-offset (fstar-issue-line-to issue)
-                               (fstar-issue-col-to issue)))
+  (let* ((loc (fstar-issue-loc issue))
+         (from (fstar--row-col-offset (fstar-location-line-from loc)
+                                 (fstar-location-col-from loc)))
+         (to (fstar--row-col-offset (fstar-location-line-to loc)
+                               (fstar-location-col-to loc)))
          (overlay (make-overlay from (max to (1+ from)) (current-buffer) t nil)))
     (overlay-put overlay 'fstar-subp-issue t)
     (overlay-put overlay 'fstar-subp-issue-parent-overlay parent)
@@ -1846,13 +1860,14 @@ reported."
 
 (defun fstar-subp-jump-to-issue (issue)
   "Jump to ISSUE in current buffer."
-  (goto-char (fstar--row-col-offset (fstar-issue-line-from issue)
-                               (fstar-issue-col-from issue))))
+  (let ((loc (fstar-issue-loc issue)))
+    (goto-char (fstar--row-col-offset (fstar-location-line-from loc)
+                                 (fstar-location-col-from loc)))))
 
 (defun fstar-subp--local-issue-p (issue)
   "Check if ISSUE came from the current buffer."
   (string= (expand-file-name buffer-file-name)
-           (expand-file-name (fstar-issue-filename issue))))
+           (expand-file-name (fstar-location-filename (fstar-issue-loc issue)))))
 
 (defun fstar-subp-parse-and-highlight-issues (status response overlay)
   "Parse issues in RESPONSE (caused by processing OVERLAY) and display them.
@@ -2229,13 +2244,14 @@ Pass ARG to `fstar-subp-advance-or-retract-to-point'."
 
 (defun fstar-subp--make-flycheck-issue (issue)
   "Convert an F* ISSUE to a Flycheck issue."
-  (flycheck-error-new-at
-   (fstar-issue-line-from issue)
-   (1+ (fstar-issue-col-from issue))
-   (fstar-issue-level issue)
-   (fstar-issue-message issue)
-   :checker 'fstar-interactive
-   :filename (fstar-issue-filename issue)))
+  (let ((loc (fstar-issue-loc issue)))
+    (flycheck-error-new-at
+     (fstar-location-line-from loc)
+     (1+ (fstar-location-col-from loc))
+     (fstar-issue-level issue)
+     (fstar-issue-message issue)
+     :checker 'fstar-interactive
+     :filename (fstar-location-filename loc))))
 
 (defun fstar-subp--flycheck-continuation (callback status response)
   "Forward results of Flycheck check (STATUS and RESPONSE) to CALLBACK."
