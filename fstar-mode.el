@@ -262,6 +262,10 @@ Prompt should have one string placeholder to accommodate DEFAULT."
       (-when-let* ((s (symbol-at-point)))
         (substring-no-properties (symbol-name s))))))
 
+(defun fstar--propertize-title (title)
+  "Format TITLE as a title."
+  (propertize title 'face '(:height 1.5)))
+
 ;;; Debugging
 
 (defvar fstar-debug nil
@@ -2207,7 +2211,7 @@ Pass ARG to `fstar-subp-advance-or-retract-to-point'."
   (let ((inhibit-read-only t))
     (goto-char (point-min))
     (delete-region (point) (1+ (point-at-eol)))
-    (insert (propertize title 'face '(:height 1.5)) "\n")
+    (insert (fstar--propertize-title title) "\n")
     (when (fboundp 'font-lock--remove-face-from-text-property)
       (font-lock--remove-face-from-text-property (point) (point-max) 'face 'match))))
 
@@ -2476,7 +2480,7 @@ asynchronously after the fact)."
          (def (fstar-lookup-result-def info))
          (name (fstar-lookup-result-name info))
          (def-loc (fstar-lookup-result-def-loc info))
-         (title (propertize name 'face '(:height 1.5)))
+         (title (fstar--propertize-title name))
          (subtitle (propertize def-loc 'face '(:height 0.9))))
     (save-excursion
       (insert title "\n" subtitle)
