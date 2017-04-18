@@ -946,6 +946,8 @@ leads to the binder's start."
     (define-key map (kbd "RET") #'fstar-newline-and-indent)
     (define-key map (kbd "C-h .") #'display-local-help) ;; For Emacs < 25
     (define-key map (kbd "M-.") #'fstar-jump-to-definition)
+    (define-key map (kbd "C-x 4 .") #'fstar-jump-to-definition-other-window)
+    (define-key map (kbd "C-x 5 .") #'fstar-jump-to-definition-other-frame)
     (define-key map (kbd "C-RET") #'company-manual-begin)
     (define-key map (kbd "<C-return>") #'company-manual-begin)
     (define-key map (kbd "<backtab>") #'fstar-unindent)
@@ -2711,32 +2713,54 @@ the search buffer."
   (when (fboundp 'xref-push-marker-stack)
     (xref-push-marker-stack)))
 
-(defun fstar--jump-to-definition-continuation (info)
-  "Jump to position in INFO."
+(defun fstar--jump-to-definition-continuation (display-action info)
+  "Jump to position in INFO.
+DISPLAY-ACTION indicates how: nil means in the current window;
+`window' means in a side window."
   (if info
       (pcase-let* ((target-fname (fstar-lookup-result-source-file info))
                    (`(,target-row . ,target-col) (fstar-lookup-result-def-start info)))
+        (when (equal target-fname "<input>")
+          (setq target-fname buffer-file-name))
         (fstar--save-point)
         (catch 'not-found
-          (unless (equal target-fname "<input>")
-            (unless (file-exists-p target-fname)
-              (message "File not found: %S" target-fname)
-              (throw 'not-found nil))
-            (find-file target-fname))
+          (unless (file-exists-p target-fname)
+            (message "File not found: %S" target-fname)
+            (throw 'not-found nil))
+          (pcase display-action
+            (`nil (find-file target-fname))
+            (`window (find-file-other-window target-fname))
+            (`frame (find-file-other-frame target-fname)))
           (fstar--goto target-row target-col)
           (recenter)
           (when (fboundp 'pulse-momentary-highlight-one-line)
             (pulse-momentary-highlight-one-line (point)))))
     (message "No definition found")))
 
+(defun fstar-jump-to-definition-1 (pos disp)
+  "Jump to definition of identifier at POS, if any.
+DISP should be nil (display in same window) or
+`window' (display in a side window)."
+  (fstar-subp--ensure-available #'user-error 'lookup)
+  (fstar-subp--query (fstar-subp--positional-lookup-query pos
+                  '(defined-at))
+                (fstar-subp--lookup-wrapper pos
+                  (apply-partially #'fstar--jump-to-definition-continuation disp))))
+
 (defun fstar-jump-to-definition ()
   "Jump to definition of identifier at point, if any."
   (interactive)
-  (fstar-subp--ensure-available #'user-error 'lookup)
-  (fstar-subp--query (fstar-subp--positional-lookup-query (point)
-                  '(defined-at))
-                (fstar-subp--lookup-wrapper
-                 #'fstar--jump-to-definition-continuation (point))))
+  (fstar-jump-to-definition-1 (point) nil))
+
+(defun fstar-jump-to-definition-other-window ()
+  "Jump to definition of identifier at point, if any."
+  (interactive)
+  (fstar-jump-to-definition-1 (point) 'window))
+
+(defun fstar-jump-to-definition-other-frame ()
+  "Jump to definition of identifier at point, if any."
+  (interactive)
+  (fstar-jump-to-definition-1 (point) 'frame))
 
 ;;; ;; ;; Quick-peek
 
