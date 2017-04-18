@@ -2967,7 +2967,7 @@ CALLBACK is the company-mode asynchronous meta callback."
 (defun fstar-subp-company--doc-buffer-continuation (callback info)
   "Forward documentation INFO to CALLBACK.
 CALLBACK is the company-mode asynchronous doc-buffer callback."
-  (funcall callback (when info
+  (funcall callback (when (fstar-lookup-result-p info)
                       (with-current-buffer
                           (get-buffer-create "*company-documentation*")
                         (erase-buffer)
@@ -2976,14 +2976,15 @@ CALLBACK is the company-mode asynchronous doc-buffer callback."
 
 (defun fstar-subp-company--async-doc-buffer (candidate callback)
   "Find documentation of CANDIDATE and pass it to CALLBACK."
-  (fstar-subp-company--async-lookup candidate
-      '(type defined-at documentation)
+  (fstar-subp-company--async-lookup candidate '(type defined-at documentation)
     (apply-partially #'fstar-subp-company--doc-buffer-continuation callback)))
 
 (defun fstar-subp-company--quickhelp-continuation (callback info)
   "Forward documentation INFO to CALLBACK.
 CALLBACK is the company-mode asynchronous quickhelp callback."
-  (funcall callback (or (and info (fstar-lookup-result-doc info)) "")))
+  (funcall callback (or (and (fstar-lookup-result-p info)
+                             (fstar-lookup-result-doc info))
+                        "")))
 
 (defun fstar-subp-company--async-quickhelp (candidate callback)
   "Find documentation of CANDIDATE and pass it to CALLBACK."
@@ -2993,13 +2994,13 @@ CALLBACK is the company-mode asynchronous quickhelp callback."
 (defun fstar-subp-company--location-continuation (callback info)
   "Forward type INFO to CALLBACK.
 CALLBACK is the company-mode asynchronous meta callback."
-  (pcase info
-    ((or `nil `busy) (funcall callback nil))
-    (_ (pcase-let* ((fname (fstar-lookup-result-source-file info))
-                    (`(,row . ,col) (fstar-lookup-result-def-start info)))
-         (funcall callback (if (string= fname "<input>")
-                               (cons (current-buffer) (fstar--row-col-offset row col))
-                             (cons fname row)))))))
+  (if (fstar-lookup-result-p info)
+      (pcase-let* ((fname (fstar-lookup-result-source-file info))
+                   (`(,row . ,col) (fstar-lookup-result-def-start info)))
+        (funcall callback (if (string= fname "<input>")
+                              (cons (current-buffer) (fstar--row-col-offset row col))
+                            (cons fname row))))
+    (funcall callback nil)))
 
 (defun fstar-subp-company--async-location (candidate callback)
   "Find location of CANDIDATE and pass it to CALLBACK."
