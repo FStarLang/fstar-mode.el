@@ -2463,7 +2463,7 @@ asynchronously after the fact)."
 
 ;;; ;; ;; Doc at point
 
-(defconst fstar--doc-buffer-name "*fstar-doc*")
+(defconst fstar--doc-buffer-name "*fstar: doc*")
 (push fstar--doc-buffer-name fstar--all-temp-buffer-names)
 
 (defun fstar--doc-buffer-populate-1 (title value)
@@ -2714,7 +2714,7 @@ a prefix argument, prompt for rules as well."
 
 ;;; ;; ;; Search
 
-(defconst fstar--search-buffer-name "*fstar-search*")
+(defconst fstar--search-buffer-name "*fstar: search*")
 (push fstar--search-buffer-name fstar--all-temp-buffer-names)
 
 (defun fstar-subp--search-insert-result (result)
