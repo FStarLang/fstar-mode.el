@@ -3143,8 +3143,9 @@ led to invalid value [%s]" args)))))
   "Compute F*'s arguments.
 Function is public to make it easier to debug `fstar-subp-prover-args'."
   (let ((smt-path (fstar--maybe-cygpath (fstar-subp-find-smt-solver)))
-        (usr-args (fstar-subp--parse-prover-args)))
-    `(,(fstar-subp--buffer-file-name) "--in" "--smt" ,smt-path ,@usr-args)))
+        (usr-args (fstar-subp--parse-prover-args))
+        (ide-flag (if (fstar--has-feature 'json-subp) "--ide" "--in")))
+    `(,(fstar-subp--buffer-file-name) ,ide-flag "--smt" ,smt-path ,@usr-args)))
 
 (defun fstar-subp--buffer-file-name ()
   "Find name of current buffer, as sent to F*."
