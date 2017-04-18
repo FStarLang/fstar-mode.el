@@ -51,6 +51,7 @@
 (require 'easymenu)
 (require 'tramp)
 (require 'tramp-sh)
+(require 'crm)
 ;; replace.el doesn't `provide' in Emacs < 26
 (ignore-errors (require 'replace))
 
@@ -363,7 +364,7 @@ enable all experimental features."
     (lookup . "0.9.4.1")
     (info-includes-symbol . "0.9.4.2")
     (autocomplete . "0.9.4.2")
-    (json-subp . "42")))
+    (json-subp . "0.9.4.3")))
 
 (defvar-local fstar--features nil
   "List of available F* features.")
@@ -934,6 +935,7 @@ leads to the binder's start."
 (define-key 'fstar-query-map (kbd "C-o") #'fstar-outline)
 (define-key 'fstar-query-map (kbd "C-c") #'fstar-insert-match-dwim)
 (define-key 'fstar-query-map (kbd "C-e") #'fstar-eval)
+(define-key 'fstar-query-map (kbd "C-S-e") #'fstar-eval-custom)
 (define-key 'fstar-query-map (kbd "C-s") #'fstar-search)
 (define-key 'fstar-query-map (kbd "C-d") #'fstar-doc)
 (define-key 'fstar-query-map (kbd "C-p") #'fstar-print)
@@ -2639,43 +2641,72 @@ that variable."
 
 ;;; ;; ;; Eval
 
+(defconst fstar-subp--eval-all-rules '("beta" "delta" "iota" "zeta"))
+
+(defun fstar-subp--eval-rule-to-char (rule)
+  "Convert RULE to a single char."
+  (pcase rule
+    ("beta" "β")
+    ("delta" "δ")
+    ("iota" "ι")
+    ("zeta" "ζ")
+    (r (user-error "Unknown reduction rule %s" r))))
+
 (defun fstar--reduction-arrow (arrow rules)
   "Annotate ARROW with RULES."
   (concat (propertize arrow 'face 'minibuffer-prompt)
           (propertize rules ;;'display '(raise -0.3)
                       'face '((:height 0.7) minibuffer-prompt))))
 
-(defun fstar-subp--eval-continuation (term status response)
-  "Handle results (STATUS, RESPONSE) of evaluating TERM."
+(defun fstar-subp--eval-continuation (term rules status response)
+  "Handle results (STATUS, RESPONSE) of evaluating TERM with RULES."
+  (setq rules (mapconcat #'fstar-subp--eval-rule-to-char rules ""))
   (pcase status
     (`success (message "%s%s%s%s%s"
                        (fstar-highlight-string term)
                        (if (string-match-p "\n" term) "\n" " ")
-                       (fstar--reduction-arrow "↓" "βδιζ")
+                       (fstar--reduction-arrow "↓" rules)
                        (if (string-match-p "\n" response) "\n" " ")
                        (fstar-highlight-string (fstar--unparens response))))
     (`failure (message "Evaluation of [%s] failed: %s"
                        (fstar-highlight-string term)
                        (string-trim response)))))
 
-(defun fstar-subp--eval-query (term)
-  "Prepare a `compute' query for TERM."
+(defun fstar-subp--eval-query (term rules)
+  "Prepare a `compute' query for TERM with specific reduction RULES."
   (make-fstar-subp-query :query "compute"
-                         :args `(("term" . ,term))))
+                         :args `(("term" . ,term)
+                                 ("rules" . ,rules))))
 
-(defun fstar-eval (term)
-  "Eval TERM in F* subprocess and display the result.
-Interactively, use the current region or prompt."
-  (interactive '(interactive))
+(defun fstar-eval (term rules)
+  "Reduce TERM with RULES in F* subprocess and display the result.
+Interactively, use the current region or prompt for a term.  With
+a prefix argument, prompt for rules as well."
+  (interactive (list 'interactive (if current-prefix-arg 'interactive)))
   (fstar-subp--ensure-available #'user-error 'compute)
+
+  (when (eq rules 'interactive)
+    (setq rules (completing-read-multiple
+                 "Reduction rules (comma-separated): "
+                 fstar-subp--eval-all-rules nil t nil nil nil)))
+  (setq rules (or rules fstar-subp--eval-all-rules))
+
   (when (eq term 'interactive)
     (setq term
           (if (region-active-p)
               (buffer-substring-no-properties (region-beginning) (region-end))
-            (fstar--read-string "Term to reduce%s: " (fstar--fqn-at-point)))))
+            (fstar--read-string (format "Term to %s-reduce%%s: "
+                                   (mapconcat #'fstar-subp--eval-rule-to-char rules ""))
+                           (fstar--fqn-at-point)))))
   (setq term (string-trim term))
-  (fstar-subp--query (fstar-subp--eval-query term)
-                (apply-partially #'fstar-subp--eval-continuation term)))
+
+  (fstar-subp--query (fstar-subp--eval-query term rules)
+                (apply-partially #'fstar-subp--eval-continuation term rules)))
+
+(defun fstar-eval-custom ()
+  "List `fstar-eval-custom', but always prompt for rules."
+  (interactive)
+  (fstar-eval 'interactive 'interactive))
 
 ;;; ;; ;; Search
 
@@ -3277,6 +3308,8 @@ Function is public to make it easier to debug `fstar-subp-prover-args'."
     ("Interactive queries"
      ["Evaluate an expression"
       fstar-eval (fstar-subp-available-p)]
+     ["Evaluate an expression (with custom reduction rules)"
+      fstar-eval-custom (fstar-subp-available-p)]
      ["Show type and docs of an identifier"
       fstar-doc (fstar-subp-available-p)]
      ["Show definition of an identifier"

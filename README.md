@@ -55,7 +55,7 @@ Key                               | Action
 `C-x 4 .`                         | :zap: :sparkles: Jump to definition (other window)
 `C-x 5 .`                         | :zap: :sparkles: Jump to definition (other frame)
 `<menu>`, `M-<f12>`               | :zap: :sparkles: Show type and docs in a small inline window (repeat to hide the window)
-`C-c C-s C-e` (**e**val)          | :zap: :unicorn: Evaluate (reduce) an expression
+`C-c C-s C-e` (**e**val)          | :zap: :unicorn: Evaluate (reduce) an expression (`C-u` to pick reduction rules)
 `C-c C-s C-s` (**s**earch)        | :zap: :unicorn: Search F*'s global context for functions and theorems
 `C-c C-s C-d` (**d**ocumentation) | :zap: :unicorn: Show type and documentation of a symbol
 `C-c C-s C-p` (**p**rint)         | :zap: :unicorn: Show type, documentation, and full definition of a symbol
