@@ -2447,6 +2447,8 @@ asynchronously after the fact)."
   ;; Add-function doesn't work on 'eldoc-documentation-function in Emacs < 25,
   ;; due to the default value being nil instead of `ignore'.
   (setq-local eldoc-documentation-function #'fstar--eldoc-function)
+  ;; A better default, since it's pretty crucial in fstar-mode
+  (setq-local eldoc-idle-delay 0.1)
   ;; LATER the following should move to yasnippet itself
   (eldoc-add-command 'yas-next-field-or-maybe-expand 'yas-prev-field
                      'yas-expand 'yas-expand-from-keymap
