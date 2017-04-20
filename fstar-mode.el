@@ -2280,6 +2280,13 @@ Ignores separators found in comments."
                           collect (point))))
       (fstar-subp-enqueue-until pos found))))
 
+(defun fstar-subp-reload-to-point (pos)
+  "Retract everything and process again to POS."
+  (interactive (list (point)))
+  (fstar-subp-start)
+  (fstar-subp-retract-until (point-min))
+  (fstar-subp-advance-until pos))
+
 (defun fstar-subp-advance-or-retract-to-point (&optional arg)
   "Advance or retract proof state to reach point.
 
@@ -3499,6 +3506,7 @@ Function is public to make it easier to debug `fstar-subp-prover-args'."
     ("C-c C-l"        "C-S-l" fstar-subp-advance-or-retract-to-point-lax)
     ("C-c C-."        "C-S-." fstar-subp-goto-beginning-of-unprocessed)
     ("C-c C-b"        "C-S-b" fstar-subp-advance-to-point-max-lax)
+    ("C-c C-r"        "C-S-r" fstar-subp-reload-to-point)
     ("C-c C-x"        "C-M-c" fstar-subp-kill-one-or-many)
     ("C-c C-c"        "C-M-S-c" fstar-subp-kill-z3))
   "Proof-General and Atom bindings table.")
