@@ -522,10 +522,17 @@ to ‘%S’ to use this checker." checker))
 (defconst fstar-syntax-qualifiers
   `("assume" ,@fstar-syntax-structural-qualifiers))
 
+(defconst fstar-syntax-block-header-re
+  (format "^\\(?:%s \\)*%s "
+          (regexp-opt fstar-syntax-qualifiers)
+          (regexp-opt fstar-syntax-headers))
+  "Regexp matching headers to display in the outline buffer.")
+
 (defconst fstar-syntax-block-start-re
   (format "^\\(?:%s \\)*%s "
           (regexp-opt fstar-syntax-qualifiers)
-          (regexp-opt fstar-syntax-headers)))
+          (regexp-opt (remove "and" fstar-syntax-headers)))
+  "Regexp matching starts of semantic blocks.")
 
 (defconst fstar-syntax-structure
   (regexp-opt `("begin" "end" "in"
@@ -2232,7 +2239,7 @@ Pass ARG to `fstar-subp-advance-or-retract-to-point'."
     (-when-let* ((buf (get-buffer outline-buffer-name)))
       (when (buffer-live-p buf)
         (kill-buffer buf)))
-    (occur fstar-syntax-block-start-re)
+    (occur fstar-syntax-block-header-re)
     (when (buffer-live-p (get-buffer "*Occur*"))
       (with-current-buffer "*Occur*"
         (rename-buffer outline-buffer-name t)
