@@ -984,6 +984,7 @@ leads to the binder's start."
 (define-key 'fstar-query-map (kbd "C-j C-d") #'fstar-visit-dependency)
 (define-key 'fstar-query-map (kbd "h w") #'fstar-browse-wiki)
 (define-key 'fstar-query-map (kbd "h W") #'fstar-browse-wiki-in-browser)
+(define-key 'fstar-query-map (kbd "h o") #'fstar-list-options)
 
 (defvar fstar-mode-map
   (let ((map (make-sparse-keymap)))
@@ -3209,6 +3210,91 @@ COMMAND, ARG: see `company-backends'."
   (kill-local-variable 'company-tooltip-align-annotations)
   (kill-local-variable 'company-abort-manual-when-too-short))
 
+;;; ;; ;; Options list
+
+(defconst fstar--list-options-buffer-name "*fstar: options*")
+(push fstar--list-options-buffer-name fstar--all-temp-buffer-names)
+
+(defconst fstar--options-true (propertize "true" 'face 'success))
+(defconst fstar--options-false (propertize "false" 'face 'error))
+(defconst fstar--options-unset (propertize "unset" 'face 'warning))
+
+(defun fstar-subp--option-val-to-string (val)
+  "Format VAL for display."
+  (cond
+   ((eq val t) fstar--options-true)
+   ((eq val :json-null) fstar--options-unset)
+   ((eq val :json-false) fstar--options-false)
+   ((numberp val) (number-to-string val))
+   ((stringp val) (propertize (prin1-to-string val) 'face 'font-lock-string-face))
+   ((listp val)
+    (concat "[" (mapconcat #'fstar-subp--option-val-to-string val " ") "]"))
+   (t (warn "Unexpected value %S" val)
+      (format "%S" val))))
+
+(defun fstar-subp--is-default (opt-info)
+  "Check if OPT-INFO has its val equal to its default."
+  (let-alist opt-info
+    (equal .value .default)))
+
+(defun fstar-subp--list-options-1 (display-default sp1 sp2 nl opt-info)
+  "Insert a row of the option table.
+OPT-INFO js a JSON object representing with information about an
+F* option; DISPLAY-DEFAULT says whether default values should be
+printed.  SP1, SP2, and NL are spacers."
+  (let-alist opt-info
+    (let ((doc (fstar--lispify-null .documentation))
+          (doc-face '(font-lock-comment-face (:height 0.7))))
+      (setq doc (string-trim (or doc "")))
+      (setq doc (replace-regexp-in-string " *(default.*)" "" doc t t))
+      (setq doc (replace-regexp-in-string " *\n+ *" " " doc t t))
+      (when (eq doc "") (setq doc "(undocumented)"))
+      (insert "  " .name sp1 (fstar-subp--option-val-to-string .value)
+              (if (not display-default) "\n"
+                (concat sp2 (fstar-subp--option-val-to-string .default) "\n"))
+              "  " (propertize doc 'face doc-face) nl))))
+
+(defun fstar-subp--list-options-continuation-1 (options display-default title)
+  "Print a batch of OPTIONS under TITLE.
+With DISPLAY-DEFAULT, also show default values."
+  (declare (indent 2))
+  (let ((sp1 (concat (propertize " " 'display '(space :align-to 30)) " "))
+        (sp2 (concat (propertize " " 'display '(space :align-to 60)) " "))
+        (nl (propertize "\n" 'line-spacing 0.4))
+        (hdr-face '(bold underline)))
+    (insert (fstar--propertize-title title) "\n\n")
+    (insert "  " (propertize "Name" 'face hdr-face)
+            sp1 (propertize "Value" 'face hdr-face)
+            (if (not display-default) nl
+              (concat sp2 (propertize "Default value" 'face hdr-face) nl)))
+    (dolist (opt-info options)
+      (fstar-subp--list-options-1 display-default sp1 sp2 nl opt-info))))
+
+(defun fstar-subp--list-options-continuation (source-buf response)
+  "Let user jump to one of the dependencies in RESPONSE.
+SOURCE-BUF indicates where the query was started from."
+  (if response
+      (let-alist response
+        (with-help-window fstar--visit-dependency-buffer-name
+          (with-current-buffer standard-output
+            (let* ((options (cl-sort .options #'string-lessp
+                                     :key (lambda (k) (cdr (assoc "name" k)))))
+                   (grouped (-group-by #'fstar-subp--is-default options)))
+              (fstar-subp--list-options-continuation-1 (cdr (assq nil grouped)) t
+                (format "Options set in %s" (buffer-name source-buf)))
+              (fstar-subp--list-options-continuation-1 (cdr (assq t grouped)) nil
+                "\nUnchanged options")))))
+    (message "Query `describe-repl' failed")))
+
+(defun fstar-list-options ()
+  "Show information about the current process."
+  (interactive)
+  (fstar-subp--ensure-available #'user-error 'describe-repl)
+  (fstar-subp--query (fstar-subp--describe-repl-query)
+                (fstar-subp--pos-check-wrapper (point)
+                  (apply-partially #'fstar-subp--list-options-continuation
+                                   (current-buffer)))))
+
 ;;; ;; ;; Busy spinner
 
 (defvar-local fstar--spin-timer nil)
@@ -3489,7 +3575,9 @@ Function is public to make it easier to debug `fstar-subp-prover-args'."
      ["Typecheck everything up to point (lax)"
       fstar-subp-advance-or-retract-to-point-lax]
      ["Typecheck whole buffer (lax)"
-      fstar-subp-advance-to-point-max-lax])
+      fstar-subp-advance-to-point-max-lax]
+     ["Show current value of all F* options"
+      fstar-list-options (fstar-subp-available-p)])
     ("Interactive queries"
      ["Evaluate an expression"
       fstar-eval (fstar-subp-available-p)]
