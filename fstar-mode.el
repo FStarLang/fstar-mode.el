@@ -181,7 +181,7 @@ after."
 
 (defun fstar--unwrap-paragraphs (str)
   "Remove hard line wraps from STR."
-  (replace-regexp-in-string "\n\\([^\n\t ]\\)" "\\1" str))
+  (replace-regexp-in-string " *\n\\([^\n\t ]\\)" " \\1" str))
 
 (defun fstar--resolve-fn-value (fn-or-v)
   "Return FN-OR-V, or the result of calling it if it's a function."
