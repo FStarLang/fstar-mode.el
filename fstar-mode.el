@@ -987,6 +987,9 @@ leads to the binder's start."
     (define-key map (kbd "M-.") #'fstar-jump-to-definition)
     (define-key map (kbd "C-x 4 .") #'fstar-jump-to-definition-other-window)
     (define-key map (kbd "C-x 5 .") #'fstar-jump-to-definition-other-frame)
+    (define-key map (kbd "C-c C-'") #'fstar-jump-to-related-error)
+    (define-key map (kbd "C-x 4 '") #'fstar-jump-to-related-error-other-window)
+    (define-key map (kbd "C-x 5 '") #'fstar-jump-to-related-error-other-frame)
     (define-key map (kbd "C-RET") #'company-manual-begin)
     (define-key map (kbd "<C-return>") #'company-manual-begin)
     (define-key map (kbd "<backtab>") #'fstar-unindent)
@@ -1763,8 +1766,21 @@ Recall that the legacy F* protocol doesn't ack pops."
 (cl-defstruct fstar-location
   filename line-from line-to col-from col-to)
 
+(defun fstar-loc-as-string (loc)
+  "Turn LOC into a string."
+  (format "%s(%d,%d-%d,%d)"
+          (fstar-location-filename loc)
+          (fstar-location-line-from loc)
+          (fstar-location-col-from loc)
+          (fstar-location-line-to loc)
+          (fstar-location-col-to loc)))
+
 (cl-defstruct fstar-issue
   level locs message)
+
+(defun fstar-issue-alt-locs (issue)
+  "Extract locations attached to ISSUE, except the first one."
+  (cdr (fstar-issue-locs issue)))
 
 (defconst fstar-subp-issue-location-regexp
   "\\(.*?\\)(\\([[:digit:]]+\\),\\([[:digit:]]+\\)-\\([[:digit:]]+\\),\\([[:digit:]]+\\))")
@@ -1876,20 +1892,45 @@ Returns a pair of (CLEAN-MESSAGE . LOCATIONS)."
                   (cdr (assq nil partitioned)))))
   issue)
 
+(defun fstar-subp--issues-at (pt)
+  "Get issues at PT or PT - 1, if any."
+  (mapcar (lambda (ov) (overlay-get ov 'fstar-subp-issue))
+          (cl-remove-duplicates
+           (append (fstar-subp-issue-overlays-at pt)
+                   (and (> pt (point-min))
+                        (fstar-subp-issue-overlays-at (1- pt)))))))
+
 (defun fstar-subp--in-issue-p (pt)
   "Check if PT is covered by an F* issue overlay."
   (or (get-char-property pt 'fstar-subp-issue)
-      (and (> pt (point-min)) (get-char-property (1- pt) 'fstar-subp-issue))))
+      (and (> pt (point-min))
+           (get-char-property (1- pt) 'fstar-subp-issue))))
+
+(defun fstar-subp--alt-locs-at (pt)
+  "Return a list of alternate locations at PT."
+  (apply #'append (mapcar #'fstar-issue-alt-locs (fstar-subp--issues-at pt))))
 
 (defun fstar-subp-remove-issue-overlay (overlay &rest _args)
   "Remove OVERLAY."
   (delete-overlay overlay))
 
+(defun fstar-subp--help-echo-for-alt-locs (locs)
+  "Prepare a string describing LOCS and how to browse to them."
+  (if (null locs) ""
+    (propertize
+     (concat
+      (substitute-command-keys
+       (if (cdr locs)
+           "\nRelated locations (\\[fstar-jump-to-related-error] to visit):\n"
+         "\nRelated location (\\[fstar-jump-to-related-error] to visit): "))
+      (mapconcat #'fstar-loc-as-string locs "\n"))
+     'face 'italic)))
+
 (defun fstar-subp--help-echo-at (pos)
   "Compute help-echo message at POS."
-  (mapconcat (lambda (ov) (overlay-get ov 'fstar-subp-message))
-             (fstar-subp-issue-overlays-at pos)
-             "\n"))
+  (-when-let* ((issues (fstar-subp--issues-at pos)))
+    (concat (mapconcat #'fstar-issue-message issues "\n")
+            (fstar-subp--help-echo-for-alt-locs (fstar-subp--alt-locs-at pos)))))
 
 (defun fstar-subp--help-echo (_window object pos)
   "Concatenate -subp messages found at POS of OBJECT."
@@ -1914,11 +1955,10 @@ reported."
                (to (fstar--row-col-offset (fstar-location-line-to loc)
                                      (fstar-location-col-to loc)))
                (overlay (make-overlay from (max to (1+ from)) (current-buffer) t nil)))
-    (overlay-put overlay 'fstar-subp-issue t)
+    (overlay-put overlay 'fstar-subp-issue issue)
     (overlay-put overlay 'fstar-subp-issue-parent-overlay parent)
     (overlay-put overlay 'face (fstar-subp-issue-face issue))
     (overlay-put overlay 'help-echo #'fstar-subp--help-echo)
-    (overlay-put overlay 'fstar-subp-message (fstar-issue-message issue))
     (overlay-put overlay 'modification-hooks '(fstar-subp-remove-issue-overlay))
     (when (fboundp 'pulse-momentary-highlight-region)
       (pulse-momentary-highlight-region from to))))
@@ -2257,6 +2297,31 @@ Pass ARG to `fstar-subp-advance-or-retract-to-point'."
     (save-excursion
       (goto-char (point-max))
       (fstar-subp-advance-or-retract-to-point arg))))
+
+;;; Visiting related errors
+
+(defun fstar-jump-to-related-error (&optional display-action)
+  "Jump to secondary error location of error at point.
+DISPLAY-ACTION is nil, `window', or `frame'."
+  (interactive)
+  (-if-let* ((loc (car (fstar-subp--alt-locs-at (point)))))
+      (fstar--navigate-to (fstar-location-filename loc)
+                     (fstar-location-line-from loc)
+                     (fstar-location-col-from loc)
+                     display-action)
+    (if (fstar-subp--in-issue-p (point))
+        (user-error "No secondary locations for this issue")
+      (user-error "No error here"))))
+
+(defun fstar-jump-to-related-error-other-window ()
+  "Jump to secondary location of error at point in new window."
+  (interactive)
+  (fstar-jump-to-related-error 'window))
+
+(defun fstar-jump-to-related-error-other-frame ()
+  "Jump to secondary location of error at point in new frame."
+  (interactive)
+  (fstar-jump-to-related-error 'frame))
 
 ;;; Outline
 
