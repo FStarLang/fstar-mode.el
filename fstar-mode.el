@@ -1772,8 +1772,8 @@ Recall that the legacy F* protocol doesn't ack pops."
 (defconst fstar-subp-legacy--issue-regexp
   (concat "^" fstar-subp-issue-location-regexp "\\s-*:\\s-*"))
 
-(defconst fstar-subp-legacy--also-see-regexp
-  (concat "(Also see: " fstar-subp-issue-location-regexp ")"))
+(defconst fstar-subp--also-see-regexp
+  (concat " *(\\(?:Also see:\\|see also\\) *" fstar-subp-issue-location-regexp ")"))
 
 (defun fstar-subp-legacy--parse-issue (limit)
   "Construct an issue object from the current match data up to LIMIT."
@@ -1781,7 +1781,7 @@ Recall that the legacy F* protocol doesn't ack pops."
                (message (buffer-substring (match-end 0) limit))
                (`(,filename ,line-from ,col-from ,line-to ,col-to)
                 (or (save-match-data
-                      (when (string-match fstar-subp-legacy--also-see-regexp message)
+                      (when (string-match fstar-subp--also-see-regexp message)
                         (prog1 (fstar--match-strings-no-properties '(1 2 3 4 5) message)
                           (setq message (substring message 0 (match-beginning 0))))))
                     (fstar--match-strings-no-properties '(1 2 3 4 5)))))
@@ -1799,6 +1799,23 @@ Recall that the legacy F* protocol doesn't ack pops."
                                 :col-to (string-to-number col-to)))
                       :message message)))
 
+(defun fstar-subp-json--extract-alt-locs (message)
+  "Extract secondary locations (see also, Also see) from MESSAGE.
+Returns a pair of (CLEAN-MESSAGE . LOCATIONS)."
+  (let ((locations nil))
+    (while (string-match fstar-subp--also-see-regexp message)
+      (pcase-let* ((`(,filename ,line-from ,col-from ,line-to ,col-to)
+                    (fstar--match-strings-no-properties '(1 2 3 4 5) message)))
+        (push (make-fstar-location
+               :filename filename
+               :line-from (string-to-number line-from)
+               :line-to (string-to-number line-to)
+               :col-from (string-to-number col-from)
+               :col-to (string-to-number col-to))
+              locations))
+      (setq message (replace-match "" t t message)))
+    (cons message locations)))
+
 (defun fstar-subp-json--parse-location (json)
   "Convert JSON info an fstar-mode location."
   (let-alist json
@@ -1812,10 +1829,11 @@ Recall that the legacy F* protocol doesn't ack pops."
 (defun fstar-subp-json--parse-issue (json)
   "Convert JSON issue into fstar-mode issue."
   (let-alist json
-    (make-fstar-issue
-     :level (intern .level)
-     :locs (mapcar #'fstar-subp-json--parse-location .ranges)
-     :message .message)))
+    (pcase-let* ((`(,msg . ,alt-locs) (fstar-subp-json--extract-alt-locs .message)))
+      (make-fstar-issue
+       :level (intern .level)
+       :locs (append (mapcar #'fstar-subp-json--parse-location .ranges) alt-locs)
+       :message msg))))
 
 (defun fstar-subp-parse-issues (response)
   "Parse RESPONSE into a list of issues."
@@ -1833,16 +1851,29 @@ Recall that the legacy F* protocol doesn't ack pops."
                    collect (fstar-subp-legacy--parse-issue bound)
                    do (setq bound (match-beginning 0)))))))))
 
+(defun fstar-subp--local-loc-p (location)
+  "Check if LOCATION came from the current buffer."
+  (and location
+       (string= (expand-file-name buffer-file-name)
+                (expand-file-name (fstar-location-filename location)))))
+
 (defun fstar-subp-cleanup-issue (issue &optional ov)
   "Fixup ISSUE: include a file name, and adjust line numbers wrt OV."
-  (-when-let* ((loc (car (fstar-issue-locs issue))))
+  (dolist (loc (fstar-issue-locs issue))
+    ;; Clean up file names
     (when (member (fstar-location-filename loc) '("unknown" "<input>"))
       (cl-assert buffer-file-name) ;; FIXME "unknown"
       (setf (fstar-location-filename loc) buffer-file-name))
+    ;; Adjust line numbers
     (unless (or (fstar--has-feature 'absolute-linums-in-errors) (null ov))
       (let ((linum (1- (line-number-at-pos (overlay-start ov)))))
         (cl-incf (fstar-location-line-from loc) linum)
         (cl-incf (fstar-location-line-to loc) linum))))
+  ;; Put local ranges first
+  (let ((partitioned (-group-by #'fstar-subp--local-loc-p (fstar-issue-locs issue))))
+    (setf (fstar-issue-locs issue)
+          (append (cdr (assq t partitioned))
+                  (cdr (assq nil partitioned)))))
   issue)
 
 (defun fstar-subp--in-issue-p (pt)
@@ -1903,10 +1934,9 @@ reported."
                                  (fstar-location-col-from loc)))))
 
 (defun fstar-subp--local-issue-p (issue)
-  "Check if ISSUE came from the current buffer."
-  (-when-let* ((loc (car (fstar-issue-locs issue))))
-    (string= (expand-file-name buffer-file-name)
-             (expand-file-name (fstar-location-filename loc)))))
+  "Check if any location in ISSUE came from the current buffer."
+  ;; Local locations come first in list of locations
+  (fstar-subp--local-loc-p (car (fstar-issue-locs issue))))
 
 (defun fstar-subp-parse-and-highlight-issues (status response overlay)
   "Parse issues in RESPONSE (caused by processing OVERLAY) and display them.
