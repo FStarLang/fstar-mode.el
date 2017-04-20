@@ -291,6 +291,11 @@ shown (nil for same window, `window' for a new window, and
     (when (fboundp 'pulse-momentary-highlight-one-line)
       (pulse-momentary-highlight-one-line (point)))))
 
+(defun fstar--visit-link-target (marker)
+  "Jump to file indicated by entry at MARKER."
+  (find-file (get-text-property (marker-position marker)
+                                'fstar--target (marker-buffer marker))))
+
 (defun fstar--lispify-null (x)
   "Return X, or nil if X is `:json-null'."
   (unless (eq x :json-null) x))
@@ -2950,10 +2955,17 @@ DISP should be nil (display in same window) or
 (defconst fstar--visit-dependency-buffer-name "*fstar: dependencies*")
 (push fstar--visit-dependency-buffer-name fstar--all-temp-buffer-names)
 
-(defun fstar--visit-dependency-visit-link (marker)
-  "Jump to file indicated by entry at MARKER."
-  (find-file (get-text-property (marker-position marker)
-                                'fstar--target (marker-buffer marker))))
+(defun fstar-subp--visit-dependency-insert (source-buf deps)
+  "Insert information about DEPS of SOURCE-BUF in current buffer."
+  (setq deps (sort deps #'string<))
+  (let ((title (format "Dependencies of %s" (buffer-name source-buf))))
+    (insert (fstar--propertize-title title) "\n\n"))
+  (dolist (fname deps)
+    (insert "  ")
+    (insert-text-button fname 'fstar--target fname
+                        'face 'default 'follow-link t
+                        'action 'fstar--visit-link-target)
+    (insert "\n")))
 
 (defun fstar-subp--visit-dependency-continuation (source-buf response)
   "Let user jump to one of the dependencies in RESPONSE.
@@ -2962,15 +2974,7 @@ SOURCE-BUF indicates where the query was started from."
              (help-window-select t))
       (with-help-window fstar--visit-dependency-buffer-name
         (with-current-buffer standard-output
-          (setq deps (sort deps #'string<))
-          (let ((title (format "Dependencies of %s" (buffer-name source-buf))))
-            (insert (fstar--propertize-title title) "\n\n"))
-          (dolist (fname deps)
-            (insert "  ")
-            (insert-text-button fname 'fstar--target fname
-                                'face 'default 'follow-link t
-                                'action 'fstar--visit-dependency-visit-link)
-            (insert "\n"))
+          (fstar-subp--visit-dependency-insert source-buf deps)
           (goto-char (point-min))
           (search-forward "\n\n  " nil t) ;; Find first entry
           (set-marker help-window-point-marker (point))))
