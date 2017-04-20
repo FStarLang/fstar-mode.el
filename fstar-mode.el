@@ -220,7 +220,7 @@ Return value indicates whether a window was hidden."
 (defun fstar--read-string (prompt default)
   "Read a string with PROMPT and DEFAULT.
 Prompt should have one string placeholder to accommodate DEFAULT."
-  (let ((default-info (if default (format " (default %s)" default) "")))
+  (let ((default-info (if default (format " (default ‘%s’)" default) "")))
     (setq prompt (format prompt default-info)))
   (read-string prompt nil nil default))
 
@@ -2847,11 +2847,15 @@ a prefix argument, prompt for rules as well."
 
   (when (eq term 'interactive)
     (setq term
-          (if (region-active-p)
-              (buffer-substring-no-properties (region-beginning) (region-end))
-            (fstar--read-string (format "Term to %s-reduce%%s: "
-                                   (mapconcat #'fstar-subp--eval-rule-to-char rules ""))
-                           (fstar--fqn-at-point)))))
+          (fstar--read-string
+           (format "Term to %s-reduce%%s: " (mapconcat #'fstar-subp--eval-rule-to-char rules ""))
+           (cond
+            ((region-active-p)
+             (buffer-substring-no-properties (region-beginning) (region-end)))
+            ((eq (char-before) (if (fstar-in-comment-p) ?\] ?\)))
+             (buffer-substring-no-properties
+              (1- (point)) (save-excursion (backward-list) (1+ (point)))))
+            (t (fstar--fqn-at-point))))))
   (setq term (string-trim term))
 
   (fstar-subp--query (fstar-subp--eval-query term rules)
