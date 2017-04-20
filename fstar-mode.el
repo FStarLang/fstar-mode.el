@@ -1425,7 +1425,7 @@ If PROC is nil, use the current buffer's `fstar-subp--process'."
 Also raise an error if current subprocess doesn't meet version requirements for
 FEATURE, if specified."
   (unless (fstar-subp-live-p)
-    (funcall error-fn "Please start F* before using this feature"))
+    (funcall error-fn "Please start F* to use this feature"))
   (when (fstar-subp--busy-p)
     (funcall error-fn "F* seems busy; please wait until processing is complete"))
   (when feature
