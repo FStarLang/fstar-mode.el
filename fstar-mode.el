@@ -291,6 +291,10 @@ shown (nil for same window, `window' for a new window, and
     (when (fboundp 'pulse-momentary-highlight-one-line)
       (pulse-momentary-highlight-one-line (point)))))
 
+(defun fstar--lispify-null (x)
+  "Return X, or nil if X is `:json-null'."
+  (unless (eq x :json-null) x))
+
 ;;; Debugging
 
 (defvar fstar-debug nil
@@ -1533,7 +1537,7 @@ return value."
 (defun fstar-subp-json--read-response (beg end)
   "Read JSON message from BEG to END."
   (goto-char beg)
-  (let* ((json-null nil)
+  (let* ((json-null :json-null)
          (json-false :json-false)
          (json-key-type 'symbol)
          (json-array-type 'list)
