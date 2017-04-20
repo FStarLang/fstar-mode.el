@@ -232,7 +232,7 @@ Prompt should have one string placeholder to accommodate DEFAULT."
   "Return column number at POS."
   (save-excursion (goto-char pos) (- (point) (point-at-bol))))
 
-(defun fstar--goto (line column)
+(defun fstar--goto-line-col (line column)
   "Go to position indicated by LINE, COLUMN."
   (goto-char (point-min))
   (forward-line (1- line))
@@ -244,7 +244,7 @@ Prompt should have one string placeholder to accommodate DEFAULT."
   ;; LATER: This would be much easier if the interactive mode returned
   ;; an offset instead of a line an column.
   (save-excursion
-    (fstar--goto line column)
+    (fstar--goto-line-col line column)
     (point)))
 
 (defun fstar--match-strings-no-properties (ids &optional str)
@@ -265,6 +265,31 @@ Prompt should have one string placeholder to accommodate DEFAULT."
 (defun fstar--propertize-title (title)
   "Format TITLE as a title."
   (propertize title 'face '(:height 1.5)))
+
+(defun fstar--push-mark ()
+  "Save current position in mark ring and xref stack."
+  (push-mark nil t)
+  (when (fboundp 'xref-push-marker-stack)
+    (xref-push-marker-stack)))
+
+(defun fstar--navigate-to (fname line col display-action)
+  "Navigate to LINE, COL of FNAME.
+DISPLAY-ACTION determines where the resulting buffer is
+shown (nil for same window, `window' for a new window, and
+`frame' for a new frame)."
+  (fstar--push-mark)
+  (catch 'not-found
+    (unless (file-exists-p fname)
+      (message "File not found: %S" fname)
+      (throw 'not-found nil))
+    (pcase display-action
+      (`nil (find-file fname))
+      (`window (find-file-other-window fname))
+      (`frame (find-file-other-frame fname)))
+    (fstar--goto-line-col line col)
+    (recenter)
+    (when (fboundp 'pulse-momentary-highlight-one-line)
+      (pulse-momentary-highlight-one-line (point)))))
 
 ;;; Debugging
 
@@ -2771,12 +2796,6 @@ the search buffer."
 
 ;;; ;; ;; Jump to definition
 
-(defun fstar--save-point ()
-  "Save current position in mark ring and xref stack."
-  (push-mark nil t)
-  (when (fboundp 'xref-push-marker-stack)
-    (xref-push-marker-stack)))
-
 (defun fstar--jump-to-definition-continuation (display-action info)
   "Jump to position in INFO.
 DISPLAY-ACTION indicates how: nil means in the current window;
@@ -2786,19 +2805,7 @@ DISPLAY-ACTION indicates how: nil means in the current window;
                    (`(,target-row . ,target-col) (fstar-lookup-result-def-start info)))
         (when (equal target-fname "<input>")
           (setq target-fname buffer-file-name))
-        (fstar--save-point)
-        (catch 'not-found
-          (unless (file-exists-p target-fname)
-            (message "File not found: %S" target-fname)
-            (throw 'not-found nil))
-          (pcase display-action
-            (`nil (find-file target-fname))
-            (`window (find-file-other-window target-fname))
-            (`frame (find-file-other-frame target-fname)))
-          (fstar--goto target-row target-col)
-          (recenter)
-          (when (fboundp 'pulse-momentary-highlight-one-line)
-            (pulse-momentary-highlight-one-line (point)))))
+        (fstar--navigate-to target-fname target-row target-col display-action))
     (message "No definition found")))
 
 (defun fstar-jump-to-definition-1 (pos disp)
