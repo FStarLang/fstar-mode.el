@@ -1206,6 +1206,50 @@ Interactively, offer titles of F* wiki pages."
   (interactive)
   (mapc #'fstar--hide-buffer fstar--all-temp-buffer-names))
 
+;;; Outline
+
+(defun fstar--outline-close-and-goto (&optional _)
+  "Close occur buffer and go to position at point."
+  (interactive)
+  (let ((pos (occur-mode-find-occurrence))
+        (occur-buf (current-buffer)))
+    (switch-to-buffer (marker-buffer pos))
+    (goto-char pos)
+    (kill-buffer occur-buf)))
+
+(defun fstar--outline-cleanup (title)
+  "Clean up outline buffer and give it a proper TITLE."
+  (let ((inhibit-read-only t))
+    (goto-char (point-min))
+    (delete-region (point) (1+ (point-at-eol)))
+    (insert (fstar--propertize-title title) "\n")
+    (when (fboundp 'font-lock--remove-face-from-text-property)
+      (font-lock--remove-face-from-text-property (point) (point-max) 'face 'match))))
+
+(defvar fstar--outline-map
+  (let ((map (make-sparse-keymap)))
+    (set-keymap-parent map occur-mode-map)
+    (dolist (command '(occur-mode-goto-occurrence occur-mode-mouse-goto))
+      (substitute-key-definition command #'fstar--outline-close-and-goto map))
+    map))
+
+(defun fstar-outline ()
+  "Show an outline of the current buffer."
+  (interactive)
+  (let ((same-window-buffer-names '("*Occur*"))
+        (outline-buffer-title (format "Outline of ‘%s’\n" (buffer-name)))
+        (outline-buffer-name (format "*fstar-outline: %s*" (buffer-name))))
+    (-when-let* ((buf (get-buffer outline-buffer-name)))
+      (when (buffer-live-p buf)
+        (kill-buffer buf)))
+    (occur fstar-syntax-block-header-re)
+    (when (buffer-live-p (get-buffer "*Occur*"))
+      (with-current-buffer "*Occur*"
+        (rename-buffer outline-buffer-name t)
+        (toggle-truncate-lines t)
+        (use-local-map fstar--outline-map)
+        (fstar--outline-cleanup outline-buffer-title)))))
+
 ;;; Interactive proofs (fstar-subp)
 
 (cl-defstruct fstar-subp-query
@@ -2008,6 +2052,30 @@ Complain if STATUS is `failure' and RESPONSE doesn't contain issues."
       (fstar-subp-highlight-issues local-issues overlay)
       (display-local-help))))
 
+;;; ;; Visiting related errors
+
+(defun fstar-jump-to-related-error (&optional display-action)
+  "Jump to secondary error location of error at point.
+DISPLAY-ACTION is nil, `window', or `frame'."
+  (interactive)
+  (-if-let* ((loc (car (fstar-subp--alt-locs-at (point)))))
+      (fstar--navigate-to (fstar-location-filename loc)
+                     (fstar-location-line-from loc)
+                     (fstar-location-col-from loc)
+                     display-action)
+    (if (fstar-subp--in-issue-p (point))
+        (user-error "No secondary locations for this issue")
+      (user-error "No error here"))))
+
+(defun fstar-jump-to-related-error-other-window ()
+  "Jump to secondary location of error at point in new window."
+  (interactive)
+  (fstar-jump-to-related-error 'window))
+
+(defun fstar-jump-to-related-error-other-frame ()
+  "Jump to secondary location of error at point in new frame."
+  (interactive)
+  (fstar-jump-to-related-error 'frame))
 
 ;;; ;; Tracking and updating overlays
 
@@ -2315,75 +2383,6 @@ Pass ARG to `fstar-subp-advance-or-retract-to-point'."
     (save-excursion
       (goto-char (point-max))
       (fstar-subp-advance-or-retract-to-point arg))))
-
-;;; Visiting related errors
-
-(defun fstar-jump-to-related-error (&optional display-action)
-  "Jump to secondary error location of error at point.
-DISPLAY-ACTION is nil, `window', or `frame'."
-  (interactive)
-  (-if-let* ((loc (car (fstar-subp--alt-locs-at (point)))))
-      (fstar--navigate-to (fstar-location-filename loc)
-                     (fstar-location-line-from loc)
-                     (fstar-location-col-from loc)
-                     display-action)
-    (if (fstar-subp--in-issue-p (point))
-        (user-error "No secondary locations for this issue")
-      (user-error "No error here"))))
-
-(defun fstar-jump-to-related-error-other-window ()
-  "Jump to secondary location of error at point in new window."
-  (interactive)
-  (fstar-jump-to-related-error 'window))
-
-(defun fstar-jump-to-related-error-other-frame ()
-  "Jump to secondary location of error at point in new frame."
-  (interactive)
-  (fstar-jump-to-related-error 'frame))
-
-;;; Outline
-
-(defun fstar--outline-close-and-goto (&optional _)
-  "Close occur buffer and go to position at point."
-  (interactive)
-  (let ((pos (occur-mode-find-occurrence))
-        (occur-buf (current-buffer)))
-    (switch-to-buffer (marker-buffer pos))
-    (goto-char pos)
-    (kill-buffer occur-buf)))
-
-(defun fstar--outline-cleanup (title)
-  "Clean up outline buffer and give it a proper TITLE."
-  (let ((inhibit-read-only t))
-    (goto-char (point-min))
-    (delete-region (point) (1+ (point-at-eol)))
-    (insert (fstar--propertize-title title) "\n")
-    (when (fboundp 'font-lock--remove-face-from-text-property)
-      (font-lock--remove-face-from-text-property (point) (point-max) 'face 'match))))
-
-(defvar fstar--outline-map
-  (let ((map (make-sparse-keymap)))
-    (set-keymap-parent map occur-mode-map)
-    (dolist (command '(occur-mode-goto-occurrence occur-mode-mouse-goto))
-      (substitute-key-definition command #'fstar--outline-close-and-goto map))
-    map))
-
-(defun fstar-outline ()
-  "Show an outline of the current buffer."
-  (interactive)
-  (let ((same-window-buffer-names '("*Occur*"))
-        (outline-buffer-title (format "Outline of ‘%s’\n" (buffer-name)))
-        (outline-buffer-name (format "*fstar-outline: %s*" (buffer-name))))
-    (-when-let* ((buf (get-buffer outline-buffer-name)))
-      (when (buffer-live-p buf)
-        (kill-buffer buf)))
-    (occur fstar-syntax-block-header-re)
-    (when (buffer-live-p (get-buffer "*Occur*"))
-      (with-current-buffer "*Occur*"
-        (rename-buffer outline-buffer-name t)
-        (toggle-truncate-lines t)
-        (use-local-map fstar--outline-map)
-        (fstar--outline-cleanup outline-buffer-title)))))
 
 ;;; ;; Features based on subp
 
@@ -2931,9 +2930,9 @@ DISPLAY-ACTION indicates how: nil means in the current window;
         (if (equal target-fname "<input>")
             (setq target-fname buffer-file-name))
         (fstar--navigate-to target-fname
-                       (fstar-location-line-from def-loc)
-                       (fstar-location-col-from def-loc)
-                       display-action))
+                            (fstar-location-line-from def-loc)
+                            (fstar-location-col-from def-loc)
+                            display-action))
     (message "No definition found")))
 
 (defun fstar-jump-to-definition-1 (pos disp)
