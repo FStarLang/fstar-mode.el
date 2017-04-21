@@ -3289,7 +3289,7 @@ With DISPLAY-DEFAULT, also show default values."
 SOURCE-BUF indicates where the query was started from."
   (if response
       (let-alist response
-        (with-help-window fstar--visit-dependency-buffer-name
+        (with-help-window fstar--list-options-buffer-name
           (with-current-buffer standard-output
             (let* ((options (cl-sort .options #'string-lessp
                                      :key (lambda (k) (cdr (assoc "name" k)))))
