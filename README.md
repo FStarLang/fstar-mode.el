@@ -109,7 +109,7 @@ Use <kbd>M-x customize-variable RET fstar-enabled-modules RET</kbd> to choose wh
 
 ### Real-time verification
 
-:unicorn: Customize the variable `fstar-flycheck-checker` to pick your favorite style of real-time verification (full-buffer verification or light, fast syntax checks in addition to proof-general style verification).  F*-mode's real-time checking uses `flycheck-mode` under the hood: try `M-x customize-group flycheck` to tweak Flycheck further.
+:unicorn: Customize the variable `fstar-flycheck-checker` to pick your favorite style of real-time verification (full-buffer verification or lightweight typechecking).  F*-mode's real-time checking uses `flycheck-mode` under the hood: try `M-x customize-group flycheck` to tweak Flycheck further.
 
 ### Completion
 
