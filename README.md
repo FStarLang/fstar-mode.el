@@ -53,7 +53,7 @@ Key                                            | Action
 `C-c C-'`, `C-x 4 '`, `C-x 5 '`                | :zap: :sparkles: Browse to secondary location of current error (same window, other window, other frame)
 `C-c C-a` (**a**lternate)                      | :sparkles: Switch to interface file (and back to implementation)
 `C-c C-s C-o` (**o**utline)                    | :sparkles: Show an outline of the current buffer
-`C-c C-s C-j C-d` (**j**ump to **d**ependency) | :zap: :unicorn: Jump to one of the dependencies of the current buffer
+`C-c C-s C-j C-d` (**j**ump to **d**ependency) | :zap: Jump to one of the dependencies of the current buffer
 `M-,`                                          | :sparkles: Return to point before last jump
 
 ### Documentation, type hints, and computation
@@ -61,11 +61,11 @@ Key                                            | Action
 Key                                  | Action
 -------------------------------------|----------------------------------
 `<menu>`, `M-<f12>`                  | :zap: :sparkles: Show type and docs in a small inline window (repeat to hide the window)
-`C-c C-s C-e` (**e**val)             | :zap: :unicorn: Evaluate (reduce) an expression (`C-u` to pick reduction rules)
-`C-c C-s C-s` (**s**earch)           | :zap: :unicorn: Search F*'s global context for functions and theorems
-`C-c C-s C-d` (**d**ocumentation)    | :zap: :unicorn: Show type and documentation of a symbol
-`C-c C-s C-p` (**p**rint)            | :zap: :unicorn: Show type, documentation, and full definition of a symbol
-`C-c C-s h o` (**h**elp **o**ptions) | :zap: :unicorn: Show values of F* options
+`C-c C-s C-e` (**e**val)             | :zap: Evaluate (reduce) an expression (`C-u` to pick reduction rules)
+`C-c C-s C-s` (**s**earch)           | :zap: Search F*'s global context for functions and theorems
+`C-c C-s C-d` (**d**ocumentation)    | :zap: Show type and documentation of a symbol
+`C-c C-s C-p` (**p**rint)            | :zap: Show type, documentation, and full definition of a symbol
+`C-c C-s h o` (**h**elp **o**ptions) | :zap: Show values of F* options
 `C-c C-s h w` (**h**elp **w**iki)    | :sparkles: Browse F\*'s wiki in Emacs
 `C-c C-s h W` (**h**elp **W**iki)    | :sparkles: Browse F\*'s wiki in your browser
 
@@ -109,7 +109,7 @@ Use <kbd>M-x customize-variable RET fstar-enabled-modules RET</kbd> to choose wh
 
 ### Real-time verification
 
-:unicorn: Customize the variable `fstar-flycheck-checker` to pick your favorite style of real-time verification (full-buffer verification or lightweight typechecking).  F*-mode's real-time checking uses `flycheck-mode` under the hood: try `M-x customize-group flycheck` to tweak Flycheck further.
+Customize the variable `fstar-flycheck-checker` to pick your favorite style of real-time verification (full-buffer verification or lightweight typechecking).  F*-mode's real-time checking uses `flycheck-mode` under the hood: try `M-x customize-group flycheck` to tweak Flycheck further.
 
 ### Completion
 
