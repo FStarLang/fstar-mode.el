@@ -239,7 +239,7 @@ Prompt should have one string placeholder to accommodate DEFAULT."
   ;; min makes sure that we don't spill to the next line.
   (forward-char (min (- (point-at-eol) (point-at-bol)) column)))
 
-(defun fstar--row-col-offset (line column)
+(defun fstar--line-col-offset (line column)
   "Convert a (LINE, COLUMN) pair into a buffer offset."
   ;; LATER: This would be much easier if the interactive mode returned
   ;; an offset instead of a line an column.
@@ -1830,6 +1830,16 @@ Recall that the legacy F* protocol doesn't ack pops."
           (fstar-location-line-to loc)
           (fstar-location-col-to loc)))
 
+(defun fstar-location-beg-offset (location)
+  "Compute LOCATION's beginning offset in the current buffer."
+  (fstar--line-col-offset (fstar-location-line-from location)
+                     (fstar-location-col-from location)))
+
+(defun fstar-location-end-offset (location)
+  "Compute LOCATION's end offset in the current buffer."
+  (fstar--line-col-offset (fstar-location-line-to location)
+                     (fstar-location-col-to location)))
+
 (cl-defstruct fstar-issue
   level locs message)
 
@@ -2005,10 +2015,8 @@ Returns a pair of (CLEAN-MESSAGE . LOCATIONS)."
 PARENT is the overlay whose processing caused this issue to be
 reported."
   (-when-let* ((loc (car (fstar-issue-locs issue)))
-               (from (fstar--row-col-offset (fstar-location-line-from loc)
-                                       (fstar-location-col-from loc)))
-               (to (fstar--row-col-offset (fstar-location-line-to loc)
-                                     (fstar-location-col-to loc)))
+               (from (fstar-location-beg-offset loc))
+               (to (fstar-location-end-offset loc))
                (overlay (make-overlay from (max to (1+ from)) (current-buffer) t nil)))
     (overlay-put overlay 'fstar-subp-issue issue)
     (overlay-put overlay 'fstar-subp-issue-parent-overlay parent)
@@ -2025,8 +2033,7 @@ reported."
 (defun fstar-subp-jump-to-issue (issue)
   "Jump to ISSUE in current buffer."
   (-when-let* ((loc (car (fstar-issue-locs issue))))
-    (goto-char (fstar--row-col-offset (fstar-location-line-from loc)
-                                 (fstar-location-col-from loc)))))
+    (goto-char (fstar-location-beg-offset loc))))
 
 (defun fstar-subp--local-issue-p (issue)
   "Check if any location in ISSUE came from the current buffer."
@@ -3136,13 +3143,11 @@ CALLBACK is the company-mode asynchronous quickhelp callback."
 CALLBACK is the company-mode asynchronous meta callback."
   (-if-let* ((def-loc (and (fstar-lookup-result-p info)
                            (fstar-lookup-result-def-loc info))))
-      (pcase-let* ((fname (fstar-location-filename def-loc))
-                   (line (fstar-location-line-from def-loc))
-                   (col (fstar-location-col-from def-loc)))
+      (pcase-let* ((fname (fstar-location-filename def-loc)))
         (funcall callback (if (string= fname "<input>")
                               (cons (current-buffer)
-                                    (fstar--row-col-offset line col))
-                            (cons fname line))))
+                                    (fstar-location-beg-offset def-loc))
+                            (cons fname (fstar-location-line-from def-loc)))))
     (funcall callback nil)))
 
 (defun fstar-subp-company--async-location (candidate callback)
