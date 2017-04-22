@@ -2547,13 +2547,13 @@ to use HELP-KBD to show documentation."
 
 (defun fstar-subp--pos-check-wrapper (pos continuation)
   "Construct a continuation that runs CONTINUATION if point is POS.
-Otherwise, call CONTINUATION with nil.  Same if the query fails.
-If POS is nil, the POS check is ignored."
+Otherwise, call CONTINUATION with nil.  If POS is nil, the POS
+check is ignored."
   (declare (indent 1))
   (lambda (status response)
-    (if (and (eq status 'success) (or (null pos) (eq (point) pos)))
-        (funcall continuation response)
-      (funcall continuation nil))))
+    (if (or (null pos) (eq (point) pos))
+        (funcall continuation status response)
+      (funcall continuation 'interrupted nil))))
 
 (defun fstar-subp--lookup-wrapper (pos continuation)
   "Handle the results of a lookup query at POS.
@@ -2561,10 +2561,11 @@ If response is valid, forward results to CONTINUATION.  With nil POS, this
 function can also handle results of position-less lookup queries."
   (declare (indent 1))
   (fstar-subp--pos-check-wrapper pos
-    (lambda (response)
-      (-if-let* ((info (and response (if (fstar--has-feature 'json-subp)
-                                         (fstar-subp-json--parse-info response)
-                                       (fstar-subp-legacy--parse-info response)))))
+    (lambda (status response)
+      (-if-let* ((info (and (eq status 'success)
+                            (if (fstar--has-feature 'json-subp)
+                                (fstar-subp-json--parse-info response)
+                              (fstar-subp-legacy--parse-info response)))))
           (funcall continuation info)
         (funcall continuation nil)))))
 
@@ -2765,9 +2766,10 @@ TYPE is used in error messages"
                 (fstar-subp--pos-check-wrapper (point)
                   (apply-partially #'fstar--insert-match-continuation type))))
 
-(defun fstar--destruct-var-continuation (from to type response)
-  "Replace FROM..TO (with TYPE) with match from RESPONSE."
-  (pcase (and response (split-string response "\n"))
+(defun fstar--destruct-var-continuation (from to type status response)
+  "Replace FROM..TO (with TYPE) with match from RESPONSE.
+STATUS is the original query's status."
+  (pcase (and (eq status 'success) (split-string response "\n"))
     (`nil
      (message "No match found for type `%s'." type))
     (`(,_name ,branch)
@@ -2984,10 +2986,12 @@ DISP should be nil (display in same window) or
                         'action 'fstar--visit-link-target)
     (insert "\n")))
 
-(defun fstar-subp--visit-dependency-continuation (source-buf response)
+(defun fstar-subp--visit-dependency-continuation (source-buf status response)
   "Let user jump to one of the dependencies in RESPONSE.
-SOURCE-BUF indicates where the query was started from."
-  (-if-let* ((deps (and response (let-alist response .loaded-dependencies)))
+SOURCE-BUF indicates where the query was started from.  STATUS is
+the original query's status."
+  (-if-let* ((deps (and (eq status 'success)
+                        (let-alist response .loaded-dependencies)))
              (help-window-select t))
       (with-help-window fstar--visit-dependency-buffer-name
         (with-current-buffer standard-output
@@ -3289,10 +3293,11 @@ With DISPLAY-DEFAULT, also show default values."
     (dolist (opt-info options)
       (fstar-subp--list-options-1 display-default sp1 sp2 nl opt-info))))
 
-(defun fstar-subp--list-options-continuation (source-buf response)
+(defun fstar-subp--list-options-continuation (source-buf status response)
   "Let user jump to one of the dependencies in RESPONSE.
-SOURCE-BUF indicates where the query was started from."
-  (if response
+SOURCE-BUF indicates where the query was started from.  STATUS is
+the original query's status."
+  (if (eq status 'success)
       (let-alist response
         (with-help-window fstar--list-options-buffer-name
           (with-current-buffer standard-output
