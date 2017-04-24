@@ -85,7 +85,7 @@ Proof-General            | :atom: Atom   | Action
 `C-c RET` or `C-c C-RET` | `C-S-i`       | :zap: Send everything up to the current point to F*
 `C-c C-l` (**l**ax)      | `C-S-l`       | :zap: Send everything up to the current point to F*, in lax mode
 `C-c C-b` (**b**uffer)   | `C-S-b`       | :zap: Send entire buffer to F* in lax mode
-`C-c C-r` (**r**eload)   | `C-S-r`       | :zap: Reload dependencies of the current buffer and reprocess its contents
+`C-c C-r` (**r**eload)   | `C-S-r`       | :zap: Reload dependencies of the current buffer and reprocess its contents (add `C-u` for lax mode)
 `C-c C-x` (e**x**it)     | `C-M-c`       | :zap: Kill the F* subprocess
 `C-c C-c`                | `C-M-S-c`     | :zap: Send an interrupt signal to Z3.  This (generally) interrupts the currently running verification task.
 

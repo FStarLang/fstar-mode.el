@@ -2354,12 +2354,13 @@ Ignores separators found in comments."
                           collect (point))))
       (fstar-subp-enqueue-until pos found))))
 
-(defun fstar-subp-reload-to-point (pos)
-  "Retract everything and process again to POS."
-  (interactive (list (point)))
+(defun fstar-subp-reload-to-point (pos lax)
+  "Retract everything and process (possibly in LAX mode) again to POS."
+  (interactive (list (point) (not (null current-prefix-arg))))
   (fstar-subp-start)
   (fstar-subp-retract-until (point-min))
-  (fstar-subp-advance-until pos))
+  (let ((fstar-subp--lax lax))
+    (fstar-subp-advance-until pos)))
 
 (defun fstar-subp-advance-or-retract-to-point (&optional arg)
   "Advance or retract proof state to reach point.
