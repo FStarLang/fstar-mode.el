@@ -1745,7 +1745,7 @@ With prefix argument ARG, kill all F* subprocesses."
       (fstar-subp-kill))))
 
 (defconst fstar--ps-line-regexp
-  "^ *\\([0-9]+\\) +\\([0-9]+\\) +\\([^ ]+\\) +\\(.+\\) *$")
+  "^ *\\([0-9]+\\) +\\([0-9]+\\) \\(.+\\) *$")
 
 (defun fstar--ps-processes ()
   "Collect all running processes using `ps'.
@@ -1754,10 +1754,9 @@ Each return value is a list (PID PARENT-PID CMD)."
             (if (string-match fstar--ps-line-regexp line)
                 (list (string-to-number (match-string 1 line))
                       (string-to-number (match-string 2 line))
-                      (match-string 3 line)
-                      (match-string 4 line))
+                      (match-string 3 line))
               (error "Unexpected line in PS output: %S" line)))
-          (cdr (process-lines "ps" "-ax" "-o" "pid,ppid,comm,args"))))
+          (cdr (process-lines "ps" "-axww" "-o" "pid,ppid,comm"))))
 
 (defun fstar--elisp-process-attributes (pid)
   "Get attributes of process PID, or nil."
@@ -1765,8 +1764,7 @@ Each return value is a list (PID PARENT-PID CMD)."
     (when attrs
       (list pid
             (cdr (assq 'ppid attrs))
-            (cdr (assq 'comm attrs))
-            (cdr (assq 'args attrs))))))
+            (cdr (assq 'comm attrs))))))
 
 (defun fstar--elisp-processes ()
   "Collect all running processes using `system-processes'.
@@ -1792,11 +1790,12 @@ returns without doing anything."
     (unless (or all parent-live)
       (user-error "No F* process in this buffer"))
     (let ((subp-pid (and parent-live (process-id fstar-subp--process))))
-      (pcase-dolist (`(,pid ,ppid ,cmd ,args) (fstar--system-processes))
+      (pcase-dolist (`(,pid ,ppid ,cmd) (fstar--system-processes))
         (when (and (or all (eq ppid subp-pid))
-                   (member cmd '("z3" "z3.exe")))
+                   (or (string-suffix-p "z3" cmd)
+                       (string-suffix-p "z3.exe" cmd)))
           (signal-process pid 'int)
-          (message "Sent SIGINT to %S" args))))))
+          (message "Sent SIGINT to %S (%S)" pid cmd))))))
 
 ;;; ;; Parsing and display issues
 
