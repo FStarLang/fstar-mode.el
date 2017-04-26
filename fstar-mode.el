@@ -30,7 +30,7 @@
 ;; * Syntax highlighting
 ;; * Unicode math (prettify-symbols-mode)
 ;; * Documentation and search
-;; * Simple indentation
+;; * Relative indentation
 ;; * Type hints (Eldoc)
 ;; * Autocompletion (Company)
 ;; * Type-aware snippets (Yasnippet)
@@ -123,7 +123,7 @@ returning a string (the full path to the SMT solver)."
 (defconst fstar-known-modules
   '((font-lock        . "Syntax highlighting")
     (prettify         . "Unicode math (e.g. display forall as ∀; requires emacs 24.4 or later)")
-    (indentation      . "Indentation (based on control points)")
+    (indentation      . "Indentation (relative to previous lines)")
     (comments         . "Comment syntax and special comments ('(***', '(*+', etc.)")
     (flycheck         . "Real-time verification with Flycheck")
     (interactive      . "Interactive verification (à la Proof-General)")
@@ -224,9 +224,15 @@ Prompt should have one string placeholder to accommodate DEFAULT."
     (setq prompt (format prompt default-info)))
   (read-string prompt nil nil default))
 
-(defun fstar-in-comment-p ()
-  "Return non-nil if point is inside a comment."
-  (nth 4 (syntax-ppss)))
+(defun fstar-in-comment-p (&optional pos)
+  "Return non-nil if POS is inside a comment."
+  (nth 4 (syntax-ppss pos)))
+
+(defun fstar--column-in-commment-p (column)
+  "Return non-nil if point at COLUMN is inside a comment."
+  (save-excursion
+    (move-to-column column)
+    (fstar-in-comment-p)))
 
 (defun fstar-subp--column-number-at-pos (pos)
   "Return column number at POS."
@@ -1032,45 +1038,52 @@ leads to the binder's start."
 
 ;;; Indentation
 
-(defun fstar-comment-offset ()
-  "Compute offset at beginning of comment."
-  (comment-normalize-vars)
-  (when (fstar-in-comment-p)
-    (save-excursion
-      (comment-beginning)
-      (- (point) (point-at-bol)))))
+(defun fstar--indentation-previous-line ()
+  "Go to previous non-blank line."
+  (goto-char (point-at-bol))
+  (skip-chars-backward " \t\n"))
 
-(defun fstar-indentation-points ()
-  "Find reasonable indentation points on the current line."
-  (let ((points))
+(defun fstar--indentation-points-before (&optional max-column)
+  "Add indentation points before MAX-COLUMN or current point to POINTS."
+  (let ((points nil)
+        (bol (point-at-bol)))
+    (when max-column
+      (move-to-column max-column))
+    (while (> (point) bol)
+      (skip-chars-backward " \t" bol)
+      (when (/= (skip-chars-backward "^ \t" bol) 0)
+        (push (current-column) points)))
+    points))
+
+(defun fstar--indentation-points ()
+  "Collect indentation points for current line."
+  (let ((points nil)
+        (in-comment (fstar-in-comment-p (point-at-bol))))
     (save-excursion
-      (when (= (forward-line -1) 0) ;; Recognize the first line
-        (while (re-search-forward "\\s-+" (point-at-eol) t)
-          (push (current-column) points))))
-    (when points
-      (let ((mn (apply #'min points)))
-        (push (+ 2 mn) points)
-        (push (+ 4 mn) points)))
-    (push 0 points)
-    (push 2 points)
-    (-when-let* ((comment-offset (fstar-comment-offset)))
-      (setq points (-filter (lambda (pt) (>= pt comment-offset))
-                            (cons comment-offset points))))
-    (-distinct (sort points #'<))))
+      (while (and (not (bobp)) (> (or (car points) 1) 0))
+        (fstar--indentation-previous-line)
+        (let ((line-points (fstar--indentation-points-before (car points))))
+          (when in-comment
+            (setq line-points (-filter #'fstar--column-in-commment-p line-points)))
+          (when (and (null points) line-points)
+            (cl-pushnew (+ (car line-points) 2) (cdr line-points)))
+          (setq points (nconc line-points points)))))
+    points))
+
+(defun fstar--indentation-insert-points ()
+  "Show indentation points on current line."
+  (beginning-of-line)
+  (dolist (point (fstar--indentation-points))
+    (move-to-column point t)
+    (insert "^")))
 
 (defun fstar--indent-1 (backwards)
-  "Cycle between vaguely relevant indentation points.
-With BACKWARDS, go back among indentation points."
+  "Cycle (forwards or BACKWARDS) between relevant indentation points."
   (let* ((current-ind (current-indentation))
-         (points (fstar-indentation-points))
-         (remaining (or (-filter (if backwards
-                                     (lambda (x) (< x current-ind))
-                                   (lambda (x) (> x current-ind)))
-                                 points)
-                        points))
-         (target (car (if backwards
-                          (last remaining)
-                        remaining))))
+         (points (fstar--indentation-points))
+         (pred (apply-partially (if backwards #'> #'<) current-ind))
+         (remaining (or (-filter pred points) points))
+         (target (car (if backwards (last remaining) remaining))))
     (if (> (current-column) current-ind)
         (save-excursion (indent-line-to target))
       (indent-line-to target))))
