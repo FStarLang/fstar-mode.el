@@ -224,9 +224,13 @@ Prompt should have one string placeholder to accommodate DEFAULT."
     (setq prompt (format prompt default-info)))
   (read-string prompt nil nil default))
 
+(defun fstar--syntax-ppss (pos)
+  "Like `syntax-ppss' at POS, but don't move point."
+  (save-excursion (syntax-ppss pos)))
+
 (defun fstar-in-comment-p (&optional pos)
   "Return non-nil if POS is inside a comment."
-  (nth 4 (syntax-ppss pos)))
+  (nth 4 (fstar--syntax-ppss pos)))
 
 (defun fstar--column-in-commment-p (column)
   "Return non-nil if point at COLUMN is inside a comment."
@@ -713,7 +717,7 @@ If EXTRA-CHECK is non-nil, it is used as an extra filter on matches."
 
 (defun fstar--beginning-of-sexp (pos)
   "Find beginning of sexp enclosing POS."
-  (or (nth 1 (syntax-ppss pos)) 1))
+  (or (nth 1 (fstar--syntax-ppss pos)) 1))
 
 (defun fstar-subexpr-pre-matcher (rewind-to &optional bound-to)
   "Move past REWIND-TO th group, then return end of BOUND-TO th.
@@ -947,8 +951,7 @@ leads to the binder's start."
         (opener-2 (string-to-syntax ". 2")))
     (syntax-propertize-rules
      ("//" (0 (let* ((pt (match-beginning 0))
-                     (state (syntax-ppss pt)))
-                (goto-char (match-end 0)) ;; syntax-ppss adjusts point
+                     (state (fstar--syntax-ppss pt)))
                 (unless (or (nth 3 state) (nth 4 state))
                   (put-text-property pt (+ pt 1) 'syntax-table opener-1)
                   (put-text-property (+ pt 1) (+ pt 2) 'syntax-table opener-2)
