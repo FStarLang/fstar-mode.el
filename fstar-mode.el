@@ -2557,11 +2557,16 @@ Pass ARG to `fstar-subp-advance-or-retract-to-point'."
       (funcall callback 'finished
                (delq nil (mapcar #'fstar-subp--make-flycheck-issue issues))))))
 
+(defcustom fstar-subp-flycheck-lookahead 3
+  "Number of blocks to check continuously, in the background."
+  :group 'fstar-mode
+  :type 'integer)
+
 (defun fstar-subp--start-syntax-check (_checker callback)
   "Start a light syntax check; pass results to CALLBACK."
   (if (fstar-subp--can-run-flycheck)
       (let ((beg (fstar-subp--untracked-beginning-position))
-            (end (fstar-subp--find-point-to-process 3))) ;; FIXME customize number
+            (end (fstar-subp--find-point-to-process fstar-subp-flycheck-lookahead)))
         (if (and (numberp end) (< beg end))
             (fstar-subp-peek-region
              beg end 'lax ;; FIXME make configurable
