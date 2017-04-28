@@ -2444,7 +2444,7 @@ Report an error if the region is empty."
   "Process next block."
   (interactive)
   (fstar-subp-start)
-  (if-let* ((target (fstar-subp--find-point-to-process 1)))
+  (-if-let* ((target (fstar-subp--find-point-to-process 1)))
       (fstar-subp-enqueue-until (goto-char target))
     (user-error "Cannot find a full block to process")))
 
