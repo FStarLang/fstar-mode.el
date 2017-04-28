@@ -49,6 +49,7 @@ Key                         | Action
 
 Key                                            | Action
 -----------------------------------------------|----------------------------------
+`M-n`, `M-p`                                   | :sparkles: Jump to previous/next block in current file
 `M-.`, `C-x 4 .`, `C-x 5 .`                    | :zap: :sparkles: Jump to definition (same window, other window, other frame)
 `C-c C-'`, `C-x 4 '`, `C-x 5 '`                | :zap: :sparkles: Browse to secondary location of current error (same window, other window, other frame)
 `C-c C-a` (**a**lternate)                      | :sparkles: Switch to interface file (and back to implementation)
