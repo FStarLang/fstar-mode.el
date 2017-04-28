@@ -324,38 +324,26 @@ Return nil if the comment is incomplete.  Needs a call to
   (forward-comment 1))
 
 (defun fstar--search-predicated-1 (search-fn test-fn move-fn re)
-  "Search for RE.
-SEARCH-FN should go to the next match.  TEST-FN is used to
-further filter matches; it is called with (match-beginning 0).
-MOVE-FN is used to move the point when TEST-FN returns nil.
-Return point at end of match if RE can be found, and nil
-otherwise.  Position of point after calling this function is
-unspecified."
+  "Helper for `fstar--search-predicated'.
+SEARCH-FN, TEST-FN, MOVE-FN, RE: see `fstar--search-predicated'."
   (catch 'found
     (while (funcall search-fn re nil t)
-      (let ((anchor (match-beginning 0)))
-        (when (funcall test-fn anchor)
-          ;; Looks like we found a match 💃
-          (throw 'found (point)))
-        (unless (funcall move-fn)
-          ;; No way to make progress 😱 It's crucial to exit early here —
-          ;; otherwise, we could infloop by repeatedly matching eob.
-          (throw 'found nil))))
-    ;; No results 😐
+      (when (funcall test-fn)
+        (throw 'found (point)))
+      (unless (funcall move-fn)
+        (throw 'found nil)))
     (throw 'found nil)))
 
 (defun fstar--search-predicated (search-fn test-fn move-fn re)
-  "Search for RE.
-SEARCH-FN should go to the next match.  TEST-FN is used to
-further filter matches; it is called with (match-beginning 1).
+  "Use SEARCH-FN to find matches of RE satisfying TEST-FN.
 MOVE-FN is used to move the point when TEST-FN returns nil.
-Return point at end of match if RE can be found, and nil
-otherwise.  This function does not move the point."
+Return non-nil if RE can be found.  This function does not move
+the point."
   (save-excursion
+    (comment-normalize-vars)
     (and (fstar--search-predicated-1 search-fn test-fn move-fn re)
-         ;; Ensure that match is maximal (if the buffer contains \n•\n then
-         ;; (re-search-backward "\n+") produces a match that ends at point (•),
-         ;; and doesn't include the following \n)
+         ;; Ensure that the match is maximal when searching backwards for
+         ;; e.g. \n+ in a buffer containing \n•\n
          (goto-char (match-beginning 0))
          (looking-at re))))
 
@@ -364,9 +352,7 @@ otherwise.  This function does not move the point."
   (unless (eobp) (forward-char) t))
 
 (defun fstar--search-predicated-forward (test-fn re)
-  "Search forward for RE.
-TEST-FN is used to further filter matches; it is called
-with (match-beginning 1)."
+  "Search forward for matches of RE satisfying TEST-FN."
   (fstar--search-predicated #'re-search-forward test-fn
                        #'fstar--adjust-point-forward re))
 
@@ -375,9 +361,7 @@ with (match-beginning 1)."
   (unless (bobp) (backward-char) t))
 
 (defun fstar--search-predicated-backward (test-fn re)
-  "Search backward for RE.
-TEST-FN is used to further filter matches; it is called
-with (match-beginning 1)."
+  "Search backwards for matches of RE satisfying TEST-FN."
   (fstar--search-predicated #'re-search-backward test-fn
                        #'fstar--adjust-point-backward re))
 
@@ -2040,7 +2024,7 @@ Returns a pair of (CLEAN-MESSAGE . LOCATIONS)."
   "Fixup ISSUE: include a file name, and adjust line numbers wrt OV."
   (dolist (loc (fstar-issue-locs issue))
     ;; Clean up file names
-    (when (member (fstar-location-filename loc) '("unknown" "<input>"))
+    (when (member (fstar-location-filename loc) '("<input>"))
       (cl-assert buffer-file-name) ;; FIXME "unknown"
       (setf (fstar-location-filename loc) buffer-file-name))
     ;; Adjust line numbers
@@ -2335,30 +2319,27 @@ beginning of the current overlay."
 
 ;;; ;; Moving around the buffer
 
-(defvar fstar-fly-past-comments nil)
+(defcustom fstar-fly-past-comments t
+  "Whether to skip comments when splitting blocks to send to F*."
+  :group 'fstar-interactive
+  :type 'boolean)
 
-(defconst fstar-subp-block-start-re
-  (format "^\\(?:%s\\|%s\\|%s\\)"
-          "\\`[^ \n\r\t]" fstar-comment-start-skip fstar-syntax-block-start-re))
+(defconst fstar-subp-block-sep
+  (let ((any-blanks "[ \n\r\t]*")
+        (two-or-more-blank-lines "\n\\(?:[ \t\r]*\n\\)+"))
+    (format "\\(?:\\`%s\\(?1:\\)\\|%s\\(?1:\\)\\'\\|%s\\(?1:^\\)\\(%s\\|%s\\)\\)"
+            any-blanks any-blanks two-or-more-blank-lines
+            fstar-comment-start-skip fstar-syntax-block-start-re)))
 
-(defconst fstar-subp-block-end-re
-  (format "\\(?:%s\\|\\'\\)" fstar-subp-block-start-re))
+(defun fstar-subp--block-start-p ()
+  "Check whether current match is a valid block start."
+  (and (not (fstar-in-comment-p (match-beginning 1)))
+       (not (= (match-beginning 1) (point-max)))))
 
-(defun fstar-subp--block-start-p (pos)
-  "Check whether POS is on a block start."
-  (save-excursion
-    (goto-char pos)
-    (and (not (fstar-in-comment-p))
-         (progn (skip-chars-backward fstar--spaces)
-                (or (bobp)
-                    (progn (forward-line 2)
-                           (<= (point) pos)))))))
-
-(defun fstar-subp--block-end-p (pos)
+(defun fstar-subp--block-end-p ()
   "Check whether POS is on a block end."
-  (or (fstar-subp--block-start-p pos)
-      (and (not (fstar-in-comment-p))
-           (= pos (point-max)))))
+  (and (not (fstar-in-comment-p (match-beginning 1)))
+       (not (= (match-beginning 0) (point-min)))))
 
 (defun fstar-subp-previous-block-start ()
   "Go to and return beginning of current block.
@@ -2369,10 +2350,9 @@ When point is at beginning of block, go to previous block."
           (unless (eq (point) (point-at-bol))
             (goto-char (point-at-eol)))
           ;; Jump to previous block separator
-          (comment-normalize-vars)
           (fstar--search-predicated-backward
-           #'fstar-subp--block-start-p fstar-subp-block-start-re))
-    (goto-char (match-beginning 0))))
+           #'fstar-subp--block-start-p fstar-subp-block-sep))
+    (goto-char (match-beginning 1))))
 
 (defun fstar-subp-next-block-start ()
   "Go to and return beginning of next block (if any)."
@@ -2380,13 +2360,13 @@ When point is at beginning of block, go to previous block."
   (when (save-excursion
           ;; Find appropriate starting point
           (goto-char (point-at-eol))
+          (skip-chars-backward fstar--spaces)
           ;; Ensure progress
           (when (bobp) (forward-char))
           ;; Jump to next block separator
-          (comment-normalize-vars)
           (fstar--search-predicated-forward
-           #'fstar-subp--block-start-p fstar-subp-block-start-re))
-    (goto-char (match-beginning 0))))
+           #'fstar-subp--block-start-p fstar-subp-block-sep))
+    (goto-char (match-beginning 1))))
 
 (defun fstar-subp-next-block-end ()
   "Go to end of current block."
@@ -2395,10 +2375,9 @@ When point is at beginning of block, go to previous block."
           ;; Find appropriate starting point
           (goto-char (point-at-eol))
           ;; Jump to next block separator
-          (comment-normalize-vars)
           (fstar--search-predicated-forward
-           #'fstar-subp--block-end-p fstar-subp-block-end-re))
-    (goto-char (match-beginning 0))))
+           #'fstar-subp--block-end-p fstar-subp-block-sep))
+    (goto-char (match-beginning 1))))
 
 (defun fstar-subp--next-point-to-process ()
   "Find the end of the next block to process.
@@ -2422,6 +2401,16 @@ buffer is in a comment that doesn't start in column 0."
           (setq final-point (point))))
       final-point)))
 
+(defun fstar-subp--untracked-beginning-position ()
+  "Find the beginning of the untracked buffer area."
+  (or (cl-loop for overlay in (fstar-subp-tracking-overlays)
+               maximize (overlay-end overlay))
+      (point-min)))
+
+(defun fstar-subp--untracked-beginning ()
+  "Go to beginning of untracked buffer area."
+  (goto-char (fstar-subp--untracked-beginning-position)))
+
 (defun fstar-subp-goto-beginning-of-untracked-region ()
   "Go to start of first untracked block."
   (interactive)
@@ -2432,16 +2421,6 @@ buffer is in a comment that doesn't start in column 0."
   'fstar-subp-goto-beginning-of-untracked-region)
 
 ;;; ;; Advancing and retracting
-
-(defun fstar-subp--untracked-beginning-position ()
-  "Find the beginning of the untracked buffer area."
-  (or (cl-loop for overlay in (fstar-subp-tracking-overlays)
-               maximize (overlay-end overlay))
-      (point-min)))
-
-(defun fstar-subp--untracked-beginning ()
-  "Go to beginning of untracked buffer area."
-  (goto-char (fstar-subp--untracked-beginning-position)))
 
 (defun fstar-subp-enqueue-until (end)
   "Mark region up to END busy, and enqueue the newly created overlay.
