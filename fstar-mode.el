@@ -92,7 +92,9 @@
       "Remove trailing whitespace from STRING."
       (if (string-match "[ \t\n\r]+\\'" string)
           (replace-match "" t t string)
-        string))))
+        string)))
+  (unless (fboundp 'prog-widen)
+    (defalias 'prog-widen 'widen)))
 
 (defun fstar--string-trim (s)
   "Trim S, or return nil if nil."
@@ -228,6 +230,10 @@ Prompt should have one string placeholder to accommodate DEFAULT."
 
 (defun fstar--syntax-ppss (pos)
   "Like `syntax-ppss' at POS, but don't move point."
+  (when (buffer-narrowed-p)
+    (warn "`syntax-ppss' called in narrowed buffer.
+Please submit the following stack-trace to the fstar-mode bug tracker:
+%s" (with-output-to-string (backtrace))))
   (save-excursion (syntax-ppss pos)))
 
 (defun fstar-in-comment-p (&optional pos)
@@ -364,6 +370,21 @@ the point."
   "Search backwards for matches of RE satisfying TEST-FN."
   (fstar--search-predicated #'re-search-backward test-fn
                        #'fstar--adjust-point-backward re))
+
+(defmacro fstar--widened (&rest body)
+  "Run BODY widened."
+  (declare (indent 0))
+  `(save-restriction (widen) ,@body))
+
+(defmacro fstar--widened-excursion (&rest body)
+  "Run BODY widened in a `save-excursion' block."
+  (declare (indent 0))
+  `(save-excursion (fstar--widened ,@body)))
+
+(defmacro fstar--prog-widened-excursion (&rest body)
+  "Run BODY widened in a `save-excursion' block."
+  (declare (indent 0))
+  `(save-excursion (save-restriction (prog-widen) ,@body)))
 
 ;;; Debugging
 
@@ -1125,9 +1146,9 @@ leads to the binder's start."
 
 (defun fstar--indentation-points ()
   "Collect indentation points for current line."
-  (let ((points nil)
-        (in-comment (fstar-in-comment-p (point-at-bol))))
-    (save-excursion
+  (fstar--prog-widened-excursion
+    (let ((points nil)
+          (in-comment (fstar-in-comment-p (point-at-bol))))
       (while (and (not (bobp)) (> (or (car points) 1) 0))
         (fstar--indentation-previous-line)
         (let ((line-points (fstar--indentation-points-before (car points))))
@@ -1135,8 +1156,8 @@ leads to the binder's start."
             (setq line-points (-filter #'fstar--column-in-commment-p line-points)))
           (when (and (null points) line-points)
             (cl-pushnew (+ (car line-points) 2) (cdr line-points)))
-          (setq points (nconc line-points points)))))
-    points))
+          (setq points (nconc line-points points))))
+      points)))
 
 (defun fstar--indentation-insert-points ()
   "Show indentation points on current line."
@@ -1746,7 +1767,7 @@ return value."
 Table of continuations was %s" response id conts)))
     (remhash id fstar-subp--continuations)
     (unwind-protect
-        (funcall continuation status response)
+        (fstar--widened (funcall continuation status response))
       (with-current-buffer source-buffer
         (fstar-subp--set-queue-timer)))))
 
@@ -1788,14 +1809,15 @@ Table of continuations was %s" response id conts)))
       (unless (equal leftovers "")
         (message "F* subprocess died early: %s" leftovers)))
     (kill-buffer))
-  (fstar-subp-remove-issue-overlays (point-min) (point-max))
-  (fstar-subp-remove-tracking-overlays)
-  (fstar-subp--clear-continuations)
-  (setq fstar--vernum nil
-        fstar--features nil
-        fstar-subp--process nil
-        fstar-subp--queue-timer nil
-        fstar-subp--next-query-id 0))
+  (fstar--widened
+    (fstar-subp-remove-issue-overlays (point-min) (point-max))
+    (fstar-subp-remove-tracking-overlays)
+    (fstar-subp--clear-continuations)
+    (setq fstar--vernum nil
+          fstar--features nil
+          fstar-subp--process nil
+          fstar-subp--queue-timer nil
+          fstar-subp--next-query-id 0)))
 
 (defun fstar-subp-kill ()
   "Kill F* subprocess and clean up current buffer."
@@ -1828,6 +1850,8 @@ With prefix argument ARG, kill all F* subprocesses."
     (when fstar-subp--process
       (fstar-assert (eq proc fstar-subp--process))
       (fstar-subp-kill))))
+
+;;; ;; Killing Z3
 
 (defconst fstar--ps-line-regexp
   "^ *\\([0-9]+\\) +\\([0-9]+\\) \\(.+\\) *$")
@@ -2027,7 +2051,7 @@ Returns a pair of (CLEAN-MESSAGE . LOCATIONS)."
   (dolist (loc (fstar-issue-locs issue))
     ;; Clean up file names
     (when (member (fstar-location-filename loc) '("<input>"))
-      (cl-assert buffer-file-name) ;; FIXME "unknown"
+      (fstar-assert buffer-file-name) ;; FIXME "unknown"
       (setf (fstar-location-filename loc) buffer-file-name))
     ;; Adjust line numbers
     (unless (or (fstar--has-feature 'absolute-linums-in-errors) (null ov))
@@ -2259,20 +2283,21 @@ Modifications are only allowed if it is safe to retract up to the
 beginning of the current overlay."
   (let ((inhibit-modification-hooks t))
     (when (overlay-buffer overlay) ;; Hooks can be called multiple times
-      (cond
-       ;; Always allow modifications in comments
-       ((fstar-in-comment-p) t)
-       ;; Allow modifications (after retracting) in pending overlays, and in
-       ;; processed overlays provided that F* isn't busy
-       ((or (not (fstar-subp--busy-p))
-            (fstar-subp-status-eq overlay 'pending))
-        (fstar-subp-retract-until (overlay-start overlay)))
-       ;; Disallow modifications in processed overlays when F* is busy
-       ((fstar-subp-status-eq overlay 'processed)
-        (user-error "Cannot retract a processed section while F* is busy"))
-       ;; Always disallow modifications in busy overlays
-       ((fstar-subp-status-eq overlay 'busy)
-        (user-error "Cannot retract a busy section"))))))
+      (fstar--widened
+        (cond
+         ;; Always allow modifications in comments
+         ((fstar-in-comment-p) t)
+         ;; Allow modifications (after retracting) in pending overlays, and in
+         ;; processed overlays provided that F* isn't busy
+         ((or (not (fstar-subp--busy-p))
+              (fstar-subp-status-eq overlay 'pending))
+          (fstar-subp-retract-until (overlay-start overlay)))
+         ;; Disallow modifications in processed overlays when F* is busy
+         ((fstar-subp-status-eq overlay 'processed)
+          (user-error "Cannot retract a processed section while F* is busy"))
+         ;; Always disallow modifications in busy overlays
+         ((fstar-subp-status-eq overlay 'busy)
+          (user-error "Cannot retract a busy section")))))))
 
 (defun fstar-subp--status-face (status lax)
   "Get face for STATUS, optionally with LAX modifier."
@@ -2313,18 +2338,21 @@ beginning of the current overlay."
   (with-current-buffer buffer
     (setq fstar-subp--queue-timer nil)
     (fstar-subp-start)
-    (unless (fstar-subp--busy-p)
-      (-if-let* ((overlay (car-safe (fstar-subp-tracking-overlays 'pending))))
-          (progn (fstar-log 'info "Processing queue")
-                 (fstar-subp-process-overlay overlay))
-        (fstar-log 'info "Queue is empty (%d overlays)" (length (fstar-subp-tracking-overlays)))))))
+    (fstar--widened
+      (unless (fstar-subp--busy-p)
+        (-if-let* ((overlay (car (fstar-subp-tracking-overlays 'pending))))
+            (progn (fstar-log 'info "Processing queue")
+                   (fstar-subp-process-overlay overlay))
+          (fstar-log 'info "Queue is empty (%d overlays)"
+                (length (fstar-subp-tracking-overlays))))))))
 
 ;;; ;; Moving around the buffer
 
 (defcustom fstar-fly-past-comments t
   "Whether to skip comments when splitting blocks to send to F*."
   :group 'fstar-interactive
-  :type 'boolean)
+  :type 'boolean
+  :safe #'booleanp)
 
 (defconst fstar-subp-block-sep
   (let ((any-blanks "[ \n\r\t]*")
@@ -2446,9 +2474,10 @@ Report an error if the region is empty."
   "Process next block."
   (interactive)
   (fstar-subp-start)
-  (-if-let* ((target (fstar-subp--find-point-to-process 1)))
-      (fstar-subp-enqueue-until (goto-char target))
-    (user-error "Cannot find a full block to process")))
+  (fstar--widened
+    (-if-let* ((target (fstar-subp--find-point-to-process 1)))
+        (fstar-subp-enqueue-until (goto-char target))
+      (user-error "Cannot find a full block to process"))))
 
 (defun fstar-subp-pop-overlay (overlay)
   "Remove overlay OVERLAY and issue the corresponding `pop' command."
@@ -2469,19 +2498,21 @@ Report an error if the region is empty."
 (defun fstar-subp-retract-last ()
   "Retract last processed block."
   (interactive)
-  (fstar-subp-retract-one (car (last (fstar-subp-tracking-overlays))))
-  (fstar-subp-goto-beginning-of-untracked-region))
+  (fstar--widened
+    (fstar-subp-retract-one (car (last (fstar-subp-tracking-overlays))))
+    (fstar-subp-goto-beginning-of-untracked-region)))
 
 (defun fstar-subp-retract-until (pos)
   "Retract blocks until POS is in untracked region."
-  (cl-loop for overlay in (reverse (fstar-subp-tracking-overlays))
-           when (> (overlay-end overlay) pos) ;; End point is not inclusive
-           do (fstar-subp-retract-one overlay)))
+  (fstar--widened
+    (cl-loop for overlay in (reverse (fstar-subp-tracking-overlays))
+             when (> (overlay-end overlay) pos) ;; End point is not inclusive
+             do (fstar-subp-retract-one overlay))))
 
 (defun fstar-subp-advance-until (pos)
   "Submit or retract blocks to/from prover until POS (included)."
   (fstar-subp-start)
-  (save-excursion
+  (fstar--widened-excursion
     (let ((found nil))
       (fstar-subp--untracked-beginning)
       (while (and (<= (point) pos) (fstar-subp--next-point-to-process))
@@ -2495,9 +2526,10 @@ to process (try C-u \\[fstar-subp-advance-or-retract-to-point]?)"))))))
   "Retract everything and process (possibly in LAX mode) again to POS."
   (interactive (list (point) (not (null current-prefix-arg))))
   (fstar-subp-start)
-  (fstar-subp-retract-until (point-min))
-  (let ((fstar-subp--lax lax))
-    (fstar-subp-advance-until pos)))
+  (fstar--widened
+    (fstar-subp-retract-until (point-min))
+    (let ((fstar-subp--lax lax))
+      (fstar-subp-advance-until pos))))
 
 (defun fstar-subp-advance-or-retract-to-point (&optional arg)
   "Advance or retract proof state to reach point.
@@ -2506,13 +2538,14 @@ With prefix argument ARG, when advancing, do not split region
 into blocks; process it as one large block instead."
   (interactive "P")
   (fstar-subp-start)
-  (cond
-   ((fstar-subp--in-tracked-region-p)
-    (fstar-subp-retract-until (point)))
-   ((consp arg)
-    (fstar-subp-enqueue-until (point)))
-   (t
-    (fstar-subp-advance-until (point)))))
+  (fstar--widened
+    (cond
+     ((fstar-subp--in-tracked-region-p)
+      (fstar-subp-retract-until (point)))
+     ((consp arg)
+      (fstar-subp-enqueue-until (point)))
+     (t
+      (fstar-subp-advance-until (point))))))
 
 (defun fstar-subp-advance-or-retract-to-point-lax (&optional arg)
   "Like `fstar-subp-advance-or-retract-to-point' with ARG, in lax mode."
@@ -2525,7 +2558,7 @@ into blocks; process it as one large block instead."
 Pass ARG to `fstar-subp-advance-or-retract-to-point'."
   (interactive "P")
   (let ((fstar-subp--lax t))
-    (save-excursion
+    (fstar--widened-excursion
       (goto-char (point-max))
       (fstar-subp-advance-or-retract-to-point arg))))
 
@@ -2566,15 +2599,16 @@ Pass ARG to `fstar-subp-advance-or-retract-to-point'."
 
 (defun fstar-subp--start-syntax-check (_checker callback)
   "Start a light syntax check; pass results to CALLBACK."
-  (if (fstar-subp--can-run-flycheck)
-      (let ((beg (fstar-subp--untracked-beginning-position))
-            (end (fstar-subp--find-point-to-process fstar-subp-flycheck-lookahead)))
-        (if (and (numberp end) (< beg end))
-            (fstar-subp-peek-region
-             beg end 'lax ;; FIXME make configurable
-             (apply-partially #'fstar-subp--flycheck-continuation callback))
-          (funcall callback 'finished nil)))
-    (funcall callback 'interrupted nil)))
+  (fstar--widened
+    (if (fstar-subp--can-run-flycheck)
+        (let ((beg (fstar-subp--untracked-beginning-position))
+              (end (fstar-subp--find-point-to-process fstar-subp-flycheck-lookahead)))
+          (if (and (numberp end) (< beg end))
+              (fstar-subp-peek-region
+               beg end 'lax ;; FIXME make configurable
+               (apply-partially #'fstar-subp--flycheck-continuation callback))
+            (funcall callback 'finished nil)))
+      (funcall callback 'interrupted nil))))
 
 (flycheck-define-generic-checker 'fstar-interactive
   "Flycheck checker for F*'s interactive mode.
