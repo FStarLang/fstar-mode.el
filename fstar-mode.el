@@ -483,8 +483,10 @@ enable all experimental features."
   (let* ((version-string (fstar--query-vernum executable)))
     (if (string-match "^F\\* \\([- .[:alnum:]]+\\)" version-string)
         (setq fstar--vernum (match-string 1 version-string))
-      (message "F*: Can't parse version number from %S; assuming %s"
-               version-string fstar-assumed-vernum)
+      (let ((print-escape-newlines t))
+        (message "F*: Can't parse version number from %S; assuming %s (\
+don't worry about this if you're running an F#-based F* build)."
+                 version-string fstar-assumed-vernum))
       (setq fstar--vernum "unknown")))
   (let ((vernum (if (equal fstar--vernum "unknown") fstar-assumed-vernum fstar--vernum)))
     (pcase-dolist (`(,feature . ,min-version) fstar--features-min-version-alist)
