@@ -2470,13 +2470,14 @@ Report an error if the region is empty."
         (fstar-subp-set-status overlay 'pending)
         (fstar-subp--set-queue-timer)))))
 
-(defun fstar-subp-advance-next ()
-  "Process next block."
-  (interactive)
+(defun fstar-subp-advance-next (&optional lax)
+  "Process next block, possibly (with prefix arg) in LAX mode."
+  (interactive "P")
   (fstar-subp-start)
   (fstar--widened
     (-if-let* ((target (fstar-subp--find-point-to-process 1)))
-        (fstar-subp-enqueue-until (goto-char target))
+        (let ((fstar-subp--lax lax))
+          (fstar-subp-enqueue-until (goto-char target)))
       (user-error "Cannot find a full block to process"))))
 
 (defun fstar-subp-pop-overlay (overlay)
