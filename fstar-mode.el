@@ -1030,6 +1030,7 @@ leads to the binder's start."
     (syntax-propertize-rules
      ("//" (0 (let* ((pt (match-beginning 0))
                      (state (fstar--syntax-ppss pt)))
+                ;; 3: string; 4: comment
                 (unless (or (nth 3 state) (nth 4 state))
                   (put-text-property pt (+ pt 1) 'syntax-table opener-1)
                   (put-text-property (+ pt 1) (+ pt 2) 'syntax-table opener-2)
