@@ -2769,7 +2769,8 @@ function can also handle results of position-less lookup queries."
 (defun fstar--eldoc-continuation (continuation info)
   "Pass highlighted type information from INFO to CONTINUATION."
   (when info
-    (funcall continuation (fstar-lookup-result-sig info "\\[fstar-doc]"))))
+    (funcall continuation
+             (fstar--unwrap-paragraphs (fstar-lookup-result-sig info "\\[fstar-doc]")))))
 
 (defun fstar--eldoc-function ()
   "Compute an eldoc string for current point.
