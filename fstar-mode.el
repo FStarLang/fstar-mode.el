@@ -3578,7 +3578,7 @@ TIMER is the timer that caused this event to fire."
   "Check if PATH exists and is executable.
 PROG-NAME and VAR-NAME are used in error messages."
   (unless (and path (file-exists-p path))
-    (user-error "%s (“%s”) not found%s" prog-name path var-name
+    (user-error "%s (“%s”) not found%s" prog-name path
                 (if var-name (format "; please adjust `%s'" var-name) "")))
   (unless (file-executable-p path)
     (user-error "%s (“%s”) not executable%s" prog-name path
