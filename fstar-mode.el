@@ -2533,7 +2533,11 @@ Report an error if the region is empty and NO-ERROR is nil."
   (fstar--widened-excursion
     (let ((found nil))
       (fstar-subp--untracked-beginning)
-      (while (and (fstar-subp--next-point-to-process) (<= (point) pos))
+      (while (and (not (eobp)) ;; Don't loop at eob
+                  (fstar-subp--next-point-to-process)
+                  (<= (point) pos))
+        ;; ⚠ This fails when there's nothing left but blanks to process.
+        ;; (which in fact makes the (not (eobp)) check above redundant.)
         (fstar-subp-enqueue-until (point))
         (setq found t))
       (fstar-subp-enqueue-until pos found))))
