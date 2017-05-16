@@ -388,17 +388,17 @@ the point."
 
 (defmacro fstar--widened (&rest body)
   "Run BODY widened."
-  (declare (indent 0))
+  (declare (indent 0) (debug t))
   `(save-restriction (widen) ,@body))
 
 (defmacro fstar--widened-excursion (&rest body)
   "Run BODY widened in a `save-excursion' block."
-  (declare (indent 0))
+  (declare (indent 0) (debug t))
   `(save-excursion (fstar--widened ,@body)))
 
 (defmacro fstar--prog-widened-excursion (&rest body)
   "Run BODY widened in a `save-excursion' block."
-  (declare (indent 0))
+  (declare (indent 0) (debug t))
   `(save-excursion (save-restriction (prog-widen) ,@body)))
 
 ;;; Debugging
