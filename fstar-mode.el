@@ -290,7 +290,7 @@ Please submit the following stack-trace to the fstar-mode bug tracker:
   (when (fboundp 'xref-push-marker-stack)
     (xref-push-marker-stack)))
 
-(defun fstar--navigate-to (fname line col display-action)
+(defun fstar--navigate-to (fname line col &optional display-action)
   "Navigate to LINE, COL of FNAME.
 DISPLAY-ACTION determines where the resulting buffer is
 shown (nil for same window, `window' for a new window, and
@@ -311,8 +311,23 @@ shown (nil for same window, `window' for a new window, and
 
 (defun fstar--visit-link-target (marker)
   "Jump to file indicated by entry at MARKER."
-  (find-file (get-text-property (marker-position marker)
-                                'fstar--target (marker-buffer marker))))
+  (let* ((pos (marker-position marker))
+         (buf (marker-buffer marker))
+         (target (get-text-property pos 'fstar--target buf)))
+    (cond
+     ((stringp target)
+      (find-file target))
+     ((fstar-location-p target)
+      (fstar--navigate-to (fstar-location-filename target)
+                     (fstar-location-line-from target)
+                     (fstar-location-col-from target))))))
+
+(defun fstar--insert-link (label target face)
+  "Insert a link to TARGET with LABEL and FACE.
+TARGET is either a string or a location."
+  (insert-text-button label 'fstar--target target
+                      'face face 'follow-link t
+                      'action 'fstar--visit-link-target))
 
 (defun fstar--lispify-null (x)
   "Return X, or nil if X is `:json-null'."
@@ -2821,11 +2836,12 @@ asynchronously after the fact)."
          (type (fstar-lookup-result-type info))
          (def (fstar-lookup-result-def info))
          (name (fstar-lookup-result-name info))
-         (def-loc (fstar-lookup-result-def-loc-str info))
-         (title (fstar--propertize-title name))
-         (subtitle (propertize def-loc 'face '(:height 0.9))))
+         (def-loc (fstar-lookup-result-def-loc info))
+         (def-loc-str (fstar-lookup-result-def-loc-str info))
+         (title (fstar--propertize-title name)))
     (save-excursion
-      (insert title "\n" subtitle)
+      (insert title "\n")
+      (fstar--insert-link def-loc-str def-loc '(:height 0.9 :inherit link))
       (fstar--doc-buffer-populate-1 "Type"
         (and type (fstar-highlight-string type)))
       (fstar--doc-buffer-populate-1 "Definition"
@@ -3159,9 +3175,7 @@ DISP should be nil (display in same window) or
     (insert (fstar--propertize-title title) "\n\n"))
   (dolist (fname deps)
     (insert "  ")
-    (insert-text-button fname 'fstar--target fname
-                        'face 'default 'follow-link t
-                        'action 'fstar--visit-link-target)
+    (fstar--insert-link fname fname 'default)
     (insert "\n")))
 
 (defun fstar-subp--visit-dependency-continuation (source-buf status response)
