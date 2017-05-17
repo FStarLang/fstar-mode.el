@@ -143,21 +143,32 @@ F*-mode is compatible with Emacs' Tramp.  To use F*-mode over tramp:
 
 ## Troubleshooting
 
+### Performance issues
+
+If Emacs gets very sluggish when you open an F* file, try turning off prettification with `M-x prettify-symbols-mode`.  If that works, you're seeing Emacs bug 21022.  Emacs 26 will include a fix; in Emacs 25, you should be able to work around it by following the font configuration instructions below.
+
 ### Missing characters
 
-Boxes instead of math symbols are most likely due to missing fonts. DejaVu Sans Mono, [Symbola](http://shapecatcher.com/downloads/Symbola706.zip), FreeMono, STIX, Unifont, Segoe UI Symbol, Arial Unicode and Cambria Math are all good candidates. If Emacs doesn't pick up on the new fonts after a restart, the following snippet (add it to your .emacs) should help:
+Boxes instead of math symbols are most likely due to missing fonts. DejaVu Sans Mono, [Symbola](http://shapecatcher.com/downloads/Symbola706.zip), FreeMono, STIX, Unifont, Segoe UI Symbol, Arial Unicode and Cambria Math are all good candidates. If Emacs doesn't automatically use the new fonts after a restart, the following snippet (add it to your `.emacs`) should help (change `Symbola` and `DejaVu sans Mono` to the Unicode font you just downloaded and to your usual monospace font, respectively):
 
 ```elisp
-(set-fontset-font t 'unicode (font-spec :name "YOUR USUAL EMACS FONT") nil 'append)
+(set-fontset-font t 'unicode (font-spec :name "Symbola") nil 'prepend)
+(set-fontset-font t 'greek (font-spec :name "DejaVu sans Mono") nil 'prepend)
+```
+
+For Emacs < 25, you'll need the following instead:
+
+```elisp
+(set-fontset-font t 'unicode (font-spec :name "YOUR USUAL EMACS FONT") nil)
 (set-fontset-font t 'unicode (font-spec :name "SOME FONT WITH GOOD COVERAGE AS LISTED ABOVE") nil 'append)
 ```
 
 ### Fonts for specific characters
 
-Use the following snippet to use `Symbola` for `∀` only:
+Use the following snippet to use `XITS Math` for `∀`:
 
 ```elisp
-(set-fontset-font t (cons ?∀ ?∀) "Symbola" nil 'prepend)
+(set-fontset-font t (cons ?∀ ?∀) "XITS Math" nil 'prepend)
 ```
 
 ### Cygwin
