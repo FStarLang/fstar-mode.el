@@ -3427,7 +3427,8 @@ COMMAND, ARG: see `company-backends'."
        (when (fstar-subp-available-p)
          (with-syntax-table fstar--fqn-at-point-syntax-table
            (-when-let* ((prefix (company-grab-symbol)))
-             (substring-no-properties prefix)))))
+             (when (fstar--in-code-p)
+               (substring-no-properties prefix))))))
       (`candidates
        (fstar-subp-company-candidates arg))
       (`meta
