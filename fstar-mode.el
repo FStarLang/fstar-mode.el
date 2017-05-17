@@ -232,7 +232,7 @@ Prompt should have one string placeholder to accommodate DEFAULT."
   "Like `syntax-ppss' at POS, but don't move point."
   (when (buffer-narrowed-p)
     (warn "`syntax-ppss' called in narrowed buffer.
-Please submit the following stack-trace to the fstar-mode bug tracker:
+Please submit the following stack trace to the fstar-mode bug tracker:
 %s" (with-output-to-string (backtrace))))
   (save-excursion (syntax-ppss pos)))
 
@@ -245,6 +245,24 @@ Please submit the following stack-trace to the fstar-mode bug tracker:
   (save-excursion
     (move-to-column column)
     (fstar-in-comment-p)))
+
+(defun fstar--delimited-by-p (delim pos limit)
+  "Check if POS is enclosed in DELIM before LIMIT."
+  (let ((found nil))
+    (while (and (setq pos (ignore-errors (scan-lists pos -1 1)))
+                (< limit pos)
+                (not (setq found (eq (char-after pos) delim)))))
+    found))
+
+(defun fstar--in-code-p (&optional pos)
+  "Check if POS is in a code fragment (possibly embedded in a comment)."
+  (let* ((sx (fstar--syntax-ppss (point)))
+         (in-comment (nth 4 sx)))
+    (or (not in-comment)
+        (save-excursion
+          (when pos (goto-char pos))
+          (let ((comment-beg (nth 8 sx)))
+            (fstar--delimited-by-p ?\[ (point) (max comment-beg (point-at-bol))))))))
 
 (defun fstar-subp--column-number-at-pos (pos)
   "Return column number at POS."
@@ -630,12 +648,32 @@ to ‘%S’ to use this checker." checker))
   :group 'fstar
   :type 'alist)
 
+(defun fstar--same-ish-syntax (other ref)
+  "Check if the syntax class of OTHER is similar to that of REF."
+  (memq (char-syntax (or other ?\s))
+        (if (memq (char-syntax ref) '(?w ?_))
+            '(?w ?_)
+          '(?. ?\\))))
+
+(defun fstar--prettify-symbols-predicate (start end &optional _match)
+  "Decide whether START..END should be prettified.
+Differs from `prettify-symbols-default-compose-p' inasmuch as it
+allows composition in code comments."
+  (and (not (fstar--same-ish-syntax (char-before start) (char-after start)))
+       (not (fstar--same-ish-syntax (char-after end) (char-before end)))
+       ;; Test both endpoints because `syntax-ppss' doesn't include comment
+       ;; openers in comments (i.e. the ‘*’ of ‘(*’ isn't in the comment).
+       (fstar--in-code-p start)
+       (fstar--in-code-p end)))
+
 (defun fstar-setup-prettify ()
   "Setup prettify-symbols for use with F*."
   (when (and (boundp 'prettify-symbols-alist)
              (fboundp 'prettify-symbols-mode))
     (setq-local prettify-symbols-alist (append fstar-symbols-alist
                                                prettify-symbols-alist))
+    (when (boundp 'prettify-symbols-compose-predicate)
+      (setq prettify-symbols-compose-predicate #'fstar--prettify-symbols-predicate))
     (prettify-symbols-mode)))
 
 ;;; Font-Lock
