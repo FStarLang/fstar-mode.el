@@ -754,17 +754,17 @@ allows composition in code comments."
   :group 'fstar)
 
 (defface fstar-subtype-face
-  '((t :italic t))
+  '((t :slant italic))
   "Face used to highlight subtyping clauses."
   :group 'fstar)
 
 (defface fstar-attribute-face
-  '((t :italic t))
+  '((t :slant italic))
   "Face used to highlight attributes."
   :group 'fstar)
 
 (defface fstar-decreases-face
-  '((t :italic t))
+  '((t :slant italic))
   "Face used to highlight decreases clauses."
   :group 'fstar)
 
@@ -910,9 +910,13 @@ leads to the binder's start."
                   (point)))
       (setq found (and (<= end bound)
                        (<= end (point-at-eol))
-                       (memq (char-syntax (char-before (match-beginning 0))) '(?w ?_)))))
+                       (let ((prev-char (char-before (match-beginning 0))))
+                         (or ;; “a: int{ … }” and “a: (int * int){ … }”
+                          (memq (char-syntax prev-char) '(?w ?_)) ;; a: int{ … }
+                          (eq prev-char ?\)))))))
     (when found
-      (set-match-data `(,(1+ (match-beginning 0)) ,(1- end))))
+      (set-match-data `(,(1+ (match-beginning 0)) ,(1- end)))
+      (goto-char end))
     found))
 
 (defconst fstar-syntax-additional
