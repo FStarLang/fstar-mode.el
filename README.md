@@ -108,6 +108,10 @@ Key     | Action
 
 Use <kbd>M-x customize-variable RET fstar-enabled-modules RET</kbd> to choose which parts of fstar-mode to enable.
 
+### Title comments
+
+F*-mode recognizes and highlights certain special comments as titles: `(***` and `(** *`; `(*+`, `(**+`, and `(** **`; and `(*!`, `(**!`, and `(** ***`.
+
 ### Real-time verification
 
 :sparkles: Customize the variable `fstar-flycheck-checker` to pick your favorite style of real-time verification (full-buffer verification or lightweight typechecking).  F*-mode's real-time checking uses `flycheck-mode` under the hood: try `M-x customize-group flycheck` to tweak Flycheck further.
