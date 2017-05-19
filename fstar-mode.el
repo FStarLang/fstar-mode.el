@@ -1106,10 +1106,13 @@ leads to the binder's start."
            (save-excursion
              (goto-char comment-start-pos)
              (cond
-              ((looking-at "(\\*\\*\\*[ \t\n]") '(:inherit font-lock-doc-face :height 2.5))
-              ((looking-at "(\\*\\*?\\+[ \t\n]") '(:inherit font-lock-doc-face :height 1.8))
-              ((looking-at "(\\*\\*?\\![ \t\n]") '(:inherit font-lock-doc-face :height 1.5))
-              ((looking-at "(\\*\\*[ \t\n]")  font-lock-doc-face)
+              ((looking-at-p "([*]\\([*][*]\\|[*] ?[*]\\)[[:space:]\n]")
+               '(:inherit font-lock-doc-face :height 2.5))
+              ((looking-at-p "([*]\\([*]?[+]\\|[*] ?[*][*]\\)[[:space:]\n]")
+               '(:inherit font-lock-doc-face :height 1.8))
+              ((looking-at-p "([*]\\([*]?[!]\\|[*] ?[*][*][*]\\)[[:space:]\n]")
+               '(:inherit font-lock-doc-face :height 1.5))
+              ((looking-at-p "([*][*]") font-lock-doc-face)
               (t font-lock-comment-face)))))))
 
 (defun fstar-setup-comments ()
