@@ -3917,36 +3917,41 @@ Function is public to make it easier to debug `fstar-subp-prover-args'."
 
 ;;; Main mode
 
+(defun fstar-teardown ()
+  "Run all teardown functions."
+  (fstar-run-module-functions 'teardown))
+
 (defun fstar-setup-hooks ()
   "Setup hooks required by F*-mode."
   (add-hook 'before-revert-hook #'fstar-subp-kill nil t)
-  (add-hook 'change-major-mode-hook #'fstar-mode-unload-function nil t)
-  (add-hook 'before-revert-hook #'fstar-mode-unload-function nil t)
-  (add-hook 'kill-buffer-hook #'fstar-mode-unload-function nil t))
+  (add-hook 'change-major-mode-hook #'fstar-teardown nil t)
+  (add-hook 'before-revert-hook #'fstar-teardown nil t)
+  (add-hook 'kill-buffer-hook #'fstar-teardown nil t))
 
 (defun fstar-teardown-hooks ()
   "Remove hooks required by F*-mode."
   (remove-hook 'before-revert-hook #'fstar-subp-kill t)
-  (remove-hook 'change-major-mode-hook #'fstar-mode-unload-function t)
-  (remove-hook 'before-revert-hook #'fstar-mode-unload-function t)
-  (remove-hook 'kill-buffer-hook #'fstar-mode-unload-function t))
+  (remove-hook 'change-major-mode-hook #'fstar-teardown t)
+  (remove-hook 'before-revert-hook #'fstar-teardown t)
+  (remove-hook 'kill-buffer-hook #'fstar-teardown t))
 
-(defun fstar-enable-disable (enable)
-  "ENABLE or disable F* mode components."
+(defun fstar-run-module-functions (kind)
+  "Enable or disable F* mode components.
+KIND is `setup', `teardown', or `unload'."
   (dolist (module (cons 'hooks fstar-enabled-modules))
-    (let* ((prefix (if enable "fstar-setup-" "fstar-teardown-"))
-           (fsymb  (intern (concat prefix (symbol-name module)))))
+    (let* ((fsymb (intern (format "fstar-%S-%S" kind module))))
       (when (fboundp fsymb)
         (funcall fsymb)))))
 
 ;;;###autoload
 (define-derived-mode fstar-mode prog-mode "F✪"
   :syntax-table fstar-syntax-table
-  (fstar-enable-disable t))
+  (fstar-run-module-functions 'setup))
 
 (defun fstar-mode-unload-function ()
   "Unload F* mode components."
-  (fstar-enable-disable nil))
+  (fstar-run-module-functions 'teardown)
+  (fstar-run-module-functions 'unload))
 
 ;;;###autoload
 (add-to-list 'auto-mode-alist '("\\.fsti?\\'" . fstar-mode))
