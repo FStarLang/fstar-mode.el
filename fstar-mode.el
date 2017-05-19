@@ -52,6 +52,7 @@
 (require 'tramp)
 (require 'tramp-sh)
 (require 'crm)
+(require 'notifications)
 ;; replace.el doesn't `provide' in Emacs < 26
 (ignore-errors (require 'replace))
 
@@ -133,12 +134,13 @@ returning a string (the full path to the SMT solver)."
     (company          . "Completion with company-mode.")
     (company-defaults . "Opinionated company-mode configuration.")
     (spinner          . "Blink the modeline while F* is busy.")
+    (notifications    . "Show a notification when a proof completes.")
     (overlay-legend   . "Show a legend in the modeline when hovering an F* overlay."))
   "Available components of F*-mode.")
 
 (defcustom fstar-enabled-modules
   '(font-lock prettify indentation comments flycheck interactive
-              eldoc company company-defaults spinner overlay-legend)
+              eldoc company company-defaults spinner notifications overlay-legend)
   "Which F*-mode components to load."
   :group 'fstar
   :type `(set ,@(cl-loop for (mod . desc) in fstar-known-modules
@@ -540,7 +542,7 @@ enable all experimental features."
       (let ((print-escape-newlines t))
         (message "F*: Can't parse version number from %S; assuming %s (\
 don't worry about this if you're running an F#-based F* build)."
-                 version-string fstar-assumed-vernum))
+         version-string fstar-assumed-vernum))
       (setq fstar--vernum "unknown")))
   (let ((vernum (if (equal fstar--vernum "unknown") fstar-assumed-vernum fstar--vernum)))
     (pcase-dolist (`(,feature . ,min-version) fstar--features-min-version-alist)
@@ -1973,6 +1975,13 @@ Recall that the legacy F* protocol doesn't ack pops."
       (fstar-subp--query (make-fstar-subp-query :query "pop" :args nil) #'ignore)
     (fstar-subp--query fstar-subp-legacy--cancel nil)))
 
+(defvar fstar-subp-overlay-processed-hook nil
+  "Hook run after processing an overlay.
+An overlay is “processed” once the corresponding verification
+task has completed.  This hook is called with the same arguments
+as `fstar-subp--overlay-continuation', after highlighting
+potential errors.")
+
 (defun fstar-subp--overlay-continuation (overlay status response)
   "Handle the results (STATUS and RESPONSE) of processing OVERLAY."
   (unless (eq status 'interrupted)
@@ -1982,7 +1991,8 @@ Recall that the legacy F* protocol doesn't ack pops."
       (fstar-subp-remove-unprocessed)
       ;; Legacy protocol requires a pop after failed pushes
       (unless (fstar--has-feature 'json-subp)
-        (fstar-subp--pop)))))
+        (fstar-subp--pop))))
+  (run-hook-with-args 'fstar-subp-overlay-processed-hook overlay status response))
 
 (cl-defstruct fstar-location
   filename line-from line-to col-from col-to)
@@ -3614,6 +3624,49 @@ TIMER is the timer that caused this event to fire."
 (defun fstar-teardown-spinner ()
   "Disable dynamic F* icon."
   (fstar--spin-cancel))
+
+;;; ;; ;; Notifications
+
+(defvar fstar--emacs-has-focus t
+  "Boolean indicating whether Emacs is currently has focus.
+Notifications are only displayed if it doesn't.")
+
+(defun fstar--notify-overlay-processed (_overlay status _response)
+  "Possibly show a notification about STATUS."
+  (unless (or fstar--emacs-has-focus (fstar-subp-tracking-overlays 'pending))
+    (notifications-notify
+     :urgency 'normal
+     :title "Prover ready!"
+     :app-icon (expand-file-name "etc/fstar.png" fstar--directory)
+     :body (pcase status
+             (`interrupted "Verification interrupted")
+             (`success "Verification completed successfully")
+             (`failure "Verification failed")))))
+
+(defun fstar--notify-focus-in ()
+  "Handle a focus-in event."
+  (fstar-log 'info "Focused in.")
+  (setq fstar--emacs-has-focus t))
+
+(defun fstar--notify-focus-out ()
+  "Handle a focus-out event."
+  (fstar-log 'info "Focused out.")
+  (setq fstar--emacs-has-focus nil))
+
+(defun fstar-setup-notifications ()
+  "Enable proof completion notifications."
+  (add-hook 'focus-in-hook #'fstar--notify-focus-in)
+  (add-hook 'focus-out-hook #'fstar--notify-focus-out)
+  (add-hook 'fstar-subp-overlay-processed-hook #'fstar--notify-overlay-processed nil t))
+
+(defun fstar-teardown-notifications ()
+  "Disable proof completion notifications."
+  (remove-hook 'fstar-subp-overlay-processed-hook #'fstar--notify-overlay-processed t))
+
+(defun fstar-unload-notifications ()
+  "Remove leftover hooks from proof completion notifications."
+  (remove-hook 'focus-in-hook #'fstar--notify-focus-in)
+  (remove-hook 'focus-out-hook #'fstar--notify-focus-out))
 
 ;;; ;; Starting the F* subprocess
 
