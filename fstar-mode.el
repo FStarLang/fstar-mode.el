@@ -948,6 +948,8 @@ leads to the binder's start."
       (,(concat "\\_<\\(val\\) +\\(" id "\\) *:")
        (1 'fstar-structure-face)
        (2 'font-lock-function-name-face))
+      (,(fstar--fl-conditional-matcher fstar-syntax-block-header-re #'fstar--in-code-p)
+       (0 'fstar-structure-face prepend))
       (fstar-find-id-with-type
        (1 'font-lock-variable-name-face append))
       (fstar-find-subtype-annotation
