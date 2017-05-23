@@ -2209,6 +2209,10 @@ reported."
     (overlay-put overlay 'face (fstar-subp-issue-face issue))
     (overlay-put overlay 'help-echo #'fstar-subp--help-echo)
     (overlay-put overlay 'modification-hooks '(fstar-subp-remove-issue-overlay))
+    (dolist (hook '(modification-hooks
+                    insert-in-front-hooks
+                    insert-behind-hooks))
+      (overlay-put overlay hook '(fstar-subp-remove-issue-overlay)))
     (when (fboundp 'pulse-momentary-highlight-region)
       (pulse-momentary-highlight-region from to))))
 
@@ -3475,7 +3479,6 @@ COMMAND, ARG: see `company-backends'."
   "Tear down Company support."
   (kill-local-variable 'company-backends)
   (company-mode -1))
-
 
 (defun fstar-setup-company-defaults ()
   "Set up Company support."
