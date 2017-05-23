@@ -1497,6 +1497,16 @@ never contains more than one entry (with ID nil).")
   "Face used to highlight warnings."
   :group 'fstar)
 
+(defface fstar-subp-overlay-bullet-error-face
+  '((t :foreground "red"))
+  "Face used to color bullets indicating error locations."
+  :group 'fstar)
+
+(defface fstar-subp-overlay-bullet-warning-face
+  '((t :foreground "orange"))
+  "Face used to color bullets indicating warning locations."
+  :group 'fstar)
+
 (defmacro fstar-subp-with-process-buffer (proc &rest body)
   "If PROC is non-nil, move to PROC's buffer to eval BODY."
   (declare (indent defun) (debug t))
@@ -2196,6 +2206,16 @@ Returns a pair of (CLEAN-MESSAGE . LOCATIONS)."
     (`error 'fstar-subp-overlay-error-face)
     (`warning 'fstar-subp-overlay-warning-face)))
 
+(defun fstar-subp-issue-bullet-face (issue)
+  "Compute a face for ISSUE's bullet point."
+  (pcase (fstar-issue-level issue)
+    (`error 'fstar-subp-overlay-bullet-error-face)
+    (`warning 'fstar-subp-overlay-bullet-warning-face)))
+
+(defconst fstar-subp--issue-bullet
+  (let* ((spacer (propertize " " 'display '(space :width 0.5))))
+    (concat spacer "⬩" spacer)))
+
 (defun fstar-subp-highlight-issue (issue parent)
   "Highlight ISSUE in current buffer.
 PARENT is the overlay whose processing caused this issue to be
@@ -2203,12 +2223,14 @@ reported."
   (-when-let* ((loc (car (fstar-issue-locs issue)))
                (from (fstar-location-beg-offset loc))
                (to (fstar-location-end-offset loc))
-               (overlay (make-overlay from (max to (1+ from)) (current-buffer) t nil)))
+               (overlay (make-overlay from (max to (1+ from)) (current-buffer) t nil))
+               ;; (bullet (propertize fstar-subp--issue-bullet 'face bullet-face))
+               (bullet-face (fstar-subp-issue-bullet-face issue)))
     (overlay-put overlay 'fstar-subp-issue issue)
     (overlay-put overlay 'fstar-subp-issue-parent-overlay parent)
     (overlay-put overlay 'face (fstar-subp-issue-face issue))
     (overlay-put overlay 'help-echo #'fstar-subp--help-echo)
-    (overlay-put overlay 'modification-hooks '(fstar-subp-remove-issue-overlay))
+    ;; (overlay-put overlay 'before-string bullet)
     (dolist (hook '(modification-hooks
                     insert-in-front-hooks
                     insert-behind-hooks))
