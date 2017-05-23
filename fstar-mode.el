@@ -520,7 +520,7 @@ FORMAT and ARGS are as in `message'."
 (defvar-local fstar--vernum nil
   "F*'s version number.")
 
-(defcustom fstar-assumed-vernum "0.9.4.2"
+(defcustom fstar-assumed-vernum "0.9.4.3"
   "Version number to assume if F* returns an unknown version number.
 This is useful when running an F#-compiled F*.  Use 42.0 to
 enable all experimental features."
