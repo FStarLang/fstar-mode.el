@@ -364,25 +364,26 @@ Return nil if the comment is incomplete.  Needs a call to
   (fstar--comment-beginning pos)
   (forward-comment 1))
 
-(defun fstar--search-predicated-1 (search-fn test-fn move-fn re)
+(defun fstar--search-predicated-1 (search-fn test-fn move-fn re bound)
   "Helper for `fstar--search-predicated'.
-SEARCH-FN, TEST-FN, MOVE-FN, RE: see `fstar--search-predicated'."
+SEARCH-FN, TEST-FN, MOVE-FN, RE, BOUND: see `fstar--search-predicated'."
   (catch 'found
-    (while (funcall search-fn re nil t)
+    (while (funcall search-fn re bound t)
       (when (funcall test-fn)
         (throw 'found (point)))
-      (unless (funcall move-fn)
-        (throw 'found nil)))
+      (when (= (match-beginning 0) (match-end 0))
+        (unless (funcall move-fn)
+          (throw 'found nil))))
     (throw 'found nil)))
 
-(defun fstar--search-predicated (search-fn test-fn move-fn re)
-  "Use SEARCH-FN to find matches of RE satisfying TEST-FN.
-MOVE-FN is used to move the point when TEST-FN returns nil.
-Return non-nil if RE can be found.  This function does not move
-the point."
+(defun fstar--search-predicated (search-fn test-fn move-fn re bound)
+  "Use SEARCH-FN to find matches of RE before BOUND satisfying TEST-FN.
+MOVE-FN is used to move the point when TEST-FN returns nil and
+the match is empty.  Return non-nil if RE can be found.  This
+function does not move the point."
   (save-excursion
     (comment-normalize-vars)
-    (and (fstar--search-predicated-1 search-fn test-fn move-fn re)
+    (and (fstar--search-predicated-1 search-fn test-fn move-fn re bound)
          ;; Ensure that the match is maximal when searching backwards for
          ;; e.g. \n+ in a buffer containing \n•\n
          (goto-char (match-beginning 0))
@@ -392,19 +393,27 @@ the point."
   "Move point forward and return a boolean indicating success."
   (unless (eobp) (forward-char) t))
 
-(defun fstar--search-predicated-forward (test-fn re)
-  "Search forward for matches of RE satisfying TEST-FN."
-  (fstar--search-predicated #'re-search-forward test-fn
-                       #'fstar--adjust-point-forward re))
+(defun fstar--search-predicated-forward (test-fn needle &optional bound)
+  "Search forward for matches of NEEDLE before BOUND satisfying TEST-FN."
+  (when (fstar--search-predicated #'search-forward test-fn
+                             #'fstar--adjust-point-forward needle bound)
+    (goto-char (match-end 0))))
+
+(defun fstar--re-search-predicated-forward (test-fn re &optional bound)
+  "Search forward for matches of RE before BOUND satisfying TEST-FN."
+  (when (fstar--search-predicated #'re-search-forward test-fn
+                             #'fstar--adjust-point-forward re bound)
+    (goto-char (match-end 0))))
 
 (defun fstar--adjust-point-backward ()
   "Move point backward and return a boolean indicating success."
   (unless (bobp) (backward-char) t))
 
-(defun fstar--search-predicated-backward (test-fn re)
-  "Search backwards for matches of RE satisfying TEST-FN."
-  (fstar--search-predicated #'re-search-backward test-fn
-                       #'fstar--adjust-point-backward re))
+(defun fstar--re-search-predicated-backward (test-fn re &optional bound)
+  "Search backwards for matches of RE before BOUND satisfying TEST-FN."
+  (when (fstar--search-predicated #'re-search-backward test-fn
+                             #'fstar--adjust-point-backward re bound)
+    (goto-char (match-beginning 0))))
 
 (defmacro fstar--widened (&rest body)
   "Run BODY widened."
@@ -2451,7 +2460,7 @@ When point is at beginning of block, go to previous block."
           (unless (eq (point) (point-at-bol))
             (goto-char (point-at-eol)))
           ;; Jump to previous block separator
-          (fstar--search-predicated-backward
+          (fstar--re-search-predicated-backward
            #'fstar-subp--block-start-p fstar-subp-block-sep))
     (goto-char (match-beginning 1))))
 
@@ -2465,7 +2474,7 @@ When point is at beginning of block, go to previous block."
           ;; Ensure progress
           (when (bobp) (forward-char))
           ;; Jump to next block separator
-          (fstar--search-predicated-forward
+          (fstar--re-search-predicated-forward
            #'fstar-subp--block-start-p fstar-subp-block-sep))
     (goto-char (match-beginning 1))))
 
@@ -2476,7 +2485,7 @@ When point is at beginning of block, go to previous block."
           ;; Find appropriate starting point
           (goto-char (point-at-eol))
           ;; Jump to next block separator
-          (fstar--search-predicated-forward
+          (fstar--re-search-predicated-forward
            #'fstar-subp--block-end-p fstar-subp-block-sep))
     (goto-char (match-beginning 1))))
 
