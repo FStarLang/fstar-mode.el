@@ -885,13 +885,8 @@ leads to the binder's start."
 
 (defun fstar--search-forward-in-sexp (needle bound)
   "Find next NEEDLE at current level before BOUND or end of current sexp."
-  (let ((found t) (rejected t)
-        (fstar--font-lock-anchor (fstar--beginning-of-sexp (point))))
-    (save-excursion
-      (while (and found rejected)
-        (setq found (search-forward needle bound t))
-        (setq rejected (and found (not (fstar--directly-under-anchor))))))
-    (when found (goto-char found))))
+  (let ((fstar--font-lock-anchor (fstar--beginning-of-sexp (point))))
+    (fstar--search-predicated-forward #'fstar--directly-under-anchor needle bound)))
 
 (defun fstar--find-head-and-args (head tail bound)
   "Find HEAD .. TAIL expression between point and BOUND."
