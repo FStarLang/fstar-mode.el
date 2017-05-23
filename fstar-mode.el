@@ -701,19 +701,16 @@ allows composition in code comments."
 (defconst fstar-syntax-headers
   `(,@fstar-syntax-preprocessor-directives ,@fstar-syntax-structural-headers))
 
-(defconst fstar-syntax-structural-qualifiers
+(defconst fstar-syntax-qualifiers
   '("new" "abstract" "logic" "assume" "visible"
     "unfold" "irreducible" "inline_for_extraction" "noeq" "noextract"
     "private" "opaque" "total" "default" "reifiable" "reflectable"))
-
-(defconst fstar-syntax-qualifiers
-  `("assume" ,@fstar-syntax-structural-qualifiers))
 
 (defconst fstar-syntax-block-header-re
   (format "^\\(?:%s \\)*%s "
           (regexp-opt fstar-syntax-qualifiers)
           (regexp-opt fstar-syntax-headers))
-  "Regexp matching headers to display in the outline buffer.")
+  "Regexp matching block headers.")
 
 (defconst fstar-syntax-block-start-re
   (format "^\\(?:%s \\)*%s "
@@ -724,7 +721,7 @@ allows composition in code comments."
 (defconst fstar-syntax-structure
   (regexp-opt `("begin" "end" "in"
                 ,@fstar-syntax-structural-headers
-                ,@fstar-syntax-structural-qualifiers)
+                ,@fstar-syntax-qualifiers)
               'symbols))
 
 (defconst fstar-syntax-preprocessor
@@ -925,17 +922,21 @@ leads to the binder's start."
       (goto-char end))
     found))
 
+(defmacro fstar--fl-conditional-matcher (re cond)
+  "Create a matcher for RE predicated on COND."
+  `(apply-partially #'fstar--re-search-predicated-forward ,cond ,re))
+
 (defconst fstar-syntax-additional
   (let ((id fstar-syntax-id))
     `((,fstar-syntax-cs
        (0 'font-lock-type-face))
       (,fstar-syntax-universe
        (1 'fstar-universe-face))
-      ("`.+?`"
+      (,(fstar--fl-conditional-matcher "`.+?`" #'fstar--in-code-p)
        (0 'fstar-operator-face append))
       ("^[[:space:]]*\\(@summary\\)\\_>"
        (1 'font-lock-constant-face prepend))
-      (,(concat "{\\(:" id "\\) *\\([^}]*\\)}")
+      (,(fstar--fl-conditional-matcher (concat "{\\(:" id "\\) *\\([^}]*\\)}") #'fstar--in-code-p)
        (1 'font-lock-builtin-face append)
        (2 'fstar-attribute-face append))
       (,(concat "\\_<\\(let\\(?: +rec\\)?\\|and\\)\\_>\\(\\(?: +" id "\\( *, *" id "\\)*\\)?\\)")
@@ -951,7 +952,7 @@ leads to the binder's start."
        (1 'font-lock-variable-name-face append))
       (fstar-find-subtype-annotation
        (0 'fstar-subtype-face append))
-      ("%\\[\\([^]]+\\)\\]"
+      (,(fstar--fl-conditional-matcher "%\\[\\([^]]+\\)\\]" #'fstar--in-code-p)
        (1 'fstar-decreases-face append))
       (fstar--find-quantifier-and-args
        (1 'font-lock-keyword-face)
@@ -959,13 +960,13 @@ leads to the binder's start."
       (fstar--find-fun-and-args
        (1 'font-lock-keyword-face)
        (fstar--find-formal (fstar-subexpr-pre-matcher 1) nil (1 'font-lock-variable-name-face append)))
-      (,fstar-syntax-ambiguous
+      (,(fstar--fl-conditional-matcher fstar-syntax-ambiguous #'fstar--in-code-p)
        (0 'fstar-ambiguous-face append))
       ("!"
        (0 'fstar-dereference-face))
-      ("[{}]"
+      (,(fstar--fl-conditional-matcher "[{}]" #'fstar--in-code-p)
        (0 'fstar-braces-face append))
-      (,fstar-syntax-id-with-subscript
+      (,(fstar--fl-conditional-matcher fstar-syntax-id-with-subscript #'fstar--in-code-p)
        (1 '(face fstar-subscript-face display (raise -0.3)) append)))))
 
 (defconst fstar--scratchpad-name " *%s-scratchpad*")
