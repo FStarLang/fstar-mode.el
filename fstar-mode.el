@@ -3671,8 +3671,9 @@ Notifications are only displayed if it doesn't.")
   (unless (or fstar--emacs-has-focus (fstar-subp-tracking-overlays 'pending))
     (notifications-notify
      :urgency 'normal
-     :title "Prover ready!"
      :app-icon (expand-file-name "etc/fstar.png" fstar--directory)
+     :title (let ((fname (file-name-nondirectory (buffer-file-name))))
+              (format "Prover ready (%s)" fname))
      :body (pcase status
              (`interrupted "Verification interrupted")
              (`success "Verification completed successfully")
