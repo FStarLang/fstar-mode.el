@@ -692,7 +692,7 @@ allows composition in code comments."
 (defconst fstar-syntax-structural-headers
   '("open" "module" "include"
     "let" "let rec" "val" "and"
-    "effect" "new_effect" "sub_effect" "new_effect_for_free"
+    "exception" "effect" "new_effect" "sub_effect" "new_effect_for_free"
     "kind" "type"))
 
 (defconst fstar-syntax-preprocessor-directives
