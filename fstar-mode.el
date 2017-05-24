@@ -2229,6 +2229,7 @@ reported."
     (overlay-put overlay 'fstar-subp-issue issue)
     (overlay-put overlay 'fstar-subp-issue-parent-overlay parent)
     (overlay-put overlay 'face (fstar-subp-issue-face issue))
+    (overlay-put overlay 'priority 1) ;; Take precedence over ispell
     (overlay-put overlay 'help-echo #'fstar-subp--help-echo)
     ;; (overlay-put overlay 'before-string bullet)
     (dolist (hook '(modification-hooks
