@@ -3682,12 +3682,10 @@ Notifications are only displayed if it doesn't.")
 
 (defun fstar--notify-focus-in ()
   "Handle a focus-in event."
-  (fstar-log 'info "Focused in.")
   (setq fstar--emacs-has-focus t))
 
 (defun fstar--notify-focus-out ()
   "Handle a focus-out event."
-  (fstar-log 'info "Focused out.")
   (setq fstar--emacs-has-focus nil))
 
 (defun fstar-setup-notifications ()
