@@ -232,10 +232,7 @@ Prompt should have one string placeholder to accommodate DEFAULT."
 
 (defun fstar--syntax-ppss (pos)
   "Like `syntax-ppss' at POS, but don't move point."
-  (when (buffer-narrowed-p)
-    (warn "`syntax-ppss' called in narrowed buffer.
-Please submit the following stack trace to the fstar-mode bug tracker:
-%s" (with-output-to-string (backtrace))))
+  ;; This can be called in a narrowed buffer by `blink-matching-open'.
   (save-excursion (syntax-ppss pos)))
 
 (defun fstar-in-comment-p (&optional pos)
