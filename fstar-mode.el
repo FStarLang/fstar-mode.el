@@ -802,13 +802,18 @@ allows composition in code comments."
   :group 'fstar)
 
 (defface fstar-literate-comment-face
-  '((t :inherit italic))
+  '((t :inherit default))
   "Face used for literate comments (///)."
   :group 'fstar)
 
-(defface fstar-literate-comment-gutter-face
+(defface fstar-literate-fringe-face
   '((t :inverse-video t :inherit font-lock-comment-face))
-  "Face used for the gutter next to literate comments (///)."
+  "Face used for the fringe next to literate comments (///)."
+  :group 'fstar)
+
+(defface fstar-literate-tty-gutter-face
+  '((((type tty)) :inherit fstar-literate-fringe-face))
+  "Face used for the gutter next to literate comments (///) on TTYs."
   :group 'fstar)
 
 (defconst fstar-comment-start-skip "\\(//+\\|(\\*+\\)[ \t]*")
@@ -932,12 +937,20 @@ leads to the binder's start."
   "Create a matcher for RE predicated on COND."
   `(apply-partially #'fstar--re-search-predicated-forward ,cond ,re))
 
+(define-fringe-bitmap 'fstar-literate-gutter-bitmap [0])
+(set-fringe-bitmap-face 'fstar-literate-gutter-bitmap 'fstar-literate-fringe-face)
+
 (defconst fstar-syntax-additional
   (let ((id fstar-syntax-id))
     `((,fstar-syntax-cs
        (0 'font-lock-type-face))
-      ("^\\(///\\)\\(?: \\|$\\)"
-       (1 '(face fstar-literate-comment-gutter-face display (space :width (1))) prepend))
+      ("^\\(/\\)\\(//\\)\\( \\|$\\)"
+       ;; Split /// because applying `left-fringe' + `space' to all of it gives
+       ;; it a red highlight on otherwise empty lines.  Use `invisible' over
+       ;; `cursor-intangible' because the latter is broken wrt deletion.
+       (1 '(face fstar-literate-tty-gutter-face display (space :width (1))) prepend)
+       (2 '(face nil invisible t display [(left-fringe fstar-literate-gutter-bitmap nil)]))
+       (3 '(face nil display (space :width (+ 0.5 (1)))))) ;; (+ … (1)) for TTYs
       (,fstar-syntax-universe
        (1 'fstar-universe-face))
       (,(fstar--fl-conditional-matcher "`.+?`" #'fstar--in-code-p)
