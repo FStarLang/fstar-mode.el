@@ -1425,23 +1425,11 @@ Interactively, offer titles of F* wiki pages."
 
 ;;; Literate F*
 
-(defconst fstar-literate--rst-proxy-name "*%s (reStructuredText view)*")
+;; FIXME undoing past translation yields wrong mode
 
-(defvar-local fstar-literate--rst-proxy-parent nil
-  "Parent buffer of current (RST) buffer.")
-
-(defun fstar-literate--buffer (parent &optional reset)
-  "Find or create RST buffer for PARENT.
-When RESET is non-nil, remove all contents of PARENT."
-  (let ((name (format fstar-literate--rst-proxy-name (buffer-name parent))))
-    (with-current-buffer (get-buffer-create name)
-      (when reset
-        (setq buffer-read-only nil)
-        (erase-buffer)
-        (rst-mode)
-        (fstar-literate-rst-mode)
-        (setq fstar-literate--rst-proxy-parent parent))
-      (current-buffer))))
+(defvar-local fstar-literate--fst-name nil)
+(put 'fstar-literate--fst-name 'permanent-local t)
+(defconst fstar-literate--rst-name-format "%s (reStructuredText view)")
 
 (defconst fstar-literate--point-marker
   "<<<\"P\"O\"I\"N\"T\">>>")
@@ -1462,60 +1450,59 @@ Return converted contents and adjusted value of point."
                           (buffer-string)))))
       (unless (eq exit-code 0)
         (error "Conversion error (%s):\n%s" exit-code output))
-      (cl-assert (string-match fstar-literate--point-marker output))
+      (fstar-assert (string-match fstar-literate--point-marker output))
       (cons (concat (substring-no-properties output 0 (match-beginning 0))
                     (substring-no-properties output (match-end 0)))
             (1+ (match-beginning 0))))))
 
-(defun fstar-literate--rst-proxy-sync ()
-  "Propagate changes to source F* buffer."
+(defun fstar-literate--toggle (flag setup-fn)
+  "Run converter with FLAG, fill buffer with output, and run SETUP-FN."
   (pcase-let* ((modified (buffer-modified-p))
-               (`(,fst . ,point) (fstar-literate--run-converter "--rst2fst")))
-    (with-current-buffer fstar-literate--rst-proxy-parent
+               (`(,rst . ,point)
+                (fstar--widened-excursion (fstar-literate--run-converter flag))))
+    (setq buffer-read-only nil)
+    (fstar--widened-excursion
       (erase-buffer)
-      (insert fst)
-      (goto-char point)
-      (set-buffer-modified-p modified))))
+      (insert rst))
+    (goto-char point)
+    (funcall setup-fn)
+    (set-buffer-modified-p modified)))
 
-(defun fstar-literate--rst-proxy-save ()
-  "Propagate changes to source F* buffer and save it."
-  (fstar--widened-excursion
-    (fstar-literate--rst-proxy-sync)
-    (with-current-buffer fstar-literate--rst-proxy-parent
-      (save-buffer))
-    t))
+(defun fstar-literate--rst-save ()
+  "Translate RST back to F* and save result.
+Current document must have a file name."
+  (let ((source (current-buffer)))
+    (with-temp-buffer
+      (insert-buffer-substring source)
+      (fstar-literate--toggle "--rst2fst" #'ignore)
+      (write-region (point-min) (point-max) (buffer-file-name source))))
+  (set-buffer-modified-p nil)
+  (set-visited-file-modtime)
+  t)
 
-(defvar fstar-literate-rst-mode-map
+(defvar fstar-literate--rst-mode-map
   (let ((map (make-sparse-keymap)))
     (define-key map (kbd "C-c C-S-a") #'fstar-literate-rst2fst)
     map))
 
-(define-derived-mode fstar-literate-rst-mode rst-mode "F✪-rst"
+(define-derived-mode fstar-literate--rst-mode rst-mode "F✪-rst"
   "Mode for RST buffers backed by an F* file.
 Press \\{fstar-literate-mode-map}\\[fstar-literate-toggle\\] to
 toggle between reStructuredText and F*."
-  (add-hook 'write-contents-functions #'fstar-literate--rst-proxy-save t t))
+  (add-hook 'write-contents-functions #'fstar-literate--rst-save t t))
 
 (defun fstar-literate-fst2rst ()
   "Toggle between F* and reStructuredText."
   (interactive)
-  (fstar--widened-excursion
-    (pcase-let* ((modified (buffer-modified-p))
-                 (`(,rst . ,point) (fstar-literate--run-converter "--fst2rst")))
-      (with-current-buffer (fstar-literate--buffer (current-buffer) t)
-        (insert rst)
-        (goto-char point)
-        (set-buffer-modified-p modified)
-        (pop-to-buffer-same-window (current-buffer))))))
+  (setq-local fstar-literate--fst-name (buffer-name))
+  (fstar-literate--toggle "--fst2rst" #'fstar-literate--rst-mode)
+  (rename-buffer (format fstar-literate--rst-name-format fstar-literate--fst-name)))
 
 (defun fstar-literate-rst2fst ()
   "Toggle between reStructuredText and F*."
   (interactive)
-  (fstar--widened-excursion
-    (let ((rst-buffer (current-buffer)))
-      (fstar-literate--rst-proxy-sync)
-      (pop-to-buffer-same-window fstar-literate--rst-proxy-parent)
-      (kill-buffer rst-buffer))))
+  (fstar-literate--toggle "--rst2fst" #'fstar-mode)
+  (rename-buffer fstar-literate--fst-name))
 
 ;;; Interactive proofs (fstar-subp)
 
