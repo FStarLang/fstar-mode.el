@@ -1768,6 +1768,14 @@ If PROC is nil, use the current buffer's `fstar-subp--process'."
   "Return t if current `fstar-subp--process' is live and idle."
   (and (fstar-subp-live-p) (= (hash-table-count fstar-subp--continuations) 0)))
 
+(defun fstar-subp--busy-with-overlays-p ()
+  "Return t if current `fstar-subp--process' is live and busy with overlays."
+  ;; LATER the performance of this part could be vastly improved by tracking
+  ;; busy overlays separately, possibly by scanning the current continuation
+  ;; table instead.  There are more places of the sort, though, which would
+  ;; benefit from keeping a separate deque of overlays.
+  (and (fstar-subp--busy-p) (fstar-subp-tracking-overlays 'busy)))
+
 (defun fstar-subp--ensure-available (error-fn &optional feature)
   "Raise an error with ERROR-FN if F* isn't available.
 Also raise an error if current subprocess doesn't meet version requirements for
@@ -2502,9 +2510,9 @@ beginning of the current overlay."
         (cond
          ;; Always allow modifications in comments
          ((fstar-in-comment-p) t)
-         ;; Allow modifications (after retracting) in pending overlays, and in
-         ;; processed overlays provided that F* isn't busy
-         ((or (not (fstar-subp--busy-p))
+         ;; Allow modifications (after retracting) in all overlays if F* isn't
+         ;; busy, and in pending overlays only otherwise
+         ((or (not (fstar-subp--busy-with-overlays-p))
               (fstar-subp-status-eq overlay 'pending))
           (fstar-subp-retract-until (overlay-start overlay)))
          ;; Disallow modifications in processed overlays when F* is busy
