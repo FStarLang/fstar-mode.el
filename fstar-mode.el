@@ -920,9 +920,9 @@ leads to the binder's start."
       (setq found (and (<= end bound)
                        (<= end (point-at-eol))
                        (let ((prev-char (char-before (match-beginning 0))))
-                         (or ;; “a: int{ … }” and “a: (int * int){ … }”
+                         (or
                           (memq (char-syntax prev-char) '(?w ?_)) ;; a: int{ … }
-                          (eq prev-char ?\)))))))
+                          (eq prev-char ?\))))))) ;; a: (int * int){ … }
     (when found
       (set-match-data `(,(1+ (match-beginning 0)) ,(1- end)))
       (goto-char end))
