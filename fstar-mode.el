@@ -806,6 +806,11 @@ allows composition in code comments."
   "Face used for backticked infix operators."
   :group 'fstar)
 
+(defface fstar-literate-comment-gutter-face
+  '((t :inverse-video t :inherit font-lock-comment-face))
+  "Face used for literate comments (///)."
+  :group 'fstar)
+
 (defconst fstar-comment-start-skip "\\(//+\\|(\\*+\\)[ \t]*")
 
 (defconst fstar-syntax-id "\\_<[#']?[a-z_]\\(?:\\sw\\|\\s_\\)*\\_>")
@@ -930,6 +935,8 @@ leads to the binder's start."
   (let ((id fstar-syntax-id))
     `((,fstar-syntax-cs
        (0 'font-lock-type-face))
+      ("^\\(///\\)\\(?: \\|$\\)"
+       (1 '(face fstar-literate-comment-gutter-face display (space :width (1))) prepend))
       (,fstar-syntax-universe
        (1 'fstar-universe-face))
       (,(fstar--fl-conditional-matcher "`.+?`" #'fstar--in-code-p)
