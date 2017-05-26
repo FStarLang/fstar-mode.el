@@ -689,7 +689,7 @@ allows composition in code comments."
 
 ;;; Font-Lock
 
-(defconst fstar-syntax-structural-headers
+(defconst fstar-syntax-headers
   '("open" "module" "include"
     "let" "let rec" "val" "and"
     "exception" "effect" "new_effect" "sub_effect" "new_effect_for_free"
@@ -697,9 +697,6 @@ allows composition in code comments."
 
 (defconst fstar-syntax-preprocessor-directives
   '("#set-options" "#reset-options"))
-
-(defconst fstar-syntax-headers
-  `(,@fstar-syntax-preprocessor-directives ,@fstar-syntax-structural-headers))
 
 (defconst fstar-syntax-qualifiers
   '("new" "abstract" "logic" "assume" "visible"
@@ -715,12 +712,13 @@ allows composition in code comments."
 (defconst fstar-syntax-block-start-re
   (format "^\\(?:%s \\)*%s "
           (regexp-opt fstar-syntax-qualifiers)
-          (regexp-opt (remove "and" fstar-syntax-headers)))
+          (regexp-opt (append (remove "and" fstar-syntax-headers)
+                              fstar-syntax-preprocessor-directives)))
   "Regexp matching starts of semantic blocks.")
 
 (defconst fstar-syntax-structure
   (regexp-opt `("begin" "end" "in"
-                ,@fstar-syntax-structural-headers
+                ,@fstar-syntax-headers
                 ,@fstar-syntax-qualifiers)
               'symbols))
 
@@ -732,7 +730,7 @@ allows composition in code comments."
                 "forall" "exists"
                 "assert" "assert_norm" "assume"
                 "fun" "function"
-                "try" "match" "with"
+                "try" "match" "when" "with"
                 "if" "then" "else"
                 "ALL" "All" "DIV" "Div" "EXN" "Ex" "Exn" "GHOST" "GTot" "Ghost"
                 "Lemma" "PURE" "Pure" "Tot" "ST" "STATE" "St"
