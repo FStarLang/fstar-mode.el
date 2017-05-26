@@ -1163,6 +1163,7 @@ leads to the binder's start."
     (define-key map (kbd "C-x 4 '") #'fstar-jump-to-related-error-other-window)
     (define-key map (kbd "C-x 5 '") #'fstar-jump-to-related-error-other-frame)
     (define-key map (kbd "C-c C-a") #'fstar-visit-interface-or-implementation)
+    (define-key map (kbd "C-c C-S-a") #'fstar-literate-fst2rst)
     ;; Completion
     (define-key map (kbd "C-RET") #'company-manual-begin)
     (define-key map (kbd "<C-return>") #'company-manual-begin)
@@ -1421,6 +1422,100 @@ Interactively, offer titles of F* wiki pages."
         (toggle-truncate-lines t)
         (use-local-map fstar--outline-map)
         (fstar--outline-cleanup outline-buffer-title)))))
+
+;;; Literate F*
+
+(defconst fstar-literate--rst-proxy-name "*%s (reStructuredText view)*")
+
+(defvar-local fstar-literate--rst-proxy-parent nil
+  "Parent buffer of current (RST) buffer.")
+
+(defun fstar-literate--buffer (parent &optional reset)
+  "Find or create RST buffer for PARENT.
+When RESET is non-nil, remove all contents of PARENT."
+  (let ((name (format fstar-literate--rst-proxy-name (buffer-name parent))))
+    (with-current-buffer (get-buffer-create name)
+      (when reset
+        (setq buffer-read-only nil)
+        (erase-buffer)
+        (rst-mode)
+        (fstar-literate-rst-mode)
+        (setq fstar-literate--rst-proxy-parent parent))
+      (current-buffer))))
+
+(defconst fstar-literate--point-marker
+  "<<<\"P\"O\"I\"N\"T\">>>")
+
+(defun fstar-literate--run-converter (&rest args)
+  "Run converter with ARGS on current buffer.
+Return converted contents and adjusted value of point."
+  (let* ((python (fstar-find-executable "python" "Python" nil 'local-only))
+         (converter (expand-file-name "etc/literatefstar.py" fstar--directory))
+         (input (concat (buffer-substring-no-properties (point-min) (point))
+                        fstar-literate--point-marker
+                        (buffer-substring-no-properties (point) (point-max)))))
+    (pcase-let* ((`(,exit-code . ,output)
+                  (with-temp-buffer
+                    (cons (apply #'call-process-region input nil python
+                                 nil (current-buffer) nil converter
+                                 "--marker" fstar-literate--point-marker args)
+                          (buffer-string)))))
+      (unless (eq exit-code 0)
+        (error "Conversion error (%s):\n%s" exit-code output))
+      (cl-assert (string-match fstar-literate--point-marker output))
+      (cons (concat (substring-no-properties output 0 (match-beginning 0))
+                    (substring-no-properties output (match-end 0)))
+            (1+ (match-beginning 0))))))
+
+(defun fstar-literate--rst-proxy-sync ()
+  "Propagate changes to source F* buffer."
+  (pcase-let* ((modified (buffer-modified-p))
+               (`(,fst . ,point) (fstar-literate--run-converter "--rst2fst")))
+    (with-current-buffer fstar-literate--rst-proxy-parent
+      (erase-buffer)
+      (insert fst)
+      (goto-char point)
+      (set-buffer-modified-p modified))))
+
+(defun fstar-literate--rst-proxy-save ()
+  "Propagate changes to source F* buffer and save it."
+  (fstar--widened-excursion
+    (fstar-literate--rst-proxy-sync)
+    (with-current-buffer fstar-literate--rst-proxy-parent
+      (save-buffer))
+    t))
+
+(defvar fstar-literate-rst-mode-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map (kbd "C-c C-S-a") #'fstar-literate-rst2fst)
+    map))
+
+(define-derived-mode fstar-literate-rst-mode rst-mode "F✪-rst"
+  "Mode for RST buffers backed by an F* file.
+Press \\{fstar-literate-mode-map}\\[fstar-literate-toggle\\] to
+toggle between reStructuredText and F*."
+  (add-hook 'write-contents-functions #'fstar-literate--rst-proxy-save t t))
+
+(defun fstar-literate-fst2rst ()
+  "Toggle between F* and reStructuredText."
+  (interactive)
+  (fstar--widened-excursion
+    (pcase-let* ((modified (buffer-modified-p))
+                 (`(,rst . ,point) (fstar-literate--run-converter "--fst2rst")))
+      (with-current-buffer (fstar-literate--buffer (current-buffer) t)
+        (insert rst)
+        (goto-char point)
+        (set-buffer-modified-p modified)
+        (pop-to-buffer-same-window (current-buffer))))))
+
+(defun fstar-literate-rst2fst ()
+  "Toggle between reStructuredText and F*."
+  (interactive)
+  (fstar--widened-excursion
+    (let ((rst-buffer (current-buffer)))
+      (fstar-literate--rst-proxy-sync)
+      (pop-to-buffer-same-window fstar-literate--rst-proxy-parent)
+      (kill-buffer rst-buffer))))
 
 ;;; Interactive proofs (fstar-subp)
 
@@ -3715,11 +3810,13 @@ PROG-NAME and VAR-NAME are used in error messages."
     (user-error "%s (“%s”) not executable%s" prog-name path
                 (if var-name (format "; please check `%s'" var-name) ""))))
 
-(defun fstar-find-executable (prog prog-name &optional var-name)
+(defun fstar-find-executable (prog prog-name &optional var-name local-only)
   "Compute the absolute path to PROG.
 Check that the binary exists and is executable; if not, raise an
-error referring to PROG as PROG-NAME and VAR-NAME."
-  (let* ((local (not (fstar--remote-p)))
+error referring to PROG as PROG-NAME and VAR-NAME.  This function
+finds a remote binary when the current buffer is a Tramp file,
+unless LOCAL-ONLY is set."
+  (let* ((local (or local-only (not (fstar--remote-p))))
          (abs (if local (executable-find prog) prog)))
     (if local
         (fstar--check-executable (or abs prog) prog-name var-name)
