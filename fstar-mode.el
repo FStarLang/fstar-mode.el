@@ -806,9 +806,14 @@ allows composition in code comments."
   "Face used for backticked infix operators."
   :group 'fstar)
 
+(defface fstar-literate-comment-face
+  '((t :inherit italic))
+  "Face used for literate comments (///)."
+  :group 'fstar)
+
 (defface fstar-literate-comment-gutter-face
   '((t :inverse-video t :inherit font-lock-comment-face))
-  "Face used for literate comments (///)."
+  "Face used for the gutter next to literate comments (///)."
   :group 'fstar)
 
 (defconst fstar-comment-start-skip "\\(//+\\|(\\*+\\)[ \t]*")
@@ -839,6 +844,7 @@ If EXTRA-CHECK is non-nil, it is used as an extra filter on matches."
     (while (and found rejected)
       (setq found (re-search-forward regexp bound t))
       (setq rejected (and found (or (eq (char-after) ?:) ; h :: t
+                                    (not (fstar--in-code-p))
                                     (save-excursion
                                       (goto-char (match-beginning 0))
                                       (skip-syntax-backward "-")
@@ -1120,14 +1126,15 @@ leads to the binder's start."
            (save-excursion
              (goto-char comment-start-pos)
              (cond
+              ((looking-at-p "///\\( \\|$\\)") 'fstar-literate-comment-face)
               ((looking-at-p "([*]\\([*][*]\\|[*] ?[*]\\)[[:space:]\n]")
                '(:inherit font-lock-doc-face :height 2.5))
               ((looking-at-p "([*]\\([*]?[+]\\|[*] ?[*][*]\\)[[:space:]\n]")
                '(:inherit font-lock-doc-face :height 1.8))
               ((looking-at-p "([*]\\([*]?[!]\\|[*] ?[*][*][*]\\)[[:space:]\n]")
                '(:inherit font-lock-doc-face :height 1.5))
-              ((looking-at-p "([*][*]") font-lock-doc-face)
-              (t font-lock-comment-face)))))))
+              ((looking-at-p "([*][*][^)]") 'font-lock-doc-face)
+              (t 'font-lock-comment-face)))))))
 
 (defun fstar-setup-comments ()
   "Set comment-related variables for F*."
