@@ -2786,8 +2786,8 @@ Pass ARG to `fstar-subp-advance-or-retract-to-point'."
 
 (defun fstar-subp--can-run-flycheck ()
   "Check whether it's a reasonable time to start a syntax check."
-  ;; FIXME check that there are no pending overlays ?
-  (fstar-subp-available-p))
+  (and (fstar-subp-available-p)
+       (null (fstar-subp-tracking-overlays 'pending))))
 
 (defun fstar-subp--make-flycheck-issue (issue)
   "Convert an F* ISSUE to a Flycheck issue."
