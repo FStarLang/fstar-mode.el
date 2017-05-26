@@ -1543,7 +1543,7 @@ toggle between reStructuredText and F*."
 (defvar-local fstar-subp--process nil
   "Interactive F* process running in the background.")
 
-(defvar-local fstar-subp--continuations (make-hash-table :test 'equal)
+(defvar-local fstar-subp--continuations nil
   "Indicates which continuation to run on next output from F* subprocess.
 This is a map from query ID to continuation.  In legacy mode, it
 never contains more than one entry (with ID nil).")
@@ -1983,8 +1983,9 @@ Table of continuations was %s" response id conts)))
 
 (defun fstar-subp--clear-continuations ()
   "Get rid of all pending continuations."
-  (maphash (lambda (_ cont) (funcall cont 'interrupted nil)) fstar-subp--continuations)
-  (clrhash fstar-subp--continuations))
+  (when fstar-subp--continuations
+    (maphash (lambda (_ cont) (funcall cont 'interrupted nil)) fstar-subp--continuations)
+    (clrhash fstar-subp--continuations)))
 
 (defun fstar-subp-killed ()
   "Clean up current source buffer."
@@ -3939,7 +3940,8 @@ Function is public to make it easier to debug `fstar-subp-prover-args'."
         (set-process-sentinel proc #'fstar-subp-sentinel)
         (set-process-coding-system proc 'utf-8 'utf-8)
         (process-put proc 'fstar-subp-source-buffer (current-buffer))
-        (setq fstar-subp--process proc)))))
+        (setq fstar-subp--process proc)
+        (setq fstar-subp--continuations (make-hash-table :test 'equal))))))
 
 ;;; ;; Keybindings
 
