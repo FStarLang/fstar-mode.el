@@ -2448,7 +2448,7 @@ This was needed when control and data were mixed."
       (buffer-substring-no-properties beg end)
     (fstar-subp-legacy--strip-comments (buffer-substring-no-properties beg end))))
 
-(defun fstar--subp-push-peek-query-1 (query pos kind code)
+(defun fstar-subp--push-peek-query-1 (query pos kind code)
   "Helper for push/peek (QUERY) with POS KIND and CODE."
   (make-fstar-subp-query
    :query query
@@ -2461,7 +2461,7 @@ This was needed when control and data were mixed."
   "Prepare a push query for a region starting at POS.
 KIND is one of `lax', `full'.  CODE is the code to push."
   (if (fstar--has-feature 'json-subp)
-      (fstar--subp-push-peek-query-1 "push" pos kind code)
+      (fstar-subp--push-peek-query-1 "push" pos kind code)
     (format "#push %d %d%s\n%s%s"
             (line-number-at-pos pos)
             (fstar-subp--column-number-at-pos pos)
@@ -2474,7 +2474,7 @@ KIND is one of `lax', `full'.  CODE is the code to push."
 KIND is one of `syntax' or `light'.  CODE is the code to
 push."
   (fstar-assert (fstar--has-feature 'json-subp))
-  (fstar--subp-push-peek-query-1 "peek" pos kind code))
+  (fstar-subp--push-peek-query-1 "peek" pos kind code))
 
 (defun fstar-subp-push-region (beg end kind continuation)
   "Push the region between BEG and END to the inferior F* process.
