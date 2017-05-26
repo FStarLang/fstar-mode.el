@@ -2266,15 +2266,20 @@ Returns a pair of (CLEAN-MESSAGE . LOCATIONS)."
   "Remove OVERLAY."
   (delete-overlay overlay))
 
+(defun fstar-subp--related-location-help-string ()
+  "Build a string describing motion commands for related locations."
+  (substitute-command-keys
+   "\\[fstar-jump-to-related-error] to visit, \
+\\[universal-argument] \\[set-mark-command] to come back"))
+
 (defun fstar-subp--help-echo-for-alt-locs (locs)
   "Prepare a string describing LOCS and how to browse to them."
   (if (null locs) ""
     (propertize
-     (concat
-      (substitute-command-keys
-       (if (cdr locs)
-           "\nRelated locations (\\[fstar-jump-to-related-error] to visit):\n"
-         "\nRelated location (\\[fstar-jump-to-related-error] to visit): "))
+     (format
+      (if (cdr locs) "\nRelated locations (%s):\n%s"
+        "\nRelated location (%s): %s")
+      (fstar-subp--related-location-help-string)
       (mapconcat #'fstar--loc-to-string locs "\n"))
      'face 'italic)))
 
