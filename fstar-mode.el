@@ -1503,6 +1503,7 @@ toggle between reStructuredText and F*."
 (defun fstar-literate-fst2rst ()
   "Toggle between F* and reStructuredText."
   (interactive)
+  (fstar-subp-kill)
   (setq-local fstar-literate--fst-name (buffer-name))
   (fstar-literate--toggle "--fst2rst" #'fstar-literate--rst-mode)
   (rename-buffer (format fstar-literate--rst-name-format fstar-literate--fst-name)))
@@ -2004,8 +2005,10 @@ Table of continuations was %s" response id conts)))
   (when (or (memq (process-status proc) '(exit signal))
             (not (process-live-p proc)))
     (message "F*: subprocess exited.")
-    (fstar-subp-with-source-buffer proc
-      (fstar-subp-killed))))
+    (when (derived-mode-p 'fstar-mode)
+      ;; This may be called after switching to RST
+      (fstar-subp-with-source-buffer proc
+        (fstar-subp-killed)))))
 
 (defun fstar-subp--clear-continuations ()
   "Get rid of all pending continuations."
