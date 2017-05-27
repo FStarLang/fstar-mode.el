@@ -135,12 +135,14 @@ returning a string (the full path to the SMT solver)."
     (company-defaults . "Opinionated company-mode configuration.")
     (spinner          . "Blink the modeline while F* is busy.")
     (notifications    . "Show a notification when a proof completes.")
+    (literate         . "Prettify “///” comment markers.")
     (overlay-legend   . "Show a legend in the modeline when hovering an F* overlay."))
   "Available components of F*-mode.")
 
 (defcustom fstar-enabled-modules
   '(font-lock prettify indentation comments flycheck interactive
-              eldoc company company-defaults spinner notifications overlay-legend)
+              eldoc company company-defaults spinner notifications
+              literate overlay-legend)
   "Which F*-mode components to load."
   :group 'fstar
   :type `(set ,@(cl-loop for (mod . desc) in fstar-known-modules
@@ -811,11 +813,6 @@ allows composition in code comments."
   "Face used for the fringe next to literate comments (///)."
   :group 'fstar)
 
-(defface fstar-literate-tty-gutter-face
-  '((((type tty)) :inherit fstar-literate-fringe-face))
-  "Face used for the gutter next to literate comments (///) on TTYs."
-  :group 'fstar)
-
 (defconst fstar-comment-start-skip "\\(//+\\|(\\*+\\)[ \t]*")
 
 (defconst fstar-syntax-id "\\_<[#']?[a-z_]\\(?:\\sw\\|\\s_\\)*\\_>")
@@ -937,20 +934,10 @@ leads to the binder's start."
   "Create a matcher for RE predicated on COND."
   `(apply-partially #'fstar--re-search-predicated-forward ,cond ,re))
 
-(define-fringe-bitmap 'fstar-literate-gutter-bitmap [0])
-(set-fringe-bitmap-face 'fstar-literate-gutter-bitmap 'fstar-literate-fringe-face)
-
 (defconst fstar-syntax-additional
   (let ((id fstar-syntax-id))
     `((,fstar-syntax-cs
        (0 'font-lock-type-face))
-      ("^\\(/\\)\\(//\\)\\( \\|$\\)"
-       ;; Split /// because applying `left-fringe' + `space' to all of it gives
-       ;; it a red highlight on otherwise empty lines.  Use `invisible' over
-       ;; `cursor-intangible' because the latter is broken wrt deletion.
-       (1 '(face fstar-literate-tty-gutter-face display (space :width (1))) prepend)
-       (2 '(face nil invisible t display [(left-fringe fstar-literate-gutter-bitmap nil)]))
-       (3 '(face nil display (space :width (+ 0.5 (1)))))) ;; (+ … (1)) for TTYs
       (,fstar-syntax-universe
        (1 'fstar-universe-face))
       (,(fstar--fl-conditional-matcher "`.+?`" #'fstar--in-code-p)
@@ -1525,6 +1512,37 @@ toggle between reStructuredText and F*."
   (interactive)
   (fstar-literate--toggle "--rst2fst" #'fstar-mode)
   (rename-buffer fstar-literate--fst-name))
+
+;; This was useful when using the fringe to highlight literate comments, since
+;; there is no fringe on TTYs.
+;; (defface fstar-literate-tty-gutter-face
+;;   '((((type tty)) :inherit fstar-literate-fringe-face))
+;;   "Face used for the gutter next to literate comments (///) on TTYs."
+;;   :group 'fstar)
+
+(defconst fstar-literate--font-lock-keywords
+  '(;; ("^\\(/\\)\\(//\\)\\( \\|$\\)"
+    ;;  ;; Split /// because applying `left-fringe' + `space' to all of it gives
+    ;;  ;; it a red highlight on otherwise empty lines.  Use `invisible' over
+    ;;  ;; `cursor-intangible' because the latter is broken wrt deletion.
+    ;;  (1 '(face fstar-literate-tty-gutter-face display (space :width (1))) prepend)
+    ;;  (2 '(face nil invisible t display [(left-fringe fstar-literate-gutter-bitmap nil)]))
+    ;;  (3 '(face nil display (space :width (+ 0.5 (1))))))
+    ("^\\(///\\)\\( \\|$\\)" ;; (+ … (1)) is for TTYs
+     (1 '(face fstar-literate-fringe-face display (space :width (+ (1) 0.5))) prepend)
+     (2 '(face nil display (space :width (+ 0.5 (1)))))))
+  "Font-lock rules to highlight literate comments.
+The original rule (see source code comments) used the fringe, but
+it created a bunch of issues with point motion and deletion.")
+
+  "Set up literate comment highlighting."
+  ;; (define-fringe-bitmap 'fstar-literate-gutter-bitmap [0])
+  ;; (set-fringe-bitmap-face 'fstar-literate-gutter-bitmap 'fstar-literate-fringe-face)
+  (font-lock-add-keywords nil fstar-literate--font-lock-keywords))
+
+(defun fstar-teardown-literate ()
+  "Tear down literate comment highlighting."
+  (font-lock-remove-keywords nil fstar-literate--font-lock-keywords))
 
 ;;; Interactive proofs (fstar-subp)
 
