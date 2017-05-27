@@ -1434,8 +1434,6 @@ Interactively, offer titles of F* wiki pages."
 
 ;;; Literate F*
 
-;; FIXME undoing past translation yields wrong mode
-
 (defvar-local fstar-literate--fst-name nil)
 (put 'fstar-literate--fst-name 'permanent-local t)
 
@@ -1463,8 +1461,8 @@ Return converted contents and adjusted value of point."
                     (substring-no-properties output (match-end 0)))
             (1+ (match-beginning 0))))))
 
-(defun fstar-literate--toggle (flag setup-fn)
-  "Run converter with FLAG, fill buffer with output, and run SETUP-FN."
+(defun fstar-literate--toggle (flag new-mode)
+  "Run converter with FLAG, fill buffer with output, and run NEW-MODE."
   (pcase-let* ((modified (buffer-modified-p))
                (`(,rst . ,point)
                 (fstar--widened-excursion (fstar-literate--run-converter flag))))
@@ -1473,7 +1471,8 @@ Return converted contents and adjusted value of point."
       (erase-buffer)
       (insert rst))
     (goto-char point)
-    (funcall setup-fn)
+    (push `(apply ,major-mode) buffer-undo-list)
+    (funcall new-mode)
     (set-buffer-modified-p modified)))
 
 (defun fstar-literate--rst-save ()
