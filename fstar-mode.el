@@ -1177,8 +1177,8 @@ leads to the binder's start."
     (define-key map (kbd "C-RET") #'company-manual-begin)
     (define-key map (kbd "<C-return>") #'company-manual-begin)
     ;; Indentation
-    (define-key map (kbd "<backtab>") #'fstar-unindent)
-    (define-key map (kbd "S-TAB") #'fstar-unindent)
+    (define-key map (kbd "<backtab>") #'fstar-unindent-for-tab-command)
+    (define-key map (kbd "S-TAB") #'fstar-unindent-for-tab-command)
     ;; Help at point
     (define-key map (kbd "C-h .") #'display-local-help) ;; For Emacs < 25
     (define-key map (kbd "C-h M-w") #'fstar-copy-help-at-point)
@@ -1253,9 +1253,10 @@ leads to the binder's start."
          (pred (apply-partially (if backwards #'> #'<) current-ind))
          (remaining (or (-filter pred points) points))
          (target (car (if backwards (last remaining) remaining))))
-    (if (> (current-column) current-ind)
-        (save-excursion (indent-line-to target))
-      (indent-line-to target))))
+    (when target
+      (if (> (current-column) current-ind)
+          (save-excursion (indent-line-to target))
+        (indent-line-to target)))))
 
 (defun fstar-indent ()
   "Cycle forwards between vaguely relevant indentation points."
@@ -1266,6 +1267,13 @@ leads to the binder's start."
   "Cycle backwards between vaguely relevant indentation points."
   (interactive)
   (fstar--indent-1 t))
+
+(defun fstar-unindent-for-tab-command ()
+  "Like `indent-for-tab-command', but backwards."
+  (interactive)
+  (let ((tab-always-indent t)
+        (indent-line-function #'fstar-unindent))
+    (indent-for-tab-command)))
 
 (defun fstar-setup-indentation ()
   "Setup indentation for F*."
