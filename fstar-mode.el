@@ -1438,7 +1438,6 @@ Interactively, offer titles of F* wiki pages."
 
 (defvar-local fstar-literate--fst-name nil)
 (put 'fstar-literate--fst-name 'permanent-local t)
-(defconst fstar-literate--rst-name-format "%s (reStructuredText view)")
 
 (defconst fstar-literate--point-marker
   "<<<\"P\"O\"I\"N\"T\">>>")
@@ -1494,7 +1493,7 @@ Current document must have a file name."
     (define-key map (kbd "C-c C-S-a") #'fstar-literate-rst2fst)
     map))
 
-(define-derived-mode fstar-literate--rst-mode rst-mode "F✪-rst"
+(define-derived-mode fstar-literate--rst-mode rst-mode "F✪-reStructuredText"
   "Mode for RST buffers backed by an F* file.
 Press \\{fstar-literate-mode-map}\\[fstar-literate-toggle\\] to
 toggle between reStructuredText and F*."
@@ -1505,14 +1504,12 @@ toggle between reStructuredText and F*."
   (interactive)
   (fstar-subp-kill)
   (setq-local fstar-literate--fst-name (buffer-name))
-  (fstar-literate--toggle "--fst2rst" #'fstar-literate--rst-mode)
-  (rename-buffer (format fstar-literate--rst-name-format fstar-literate--fst-name)))
+  (fstar-literate--toggle "--fst2rst" #'fstar-literate--rst-mode))
 
 (defun fstar-literate-rst2fst ()
   "Toggle between reStructuredText and F*."
   (interactive)
-  (fstar-literate--toggle "--rst2fst" #'fstar-mode)
-  (rename-buffer fstar-literate--fst-name))
+  (fstar-literate--toggle "--rst2fst" #'fstar-mode))
 
 ;; This was useful when using the fringe to highlight literate comments, since
 ;; there is no fringe on TTYs.
