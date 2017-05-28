@@ -244,6 +244,14 @@ Prompt should have one string placeholder to accommodate DEFAULT."
 (defconst fstar--literate-comment-re "^///\\( \\|$\\)"
   "Regexp matching literate comment openers.")
 
+(defun fstar-in-literate-comment-p (&optional pos)
+  "Return non-nil if POS is inside a literate comment."
+  (and (fstar-in-comment-p pos)
+       (save-excursion
+         (goto-char (or pos (point)))
+         (goto-char (point-at-bol))
+         (looking-at-p fstar--literate-comment-re))))
+
 (defun fstar--column-in-commment-p (column)
   "Return non-nil if point at COLUMN is inside a comment."
   (save-excursion
@@ -1135,16 +1143,34 @@ leads to the binder's start."
               ((looking-at-p "([*][*][^)]") 'font-lock-doc-face)
               (t 'font-lock-comment-face)))))))
 
+(defun fstar--fix-fill-comment-paragraph (fcp &rest args)
+  "Call FCP with ARGS unless point is in a ‘(*’ comment.
+In non-fstar-mode buffers, call FCP unconditionally."
+  ;; `fill-paragraph-handle-comment' is broken: it compares `comment-end' to ""
+  ;; to check whether it should enable itself (it only works for single-line
+  ;; comments), but then it forgets to confirm that the current comment starts
+  ;; with `comment-start' and ends up incorrectly filling (* … *) comments.
+  (unless (and (derived-mode-p 'fstar-mode)
+               ;; (nth 7 …) is the comment style: 1 for ‘(*’ and nil for ‘//’
+               (nth 7 (syntax-ppss)))
+    (apply fcp args)))
+
 (defun fstar-setup-comments ()
   "Set comment-related variables for F*."
   (setq-local comment-multi-line t)
   (setq-local comment-use-syntax t)
-  (setq-local comment-start      "(*")
-  (setq-local comment-continue   " *")
-  (setq-local comment-end        "*)")
+  (setq-local comment-start "// ")
+  (setq-local comment-continue "// ")
+  (setq-local comment-end "")
+  (setq-local fill-paragraph-handle-comment t)
   (setq-local comment-start-skip fstar-comment-start-skip)
   (setq-local font-lock-syntactic-face-function #'fstar-syntactic-face-function)
-  (setq-local syntax-propertize-function fstar-mode-syntax-propertize-function))
+  (setq-local syntax-propertize-function fstar-mode-syntax-propertize-function)
+  (advice-add #'fill-comment-paragraph :around #'fstar--fix-fill-comment-paragraph))
+
+(defun fstar-teardown-comments ()
+  "Undo F*'s comment setup."
+  (advice-remove 'fill-comment-paragraph #'fstar--fix-fill-comment-paragraph))
 
 ;;; Keymaps
 
@@ -1165,7 +1191,7 @@ leads to the binder's start."
 (defvar fstar-mode-map
   (let ((map (make-sparse-keymap)))
     ;; Basics
-    (define-key map (kbd "RET") #'fstar-newline-and-indent)
+    (define-key map (kbd "RET") #'fstar-newline)
     ;; Navigation
     (define-key map (kbd "M-p") 'fstar-subp-previous-block-start)
     (define-key map (kbd "M-n") 'fstar-subp-next-block-start)
@@ -1203,6 +1229,14 @@ leads to the binder's start."
       (indent-line-to indentation))))
 
 (put 'fstar-newline-and-indent 'delete-selection t)
+
+(defvar fstar-newline-hook '(fstar-newline-and-indent)
+  "Hook called to insert a newline.")
+
+(defun fstar-newline (arg)
+  "Run functions in `fstar-newline-hook' with ARG until success."
+  (interactive "*P")
+  (run-hook-with-args-until-success 'fstar-newline-hook arg))
 
 (defun fstar-copy-help-at-point ()
   "Copy contents of help-echo at point."
@@ -1522,6 +1556,17 @@ toggle between reStructuredText and F*."
   (interactive)
   (fstar-literate--toggle "--rst2fst" #'fstar-mode))
 
+(defun fstar-literate--marker-modification-hook (from to)
+  "Handle backspace on literate comment marker.
+FROM, TO: see `modification-hooks' text property."
+  ;; backspace on “/// <|>” or “///<|><EOL>”
+  (when (and (eq (point) to)
+             (eq (1- (point)) from)
+             (or (eq (point) (+ 3 (point-at-bol)))
+                 (eq (point) (+ 4 (point-at-bol)))))
+    (let ((inhibit-modification-hooks t))
+      (delete-region (point-at-bol) from))))
+
 ;; This was useful when using the fringe to highlight literate comments, since
 ;; there is no fringe on TTYs.
 ;; (defface fstar-literate-tty-gutter-face
@@ -1557,13 +1602,23 @@ toggle between reStructuredText and F*."
 The original rule (see source code comments) used the fringe, but
 it created a bunch of issues with point motion and deletion.")
 
+(defun fstar-literate-newline (&optional _)
+  "Like `comment-indent-new-line', but only in literate comments."
+  (when (fstar-in-literate-comment-p)
+    (let* ((comment-insert-comment-function (lambda () (insert "/// "))))
+      (comment-indent-new-line)
+      t)))
+
+(defun fstar-setup-literate ()
   "Set up literate comment highlighting."
   ;; (define-fringe-bitmap 'fstar-literate-gutter-bitmap [0])
   ;; (set-fringe-bitmap-face 'fstar-literate-gutter-bitmap 'fstar-literate-gutter-face)
+  (add-hook 'fstar-newline-hook #'fstar-literate-newline nil t)
   (font-lock-add-keywords nil fstar-literate--font-lock-keywords))
 
 (defun fstar-teardown-literate ()
   "Tear down literate comment highlighting."
+  (remove-hook 'fstar-newline-hook #'fstar-literate-newline t)
   (font-lock-remove-keywords nil fstar-literate--font-lock-keywords))
 
 ;;; Interactive proofs (fstar-subp)
