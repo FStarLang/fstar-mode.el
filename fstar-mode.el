@@ -241,6 +241,9 @@ Prompt should have one string placeholder to accommodate DEFAULT."
   "Return non-nil if POS is inside a comment."
   (nth 4 (fstar--syntax-ppss pos)))
 
+(defconst fstar--literate-comment-re "^///\\( \\|$\\)"
+  "Regexp matching literate comment openers.")
+
 (defun fstar--column-in-commment-p (column)
   "Return non-nil if point at COLUMN is inside a comment."
   (save-excursion
@@ -808,7 +811,7 @@ allows composition in code comments."
   "Face used for literate comments (///)."
   :group 'fstar)
 
-(defface fstar-literate-fringe-face
+(defface fstar-literate-gutter-face
   '((t :inverse-video t :inherit font-lock-comment-face))
   "Face used for the fringe next to literate comments (///)."
   :group 'fstar)
@@ -1121,7 +1124,8 @@ leads to the binder's start."
            (save-excursion
              (goto-char comment-start-pos)
              (cond
-              ((looking-at-p "///\\( \\|$\\)") 'fstar-literate-comment-face)
+              ((looking-at-p fstar--literate-comment-re)
+               'fstar-literate-comment-face)
               ((looking-at-p "([*]\\([*][*]\\|[*] ?[*]\\)[[:space:]\n]")
                '(:inherit font-lock-doc-face :height 2.5))
               ((looking-at-p "([*]\\([*]?[+]\\|[*] ?[*][*]\\)[[:space:]\n]")
@@ -1521,28 +1525,41 @@ toggle between reStructuredText and F*."
 ;; This was useful when using the fringe to highlight literate comments, since
 ;; there is no fringe on TTYs.
 ;; (defface fstar-literate-tty-gutter-face
-;;   '((((type tty)) :inherit fstar-literate-fringe-face))
+;;   '((((type tty)) :inherit fstar-literate-gutter-face))
 ;;   "Face used for the gutter next to literate comments (///) on TTYs."
 ;;   :group 'fstar)
 
+(defconst fstar-literate--gutter-font-lock-props
+  '(face fstar-literate-gutter-face display (space :width (+ (1) 0.5))))
+
+(defconst fstar-literate--gutter-space-font-lock-props
+  '(face nil display (space :width (+ 0.5 (1))))) ;; (+ … (1)) is for TTYs
+
+(defconst fstar-literate--wrap-prefix
+  (concat (apply #'propertize "///" fstar-literate--gutter-font-lock-props)
+          (apply #'propertize " " fstar-literate--gutter-space-font-lock-props)))
+
 (defconst fstar-literate--font-lock-keywords
-  '(;; ("^\\(/\\)\\(//\\)\\( \\|$\\)"
+  `(;; ("^\\(/\\)\\(//\\)\\( \\|$\\)"
     ;;  ;; Split /// because applying `left-fringe' + `space' to all of it gives
     ;;  ;; it a red highlight on otherwise empty lines.  Use `invisible' over
     ;;  ;; `cursor-intangible' because the latter is broken wrt deletion.
     ;;  (1 '(face fstar-literate-tty-gutter-face display (space :width (1))) prepend)
     ;;  (2 '(face nil invisible t display [(left-fringe fstar-literate-gutter-bitmap nil)]))
     ;;  (3 '(face nil display (space :width (+ 0.5 (1))))))
-    ("^\\(///\\)\\( \\|$\\)" ;; (+ … (1)) is for TTYs
-     (1 '(face fstar-literate-fringe-face display (space :width (+ (1) 0.5))) prepend)
-     (2 '(face nil display (space :width (+ 0.5 (1)))))))
+    ("^\\(///\\)\\( \\|$\\)\\(.*\\)"
+     (0 '(face nil modification-hooks (fstar-literate--marker-modification-hook)))
+     ;; FIXME apply these in the propertization function?
+     (1 fstar-literate--gutter-font-lock-props prepend)
+     (2 fstar-literate--gutter-space-font-lock-props)
+     (3 '(face nil wrap-prefix ,fstar-literate--wrap-prefix))))
   "Font-lock rules to highlight literate comments.
 The original rule (see source code comments) used the fringe, but
 it created a bunch of issues with point motion and deletion.")
 
   "Set up literate comment highlighting."
   ;; (define-fringe-bitmap 'fstar-literate-gutter-bitmap [0])
-  ;; (set-fringe-bitmap-face 'fstar-literate-gutter-bitmap 'fstar-literate-fringe-face)
+  ;; (set-fringe-bitmap-face 'fstar-literate-gutter-bitmap 'fstar-literate-gutter-face)
   (font-lock-add-keywords nil fstar-literate--font-lock-keywords))
 
 (defun fstar-teardown-literate ()
