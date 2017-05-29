@@ -586,8 +586,8 @@ in your version of F*.  You're running version %s" fstar--vernum)))))
   "Which Flycheck checker to use in F*-mode."
   :group 'fstar
   :type '(choice (const :tag "No Flycheck support" nil)
-                 (const :tag "Whole-buffer verification (slow)" 'fstar)
-                 (const :tag "Lightweight typechecking (fast)" 'fstar-interactive)))
+                 (const :tag "Whole-buffer verification (slow)" fstar)
+                 (const :tag "Lightweight typechecking (fast)" fstar-interactive)))
 
 (make-variable-buffer-local 'fstar-flycheck-checker)
 
