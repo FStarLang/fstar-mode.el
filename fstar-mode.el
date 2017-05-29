@@ -1268,11 +1268,11 @@ In non-fstar-mode buffers, call FCP unconditionally."
   "Collect indentation points for current line."
   (fstar--prog-widened-excursion
     (let ((points nil)
-          (in-comment (fstar-in-comment-p (point-at-bol))))
+          (started-in-multiline-comment (fstar-in-comment-p (point-at-bol))))
       (while (and (not (bobp)) (> (or (car points) 1) 0))
         (fstar--indentation-previous-line)
         (let ((line-points (fstar--indentation-points-before (car points))))
-          (when in-comment
+          (when started-in-multiline-comment
             (setq line-points (-filter #'fstar--column-in-commment-p line-points)))
           (when (and (null points) line-points)
             (cl-pushnew (+ (car line-points) 2) (cdr line-points)))
@@ -1288,15 +1288,16 @@ In non-fstar-mode buffers, call FCP unconditionally."
 
 (defun fstar--indent-1 (backwards)
   "Cycle (forwards or BACKWARDS) between relevant indentation points."
-  (let* ((current-ind (current-indentation))
-         (points (fstar--indentation-points))
-         (pred (apply-partially (if backwards #'> #'<) current-ind))
-         (remaining (or (-filter pred points) points))
-         (target (car (if backwards (last remaining) remaining))))
-    (when target
-      (if (> (current-column) current-ind)
-          (save-excursion (indent-line-to target))
-        (indent-line-to target)))))
+  (unless (fstar-in-literate-comment-p)
+    (let* ((current-ind (current-indentation))
+           (points (fstar--indentation-points))
+           (pred (apply-partially (if backwards #'> #'<) current-ind))
+           (remaining (or (-filter pred points) points))
+           (target (car (if backwards (last remaining) remaining))))
+      (when target
+        (if (> (current-column) current-ind)
+            (save-excursion (indent-line-to target))
+          (indent-line-to target))))))
 
 (defun fstar-indent ()
   "Cycle forwards between vaguely relevant indentation points."
