@@ -246,11 +246,10 @@ Prompt should have one string placeholder to accommodate DEFAULT."
 
 (defun fstar-in-literate-comment-p (&optional pos)
   "Return non-nil if POS is inside a literate comment."
-  (and (fstar-in-comment-p pos)
-       (save-excursion
-         (goto-char (or pos (point)))
-         (goto-char (point-at-bol))
-         (looking-at-p fstar--literate-comment-re))))
+  (save-excursion
+    (goto-char (or pos (point)))
+    (goto-char (point-at-bol))
+    (looking-at-p fstar--literate-comment-re)))
 
 (defun fstar--column-in-commment-p (column)
   "Return non-nil if point at COLUMN is inside a comment."
@@ -260,7 +259,7 @@ Prompt should have one string placeholder to accommodate DEFAULT."
 
 (defun fstar--delimited-by-p (delim pos limit)
   "Check if POS is enclosed in DELIM before LIMIT."
-  (let ((found nil))
+  (let ((found nil)) ;; FIXME speed this up with syntax-ppss?
     (while (and (setq pos (ignore-errors (scan-lists pos -1 1)))
                 (< limit pos)
                 (not (setq found (eq (char-after pos) delim)))))
@@ -271,10 +270,13 @@ Prompt should have one string placeholder to accommodate DEFAULT."
   (let* ((sx (fstar--syntax-ppss (point)))
          (in-comment (nth 4 sx)))
     (or (not in-comment)
-        (save-excursion
-          (when pos (goto-char pos))
-          (let ((comment-beg (nth 8 sx)))
-            (fstar--delimited-by-p ?\[ (point) (max comment-beg (point-at-bol))))))))
+        (and
+         (not (fstar-in-literate-comment-p))
+         (save-excursion
+           (when pos (goto-char pos))
+           (let ((comment-beg (nth 8 sx)))
+             (fstar--delimited-by-p
+              ?\[ (point) (max comment-beg (point-at-bol)))))))))
 
 (defun fstar-subp--column-number-at-pos (pos)
   "Return column number at POS."
