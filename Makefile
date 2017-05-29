@@ -3,6 +3,7 @@ EL := fstar-mode.el
 ELC := $(EL:.el=.elc)
 PACKAGE_DIR := $(shell cask package-directory)
 ERROR_ON_WARN ?= t
+SANDBOX ?= sandbox
 
 .PHONY: sandbox
 
