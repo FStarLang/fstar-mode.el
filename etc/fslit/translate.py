@@ -5,7 +5,7 @@ import re
 import os
 import sys
 import argparse
-from collections import deque, namedtuple
+from collections import namedtuple
 
 try:
     from typing import Iterable, Tuple, Match, Any, TypeVar

@@ -1493,7 +1493,7 @@ Interactively, offer titles of F* wiki pages."
   "Run converter with ARGS on current buffer.
 Return converted contents and adjusted value of point."
   (let* ((python (fstar-find-executable "python" "Python" nil 'local-only))
-         (converter (expand-file-name "etc/literatefstar.py" fstar--directory))
+         (converter (expand-file-name "etc/fslit/translate.py" fstar--directory))
          (input (concat (buffer-substring-no-properties (point-min) (point))
                         fstar-literate--point-marker
                         (buffer-substring-no-properties (point) (point-max)))))
