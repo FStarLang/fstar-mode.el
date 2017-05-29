@@ -1562,11 +1562,12 @@ toggle between reStructuredText and F*."
 (defun fstar-literate--marker-modification-hook (from to)
   "Handle backspace on literate comment marker.
 FROM, TO: see `modification-hooks' text property."
-  ;; backspace on “/// <|>” or “///<|><EOL>”
+  ;; backspace on “/// <|>” (but not at eol) or “///<|>”
   (when (and (eq (point) to)
              (eq (1- (point)) from)
              (or (eq (point) (+ 3 (point-at-bol)))
-                 (eq (point) (+ 4 (point-at-bol)))))
+                 (and (eq (point) (+ 4 (point-at-bol)))
+                      (not (eq (point) (point-at-eol))))))
     (let ((inhibit-modification-hooks t))
       (delete-region (point-at-bol) from))))
 
@@ -1597,7 +1598,6 @@ FROM, TO: see `modification-hooks' text property."
     ;;  (3 '(face nil display (space :width (+ 0.5 (1))))))
     ("^\\(///\\)\\( \\|$\\)\\(.*\\)"
      (0 '(face nil modification-hooks (fstar-literate--marker-modification-hook)))
-     ;; FIXME apply these in the propertization function?
      (1 fstar-literate--gutter-font-lock-props prepend)
      (2 fstar-literate--gutter-space-font-lock-props)
      (3 '(face nil wrap-prefix ,fstar-literate--wrap-prefix))))
