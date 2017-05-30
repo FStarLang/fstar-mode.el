@@ -3828,18 +3828,21 @@ the original query's status."
 (defvar-local fstar--spin-counter 0)
 
 (defcustom fstar-spin-theme
-  "⍟✪"
+  "✪⍟"
   "Which theme to use in indicating that F* is busy."
-  :type '(choice (const "⍟✪")
-                 (const "●✪")
-                 (const "☆★")
-                 (const "●○")
-                 (const "❂✪")
-                 (const "🌠✪")
-                 (const "✩✭✮")
-                 (const "🟀🟄🟉✶🟎✹")
-                 (const "🟃🟇🟍✵🟑🟔")
-                 (const "🟃🟀🟇🟄🟍✶✵🟎🟔🟓")
+  :type '(choice (const "✪⍟")
+                 (const "✪●")
+                 (const "✪○")
+                 (const "✪❂")
+                 (const "✪🌠")
+                 (const "★☆")
+                 (const "★✩✭✮")
+                 (const "★🟀🟄🟉✶🟎✹")
+                 (const "★🟃🟇🟍✵🟑🟔")
+                 (const "★🟃🟀🟇🟄🟍✶✵🟎🟔🟓")
+                 (const #("★★"
+                          0 1 (display ((raise 0.2) (height 0.75)))
+                          1 2 (display ((raise 0) (height 0.75)))))
                  (string :tag "Custom string")))
 
 (defun fstar--spin-cancel ()
@@ -3853,15 +3856,10 @@ the original query's status."
 TIMER is the timer that caused this event to fire."
   (if (buffer-live-p buffer)
       (with-current-buffer buffer
-        (let ((icon nil))
-          (cond
-           ((and fstar--spin-timer (fstar-subp--busy-p))
+        (if (and fstar--spin-timer (fstar-subp--busy-p))
             (setq fstar--spin-counter (mod (1+ fstar--spin-counter) (length fstar-spin-theme)))
-            (setq icon (substring fstar-spin-theme
-                                  fstar--spin-counter (1+ fstar--spin-counter))))
-           (t
-            (setq fstar--spin-counter -1)
-            (setq icon "✪")))
+          (setq fstar--spin-counter 0))
+        (let ((icon (substring fstar-spin-theme fstar--spin-counter (1+ fstar--spin-counter))))
           (setq icon (compose-string icon 0 1 (format "\t%c\t" (aref icon 0))))
           (setq-local mode-name `("F" ,icon))
           (force-mode-line-update)))
