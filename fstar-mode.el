@@ -1616,11 +1616,13 @@ it created a bunch of issues with point motion and deletion.")
   "Set up literate comment highlighting."
   ;; (define-fringe-bitmap 'fstar-literate-gutter-bitmap [0])
   ;; (set-fringe-bitmap-face 'fstar-literate-gutter-bitmap 'fstar-literate-gutter-face)
+  (visual-line-mode)
   (add-hook 'fstar-newline-hook #'fstar-literate-newline nil t)
   (font-lock-add-keywords nil fstar-literate--font-lock-keywords))
 
 (defun fstar-teardown-literate ()
   "Tear down literate comment highlighting."
+  (visual-line-mode -1)
   (remove-hook 'fstar-newline-hook #'fstar-literate-newline t)
   (font-lock-remove-keywords nil fstar-literate--font-lock-keywords))
 
