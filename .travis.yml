@@ -5,6 +5,8 @@ env:
   - EMACS_TARGET=emacs-24.3 ERROR_ON_WARN=nil
   - EMACS_TARGET=emacs-24.4 ERROR_ON_WARN=t
   - EMACS_TARGET=emacs-24.5 ERROR_ON_WARN=t
+  - EMACS_TARGET=emacs-25.1 ERROR_ON_WARN=t
+  - EMACS_TARGET=emacs-25.2 ERROR_ON_WARN=t
   - EMACS_TARGET=emacs-git  ERROR_ON_WARN=t
 
 before_install:
