@@ -1066,6 +1066,8 @@ leads to the binder's start."
   (font-lock-set-defaults)
   (add-to-list 'font-lock-extra-managed-props 'display)
   (add-to-list 'font-lock-extra-managed-props 'invisible)
+  (add-to-list 'font-lock-extra-managed-props 'wrap-prefix)
+  (add-to-list 'font-lock-extra-managed-props 'modification-hooks)
   (font-lock-mode))
 
 (defun fstar-teardown-font-lock ()
@@ -1596,11 +1598,11 @@ FROM, TO: see `modification-hooks' text property."
     ;;  (1 '(face fstar-literate-tty-gutter-face display (space :width (1))) prepend)
     ;;  (2 '(face nil invisible t display [(left-fringe fstar-literate-gutter-bitmap nil)]))
     ;;  (3 '(face nil display (space :width (+ 0.5 (1))))))
-    ("^\\(///\\)\\( \\|$\\)\\(.*\\)"
-     (0 '(face nil modification-hooks (fstar-literate--marker-modification-hook)))
-     (1 fstar-literate--gutter-font-lock-props prepend)
-     (2 fstar-literate--gutter-space-font-lock-props)
-     (3 '(face nil wrap-prefix ,fstar-literate--wrap-prefix))))
+    ("^\\(\\(///\\)\\( \\|$\\)\\)\\(.*\\)"
+     (1 '(face nil modification-hooks (fstar-literate--marker-modification-hook)))
+     (2 fstar-literate--gutter-font-lock-props prepend)
+     (3 fstar-literate--gutter-space-font-lock-props)
+     (4 '(face nil wrap-prefix ,fstar-literate--wrap-prefix))))
   "Font-lock rules to highlight literate comments.
 The original rule (see source code comments) used the fringe, but
 it created a bunch of issues with point motion and deletion.")
