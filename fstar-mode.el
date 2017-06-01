@@ -1483,9 +1483,6 @@ Interactively, offer titles of F* wiki pages."
 
 ;;; Literate F*
 
-(defvar-local fstar-literate--fst-name nil)
-(put 'fstar-literate--fst-name 'permanent-local t)
-
 (defconst fstar-literate--point-marker
   "<<<\"P\"O\"I\"N\"T\">>>")
 
@@ -1551,13 +1548,16 @@ toggle between reStructuredText and F*."
   "Toggle between F* and reStructuredText."
   (interactive)
   (fstar-subp-kill)
-  (setq-local fstar-literate--fst-name (buffer-name))
-  (fstar-literate--toggle "--fst2rst" #'fstar-literate--rst-mode))
+  (fstar-literate--toggle "--fst2rst" #'fstar-literate--rst-mode)
+  (message (substitute-command-keys "Switched to reStructuredText mode.  \
+Press \\[fstar-literate-rst2fst] to go back.")))
 
 (defun fstar-literate-rst2fst ()
   "Toggle between reStructuredText and F*."
   (interactive)
-  (fstar-literate--toggle "--rst2fst" #'fstar-mode))
+  (fstar-literate--toggle "--rst2fst" #'fstar-mode)
+  (message (substitute-command-keys "Switched to F* mode.  \
+Press \\[fstar-literate-fst2rst] to go back.")))
 
 (defun fstar-literate--marker-modification-hook (from to)
   "Handle backspace on literate comment marker.
@@ -4163,6 +4163,9 @@ Function is public to make it easier to debug `fstar-subp-prover-args'."
       fstar-search (fstar-subp-available-p)]
      ["Quick peek"
       fstar-quick-peek (fstar-subp-available-p)])
+    ("Literate F*"
+     ["Switch to reStructuredText mode"
+      fstar-literate-fst2rst])
     ("Utilities"
      ["Copy error message at point"
       fstar-copy-help-at-point])
