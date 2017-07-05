@@ -1581,10 +1581,10 @@ FROM, TO: see `modification-hooks' text property."
 ;;   :group 'fstar)
 
 (defconst fstar-literate--gutter-font-lock-props
-  '(face fstar-literate-gutter-face display (space :width (+ (1) 0.5))))
+  '(face fstar-literate-gutter-face display (space :width (+ (0) 0.5))))
 
 (defconst fstar-literate--gutter-space-font-lock-props
-  '(face nil display (space :width (+ 0.5 (1))))) ;; (+ … (1)) is for TTYs
+  '(face nil display (space :width (+ 0.5 (0))))) ;; (+ … (0)) is for TTYs
 
 (defconst fstar-literate--wrap-prefix
   (concat (apply #'propertize "///" fstar-literate--gutter-font-lock-props)
