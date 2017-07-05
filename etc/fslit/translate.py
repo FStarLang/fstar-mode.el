@@ -22,14 +22,14 @@ INDENTATION_RE = re.compile("^ *")
 def measure_indent(line): # type: (str,) -> int
     return INDENTATION_RE.match(line).end()
 
-Line = namedtuple('F2RLine', 'raw marker_pos clean')
+Line = namedtuple('Line', 'raw marker_pos clean')
 
 def empty(line):
     return line.clean == ""
 
 def mkLine(raw, marker): # type: (str, str) -> Line
     if marker:
-        return Line(raw, raw.find(marker), raw.replace(marker, "", 1)) if marker else Line(raw, -1, raw)
+        return Line(raw, raw.find(marker), raw.replace(marker, "", 1))
     else:
         return Line(raw, -1, raw)
 
@@ -142,7 +142,7 @@ def fst2rst_annotate(raw, marker): # type: (str, str) -> Tuple[int, Line]
     kind = fst2rst_classify(line, bool(rst_prefix))
     return kind, line
 
-def fst2rst(rawlines, marker):
+def fst2rst_linums(rawlines, marker): # type: Iterable[str] -> Iterable[Tuple[int, str]]
     idx = 0
     kinds, lines = zip(*(fst2rst_annotate(raw, marker) for raw in rawlines))
 
@@ -161,7 +161,7 @@ def fst2rst(rawlines, marker):
                 existing_header_indentation = indentation
             if not empty(line):
                 rst_indentation = indentation
-            yield line.raw
+            yield idx, line.raw
             idx += 1
 
         if idx >= len(lines):
@@ -171,12 +171,12 @@ def fst2rst(rawlines, marker):
         prev_line_empty = idx == 0 or empty(lines[idx - 1])
         if existing_header_indentation is None:
             if not prev_line_empty:
-                yield ""
-            yield " " * rst_indentation + ".. fst::"
+                yield idx, ""
+            yield idx, " " * rst_indentation + ".. fst::"
             prev_line_empty = False
             existing_header_indentation = rst_indentation
         if not empty(lines[idx]) and not prev_line_empty:
-            yield ""
+            yield idx, ""
 
         # Emit actual code
         while idx < len(lines):
@@ -184,8 +184,12 @@ def fst2rst(rawlines, marker):
             if kind != F2R_CODE:
                 break
             indent = "" if empty(line) else " " * (3 + existing_header_indentation)
-            yield indent + line.raw
+            yield idx, indent + line.raw
             idx += 1
+
+def fst2rst(rawlines, markers): # type: Iterable[str] -> Iterable[str]
+    for _, line in fst2rst_linums(rawlines, markers):
+        yield line
 
 # Command-line interface
 # ----------------------
