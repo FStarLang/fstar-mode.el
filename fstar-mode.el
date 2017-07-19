@@ -259,10 +259,12 @@ Prompt should have one string placeholder to accommodate DEFAULT."
 
 (defun fstar--delimited-by-p (delim pos limit)
   "Check if POS is enclosed in DELIM before LIMIT."
-  (let ((found nil)) ;; FIXME speed this up with syntax-ppss?
-    (while (and (setq pos (ignore-errors (scan-lists pos -1 1)))
-                (< limit pos)
-                (not (setq found (eq (char-after pos) delim)))))
+  (let ((found nil))
+    (save-restriction
+      (narrow-to-region limit (point-max))
+      (while (and (not found)
+                  (setq pos (ignore-errors (scan-lists pos -1 1))))
+        (setq found (eq (char-after pos) delim))))
     found))
 
 (defun fstar--in-code-p (&optional pos)
