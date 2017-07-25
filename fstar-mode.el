@@ -718,13 +718,13 @@ allows composition in code comments."
     "private" "opaque" "total" "default" "reifiable" "reflectable"))
 
 (defconst fstar-syntax-block-header-re
-  (format "^\\(?:%s \\)*%s "
+  (format "^\\(?:%s[ \n]\\)*%s "
           (regexp-opt fstar-syntax-qualifiers)
           (regexp-opt fstar-syntax-headers))
   "Regexp matching block headers.")
 
 (defconst fstar-syntax-block-start-re
-  (format "^\\(?:%s \\)*%s "
+  (format "^\\(?:%s[ \n]\\)*%s "
           (regexp-opt fstar-syntax-qualifiers)
           (regexp-opt (append (remove "and" fstar-syntax-headers)
                               fstar-syntax-preprocessor-directives)))
