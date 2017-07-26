@@ -2060,7 +2060,7 @@ return value."
 (defun fstar-subp--process-message (level contents)
   "Process CONTENTS of real-time feedback message at LEVEL."
   (pcase level
-    ("proof-state" (fstar-subp-tactics--display-proof-state contents))
+    ("proof-state" (fstar-tactics--display-proof-state contents))
     (_ (let ((header (format "[F* %s] " level)))
          (unless (stringp contents)
            (setq contents (prin1-to-string contents)))
@@ -3953,10 +3953,10 @@ Notifications are only displayed if it doesn't.")
 (defconst fstar--goals-buffer-name "*fstar: goals*")
 (push fstar--goals-buffer-name fstar--all-temp-buffer-names)
 
-(defconst fstar-subp-tactics--half-line-prefix
+(defconst fstar-tactics--half-line-prefix
   (propertize " " 'display '(space :width 1.5)))
 
-(defconst fstar-subp-tactics--goal-separator
+(defconst fstar-tactics--goal-separator
   (propertize (make-string 80 ?-) 'display '(space :align-to right)))
 
 (defface fstar-proof-state-separator-face
@@ -4005,7 +4005,7 @@ Notifications are only displayed if it doesn't.")
   "Face applied to the goal's witness in proof states."
   :group 'fstar)
 
-(defun fstar-subp-tactics--insert-hyp-group (names type)
+(defun fstar-tactics--insert-hyp-group (names type)
   "Insert NAMES: TYPE into current buffer."
   (while names
     (fstar--insert-with-face 'fstar-hypothesis-name-face "%s" (pop names))
@@ -4015,34 +4015,34 @@ Notifications are only displayed if it doesn't.")
     (fstar--insert-ln-with-face 'fstar-hypothesis-face "%s"
       (propertize (fstar-highlight-string type) 'wrap-prefix wrap))))
 
-(defun fstar-subp-tactics--cons-of-hyp (hyp)
+(defun fstar-tactics--cons-of-hyp (hyp)
   "Convert HYP into a (NAMES . TYPE) cons."
   (let-alist hyp (cons .name .type)))
 
-(defun fstar-subp-tactics--group-hyps (hyps)
+(defun fstar-tactics--group-hyps (hyps)
   "Convert HYPS into a list of (NAMES . TYPE) conses.
 Consecutive hypothesis with equal types are gathered in a single
 cell."
   (let ((gathered nil)
         (prev-type nil))
     (while hyps
-      (pcase-let ((`(,name . ,type) (fstar-subp-tactics--cons-of-hyp (pop hyps))))
+      (pcase-let ((`(,name . ,type) (fstar-tactics--cons-of-hyp (pop hyps))))
         (if (equal type prev-type)
             (push name (caar gathered))
           (push (cons (list name) type) gathered))
         (setq prev-type type)))
     (nreverse (mapcar (lambda (p) (cl-callf nreverse (car p)) p) gathered))))
 
-(defun fstar-subp-tactics--insert-goal (goal)
+(defun fstar-tactics--insert-goal (goal)
   "Insert GOAL into current buffer."
   (let-alist goal
-    (pcase-dolist (`(,names . ,type) (fstar-subp-tactics--group-hyps .hyps))
-      (fstar-subp-tactics--insert-hyp-group names type))
-    (fstar--insert-with-face 'fstar-goal-line-face "%s\n" fstar-subp-tactics--goal-separator)
+    (pcase-dolist (`(,names . ,type) (fstar-tactics--group-hyps .hyps))
+      (fstar-tactics--insert-hyp-group names type))
+    (fstar--insert-with-face 'fstar-goal-line-face "%s\n" fstar-tactics--goal-separator)
     (fstar--insert-ln-with-face 'fstar-goal-type-face (fstar-highlight-string .goal.type))
     (fstar--insert-ln-with-face 'fstar-goal-witness-face (fstar-highlight-string .goal.witness))))
 
-(defun fstar-subp-tactics--insert-goals (goals kind)
+(defun fstar-tactics--insert-goals (goals kind)
   "Insert GOALS of type KIND (“Goal” or “SMT goal”) into current buffer."
   (let ((goal-id 0)
         (ngoals (length goals)))
@@ -4050,13 +4050,13 @@ cell."
       (cl-incf goal-id)
       (fstar--insert-with-face 'fstar-goal-header-face
           (propertize "%s %d/%d%s"
-                      'line-prefix fstar-subp-tactics--half-line-prefix
-                      'wrap-prefix fstar-subp-tactics--half-line-prefix)
+                      'line-prefix fstar-tactics--half-line-prefix
+                      'wrap-prefix fstar-tactics--half-line-prefix)
         kind goal-id ngoals (propertize "\n" 'line-spacing 0.2))
-      (fstar-subp-tactics--insert-goal goal)
+      (fstar-tactics--insert-goal goal)
       (insert "\n"))))
 
-(defun fstar-subp-tactics--insert-proof-state (proof-state)
+(defun fstar-tactics--insert-proof-state (proof-state)
   "Dump PROOF-STATE into current buffer."
   (let-alist proof-state
     (unless (bobp)
@@ -4069,10 +4069,10 @@ cell."
       (insert " " (fstar--specified-space-to-align-right timestamp))
       (fstar--insert-with-face 'fstar-proof-state-header-timestamp-face timestamp))
     (insert (propertize "\n" 'line-spacing 0.2))
-    (fstar-subp-tactics--insert-goals .goals "Goal")
-    (fstar-subp-tactics--insert-goals .smt-goals "SMT goal")))
+    (fstar-tactics--insert-goals .goals "Goal")
+    (fstar-tactics--insert-goals .smt-goals "SMT goal")))
 
-(defun fstar-subp-tactics--goals-buffer ()
+(defun fstar-tactics--goals-buffer ()
   "Create or return F*-mode's goal buffer.
 This function exists to work around the fact that
 `with-help-window' clears the buffer."
@@ -4084,11 +4084,11 @@ This function exists to work around the fact that
         (setq wrap-prefix line-prefix)
         (current-buffer))))
 
-(defmacro fstar-subp-tactics--with-goals-buffer (&rest body)
+(defmacro fstar-tactics--with-goals-buffer (&rest body)
   "Run BODY in F*'s goals buffer, then display that buffer."
   (declare (debug t)
            (indent 0))
-  `(with-current-buffer (fstar-subp-tactics--goals-buffer)
+  `(with-current-buffer (fstar-tactics--goals-buffer)
      (let ((inhibit-read-only t))
        ,@body)
      (set-marker help-window-point-marker (point))
@@ -4097,14 +4097,14 @@ This function exists to work around the fact that
        (with-selected-window window
          (recenter 0)))))
 
-(defun fstar-subp-tactics--display-proof-state (proof-state)
+(defun fstar-tactics--display-proof-state (proof-state)
   "Display PROOF-STATE in a separate *goals* buffer."
   (let ((help-window-select nil))
-    (fstar-subp-tactics--with-goals-buffer
-      (goto-char (point-max))
-      (save-excursion
-        (fstar-subp-tactics--insert-proof-state proof-state))
-      (unless (bobp) (forward-line 2)))))
+    (fstar-tactics--with-goals-buffer
+     (goto-char (point-max))
+     (save-excursion
+       (fstar-tactics--insert-proof-state proof-state))
+     (unless (bobp) (forward-line 2)))))
 
 ;;; ;; Starting the F* subprocess
 
