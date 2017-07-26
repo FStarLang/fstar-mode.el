@@ -4163,13 +4163,13 @@ to produce a string or a list of strings.
 Some examples:
 
 - (setq fstar-subp-prover-args \"--ab\") results in F* being
-called as ‘fstar.exe --in --ab’.
+called as ‘fstar.exe --ide --ab’.
 
 - (setq fstar-subp-prover-args \\='(\"--ab\" \"--cd\")) results in
-F* being called as ‘fstar.exe --in --ab --cd’.
+F* being called as ‘fstar.exe --ide --ab --cd’.
 
 - (setq fstar-subp-prover-args (lambda () \\='(\"--ab\" \"--cd\")))
-results in F* being called as ‘fstar.exe --in --ab --cd’.
+results in F* being called as ‘fstar.exe --ide --ab --cd’.
 
 To debug unexpected behaviors with this variable, try
 evaluating (fstar-subp-get-prover-args).  Note that passing
