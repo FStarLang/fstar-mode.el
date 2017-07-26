@@ -444,10 +444,10 @@ function does not move the point."
   (declare (indent 0) (debug t))
   `(save-excursion (save-restriction (prog-widen) ,@body)))
 
-(defun fstar--specified-space-to-align-right (str)
-  "Compute a specified space to align STR to the right."
+(defun fstar--specified-space-to-align-right (str &optional padding)
+  "Compute a specified space to align STR PADDING spaces away from the right."
   (let ((str-width (string-width str)))
-    (propertize " " 'display `(space :align-to (- right ,str-width)))))
+    (propertize " " 'display `(space :align-to (- right ,str-width ,(or padding 0))))))
 
 (defun fstar--insert-with-face (face fmt &rest args)
   "Insert (format FMT args) with FACE."
@@ -4066,7 +4066,7 @@ cell."
     (fstar--insert-with-face 'fstar-proof-state-header-face "%s"
       (propertize .label 'line-prefix "" 'wrap-prefix ""))
     (let ((timestamp (current-time-string)))
-      (insert " " (fstar--specified-space-to-align-right timestamp))
+      (insert " " (fstar--specified-space-to-align-right timestamp 1))
       (fstar--insert-with-face 'fstar-proof-state-header-timestamp-face timestamp))
     (insert (propertize "\n" 'line-spacing 0.2))
     (fstar-tactics--insert-goals .goals "Goal")
