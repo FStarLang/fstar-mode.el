@@ -2112,6 +2112,7 @@ Table of continuations was %s" response id conts)))
     (fstar-subp-remove-issue-overlays (point-min) (point-max))
     (fstar-subp-remove-tracking-overlays)
     (fstar-subp--clear-continuations)
+    (flycheck-clear t)
     (setq fstar--vernum nil
           fstar--features nil
           fstar-subp--process nil
