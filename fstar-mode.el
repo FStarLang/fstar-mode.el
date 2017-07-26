@@ -4064,7 +4064,8 @@ cell."
           (propertize "\n" 'line-prefix "" 'line-height t))
       (insert "\n"))
     (fstar--insert-with-face 'fstar-proof-state-header-face "%s"
-      (propertize .label 'line-prefix "" 'wrap-prefix ""))
+      (let ((label (if (member .label '(nil "")) "…" .label)))
+        (propertize label 'line-prefix "" 'wrap-prefix "" 'fstar--header t)))
     (let ((timestamp (current-time-string)))
       (insert " " (fstar--specified-space-to-align-right timestamp 1))
       (fstar--insert-with-face 'fstar-proof-state-header-timestamp-face timestamp))
@@ -4072,16 +4073,53 @@ cell."
     (fstar-tactics--insert-goals .goals "Goal")
     (fstar-tactics--insert-goals .smt-goals "SMT goal")))
 
+(defun fstar-tactics--next-proof-state (&optional n)
+  "Go forward N goals (default: 1)."
+  (interactive "^p")
+  (setq n (or n 1))
+  (if (< n 0)
+      (fstar-tactics--previous-proof-state (- n))
+    (dotimes (_ n)
+      (goto-char (point-at-eol))
+      (let ((next (next-single-char-property-change (point) 'fstar--header)))
+        (unless (eq next (point-max)) (goto-char next)))
+      (goto-char (point-at-bol)))
+    (recenter 0)))
+
+(defun fstar-tactics--previous-proof-state (&optional n)
+  "Go back N goals (default: 1)."
+  (interactive "^p")
+  (setq n (or n 1))
+  (if (< n 0)
+      (fstar-tactics--next-proof-state (- n))
+    (dotimes (_ n)
+      (goto-char (point-at-eol))
+      (dotimes (_ 3)
+        (goto-char (previous-single-char-property-change (point) 'fstar--header))))
+    (goto-char (point-at-bol))
+    (recenter 0)))
+
+(defvar fstar-tactics--goals-mode-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map [remap scroll-up-command] #'fstar-tactics--next-proof-state)
+    (define-key map [remap scroll-down-command] #'fstar-tactics--previous-proof-state)
+    map))
+
+(define-derived-mode fstar-tactics--goals-mode help-mode "F✪ Goals"
+  "Major mode for viewing F* goals.
+Commands:
+\\{fstar-tactics--goals-mode-map}"
+  (visual-line-mode)
+  (setq line-prefix "   ")
+  (setq wrap-prefix line-prefix))
+
 (defun fstar-tactics--goals-buffer ()
   "Create or return F*-mode's goal buffer.
 This function exists to work around the fact that
 `with-help-window' clears the buffer."
   (or (get-buffer fstar--goals-buffer-name)
       (with-current-buffer (temp-buffer-window-setup fstar--goals-buffer-name)
-        (help-mode)
-        (visual-line-mode)
-        (setq line-prefix "   ")
-        (setq wrap-prefix line-prefix)
+        (fstar-tactics--goals-mode)
         (current-buffer))))
 
 (defmacro fstar-tactics--with-goals-buffer (&rest body)
