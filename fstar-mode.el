@@ -3412,7 +3412,7 @@ a prefix argument, prompt for rules as well."
   "Handle results (STATUS, RESPONSE) of searching for TERMS."
   (pcase status
     (`success
-     (with-help-window fstar--doc-buffer-name
+     (with-help-window fstar--search-buffer-name
        (with-current-buffer standard-output
          (visual-line-mode)
          (when (fboundp 'adaptive-wrap-prefix-mode)
