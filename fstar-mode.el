@@ -834,7 +834,7 @@ allows composition in code comments."
 (defconst fstar-syntax-cs "\\_<[#']?[A-Z]\\(?:\\sw\\|\\s_\\)*\\_>")
 
 (defconst fstar-syntax-id-with-subscript
-  "\\_<[#']?_*[a-z]\\(?:[a-z0-9_']*[a-z]\\)?\\([0-9]+\\)['_]*\\_>")
+  "\\_<[#']?_*[a-zA-Z]\\(?:[a-z0-9_']*[a-z]\\)?\\([0-9]+\\)['_]*\\_>")
 
 (defconst fstar-syntax-universe-id-unwrapped (rx "'u" (* (or wordchar (syntax symbol)))))
 
