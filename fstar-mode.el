@@ -3618,7 +3618,8 @@ CALLBACK is the company-mode asynchronous meta callback."
   (funcall callback (pcase info
                       (`nil nil)
                       (`busy "F* subprocess unavailable")
-                      (_ (fstar-lookup-result-sig info "\\[company-show-doc-buffer]")))))
+                      (_ (fstar--unwrap-paragraphs
+                          (fstar-lookup-result-sig info "\\[company-show-doc-buffer]"))))))
 
 (defun fstar-subp-company--async-meta (candidate callback)
   "Find type of CANDIDATE and pass it to CALLBACK."
