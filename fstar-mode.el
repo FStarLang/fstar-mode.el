@@ -4198,21 +4198,25 @@ of the list is passed to F*.  If set to a function, that function
 is called in the current buffer without arguments, and expected
 to produce a string or a list of strings.
 
-Some examples:
+Some examples (see below about `…'):
 
 - (setq fstar-subp-prover-args \"--ab\") results in F* being
-called as ‘fstar.exe --ide --ab’.
+called as ‘fstar.exe … --ab’.
 
 - (setq fstar-subp-prover-args \\='(\"--ab\" \"--cd\")) results in
-F* being called as ‘fstar.exe --ide --ab --cd’.
+F* being called as ‘fstar.exe … --ab --cd’.
 
 - (setq fstar-subp-prover-args (lambda () \\='(\"--ab\" \"--cd\")))
-results in F* being called as ‘fstar.exe --ide --ab --cd’.
+results in F* being called as ‘fstar.exe … --ab --cd’.
+
+In addition to these setting, `fstar-mode' always includes (as
+indicated above with `…') both \\='--smt <path-to-z3>\\=' and one
+of \\='--ide\\=' and \\='--in\\='.
 
 To debug unexpected behaviors with this variable, try
 evaluating (fstar-subp-get-prover-args).  Note that passing
 multiple arguments as one string will not work: you should use
-\\='(\"--aa\" \"--bb\"), not \"--aa --bb\""
+\\='(\"--aa\" \"--bb\"), not \"--aa --bb\"."
   :group 'fstar
   :type '(repeat string))
 
