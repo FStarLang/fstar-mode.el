@@ -1261,6 +1261,7 @@ In non-fstar-mode buffers, call FCP unconditionally."
   "Run functions in `fstar-newline-hook' with ARG until success."
   (interactive "*P")
   (run-hook-with-args-until-success 'fstar-newline-hook arg))
+(put 'fstar-newline 'delete-selection t)
 
 (defun fstar-copy-help-at-point ()
   "Copy contents of help-echo at point."
