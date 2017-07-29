@@ -2111,9 +2111,9 @@ Table of continuations was %s" response id conts)))
   (when (or (memq (process-status proc) '(exit signal))
             (not (process-live-p proc)))
     (message "F*: subprocess exited.")
-    (when (derived-mode-p 'fstar-mode)
+    (fstar-subp-with-source-buffer proc
       ;; This may be called after switching to RST
-      (fstar-subp-with-source-buffer proc
+      (when (derived-mode-p 'fstar-mode)
         (fstar-subp-killed)))))
 
 (defun fstar-subp--clear-continuations ()
