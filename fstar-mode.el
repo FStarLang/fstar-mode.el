@@ -4331,13 +4331,14 @@ Function is public to make it easier to debug `fstar-subp-prover-args'."
 
 (defun fstar-teardown-interactive ()
   "Cleanup F* interactive mode."
-  (help-at-pt-cancel-timer))
+  (help-at-pt-cancel-timer)
+  (fstar-subp-kill))
 
 
 ;;; Menu
 
 (defun fstar-customize ()
-  "Open `fstar-mode'\\='s customization menu."
+  "Open `fstar-mode''s customization menu."
   (interactive)
   (customize-group 'fstar))
 
