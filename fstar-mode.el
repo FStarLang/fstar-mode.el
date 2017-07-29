@@ -4244,6 +4244,18 @@ Function is public to make it easier to debug `fstar-subp-prover-args'."
         (ide-flag (if (fstar--has-feature 'json-subp) "--ide" "--in")))
     `(,(fstar-subp--buffer-file-name) ,ide-flag "--smt" ,smt-path ,@usr-args)))
 
+(defun fstar-subp-prover-args-for-compiler-hacking ()
+  "Compute arguments suitable for hacking on the F* compiler."
+  (-if-let* ((fname (buffer-file-name))
+             (default-directory (locate-dominating-file fname "_tags")))
+      `("--no_location_info"
+        "--eager_inference" "--lax" "--MLish"
+        "--include" ,(expand-file-name "ulib")
+        "--include" ,(expand-file-name "src/u_boot_fsts")
+        "--include" ,(expand-file-name "src/boot_fstis"))
+    (user-error (concat "Couldn't find _tags file while trying to "
+                        " set up F*-mode for compiler hacking."))))
+
 (defun fstar-subp--buffer-file-name ()
   "Find name of current buffer, as sent to F*."
   (if (fstar--remote-p)
