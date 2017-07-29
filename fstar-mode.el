@@ -2419,8 +2419,7 @@ Returns a pair of (CLEAN-MESSAGE . LOCATIONS)."
 (defun fstar-subp--related-location-help-string ()
   "Build a string describing motion commands for related locations."
   (substitute-command-keys
-   "\\[fstar-jump-to-related-error] to visit, \
-\\[universal-argument] \\[set-mark-command] to come back"))
+   "\\[fstar-jump-to-related-error] to visit, \\[pop-global-mark] to come back"))
 
 (defun fstar-subp--help-echo-for-alt-locs (locs)
   "Prepare a string describing LOCS and how to browse to them."
