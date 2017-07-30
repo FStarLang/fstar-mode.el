@@ -4189,6 +4189,10 @@ unless LOCAL-ONLY is set."
       (buffer-disable-undo)
       (current-buffer))))
 
+(defun fstar-subp-prover-args-safe-p (args)
+  "Check whether ARGS is a known-safe value for `fstar-subp-prover-args'."
+  (equal args 'fstar-subp-prover-args-for-compiler-hacking))
+
 (defcustom fstar-subp-prover-args nil
   "Used for computing arguments to pass to F* in interactive mode.
 
@@ -4218,7 +4222,8 @@ evaluating (fstar-subp-get-prover-args).  Note that passing
 multiple arguments as one string will not work: you should use
 \\='(\"--aa\" \"--bb\"), not \"--aa --bb\"."
   :group 'fstar
-  :type '(repeat string))
+  :type '(repeat string)
+  :safe #'fstar-subp-prover-args-safe-p)
 
 (defun fstar-subp-find-fstar ()
   "Find path to F* executable."
@@ -4244,17 +4249,29 @@ Function is public to make it easier to debug `fstar-subp-prover-args'."
         (ide-flag (if (fstar--has-feature 'json-subp) "--ide" "--in")))
     `(,(fstar-subp--buffer-file-name) ,ide-flag "--smt" ,smt-path ,@usr-args)))
 
-(defun fstar-subp-prover-args-for-compiler-hacking ()
-  "Compute arguments suitable for hacking on the F* compiler."
+(defun fstar-subp--prover-includes-for-compiler-hacking ()
+  "Compute a list of folders to include for hacking on the F* compiler."
   (-if-let* ((fname (buffer-file-name))
              (default-directory (locate-dominating-file fname "_tags")))
-      `("--no_location_info"
-        "--eager_inference" "--lax" "--MLish"
-        "--include" ,(expand-file-name "ulib")
-        "--include" ,(expand-file-name "src/u_boot_fsts")
-        "--include" ,(expand-file-name "src/boot_fstis"))
+      (let ((exclude-list '("." ".." "VS""tests""tools"
+                            "ocaml-output" "u_ocaml-output" "u_boot_fsts"))
+            (src-dir (expand-file-name "src" default-directory))
+            (include-dirs nil))
+        ;; (push (expand-file-name "ulib") include-dirs)
+        (dolist (dir (directory-files src-dir nil))
+          (unless (member dir exclude-list)
+            (let ((fulldir (expand-file-name dir src-dir)))
+              (when (file-directory-p fulldir)
+                (push fulldir include-dirs)))))
+        (nreverse include-dirs))
     (user-error (concat "Couldn't find _tags file while trying to "
                         " set up F*-mode for compiler hacking."))))
+
+(defun fstar-subp-prover-args-for-compiler-hacking ()
+  "Compute arguments suitable for hacking on the F* compiler."
+  `("--eager_inference" "--lax" "--MLish"
+    ,@(-mapcat (lambda (dir) `("--include" ,dir))
+               (fstar-subp--prover-includes-for-compiler-hacking))))
 
 (defun fstar-subp--buffer-file-name ()
   "Find name of current buffer, as sent to F*."
