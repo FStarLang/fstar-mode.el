@@ -191,6 +191,10 @@ after."
   "Remove hard line wraps from STR."
   (replace-regexp-in-string " *\n\\([^\n\t ]\\)" " \\1" str))
 
+(defun fstar--strip-newlines (str)
+  "Remove all newlines from STR."
+  (replace-regexp-in-string " *\n *" " " str))
+
 (defun fstar--resolve-fn-value (fn-or-v)
   "Return FN-OR-V, or the result of calling it if it's a function."
   (if (functionp fn-or-v)
@@ -3111,7 +3115,7 @@ function can also handle results of position-less lookup queries."
   "Pass highlighted type information from INFO to CONTINUATION."
   (when info
     (funcall continuation
-             (fstar--unwrap-paragraphs (fstar-lookup-result-sig info "\\[fstar-doc]")))))
+             (fstar--strip-newlines (fstar-lookup-result-sig info "\\[fstar-doc]")))))
 
 (defun fstar--eldoc-function ()
   "Compute an eldoc string for current point.
@@ -3646,7 +3650,7 @@ CALLBACK is the company-mode asynchronous meta callback."
   (funcall callback (pcase info
                       (`nil nil)
                       (`busy "F* subprocess unavailable")
-                      (_ (fstar--unwrap-paragraphs
+                      (_ (fstar--strip-newlines
                           (fstar-lookup-result-sig info "\\[company-show-doc-buffer]"))))))
 
 (defun fstar-subp-company--async-meta (candidate callback)
