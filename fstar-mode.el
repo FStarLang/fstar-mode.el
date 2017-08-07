@@ -1352,14 +1352,20 @@ In non-fstar-mode buffers, call FCP unconditionally."
 
 ;;; Switching between interface and implementation
 
+(defconst fstar--interface-implementation-ext-alist
+  '(("fst" . "fsti") ("fsti" . "fst") ("fs" . "fsi") ("fsi" . "fs")))
+
 (defun fstar-visit-interface-or-implementation ()
   "Switch between interface and implementation."
   (interactive)
   (unless buffer-file-name
     (user-error "Save this file before switching"))
-  (when (string-match "\\`\\(.*\\)\\.fst\\(i\\)?\\'" buffer-file-name)
-    (let ((other (if (match-end 2) ".fst" ".fsti")))
-      (find-file (concat (match-string 1 buffer-file-name) other)))))
+  (when (string-match "\\`\\(.*\\)\\.\\(fst?i?\\)\\'" buffer-file-name)
+    (let* ((ext (file-name-extension buffer-file-name))
+           (fname (file-name-sans-extension buffer-file-name))
+           (other-ext (cdr (assoc ext fstar--interface-implementation-ext-alist))))
+      (let ((auto-mode-alist '(("" . fstar-mode))))
+        (find-file (concat fname "." (or other-ext ext)))))))
 
 (defun fstar--visiting-interface-p ()
   "Check whether current buffer is an interface file."
