@@ -728,7 +728,7 @@ allows composition in code comments."
     "kind" "type"))
 
 (defconst fstar-syntax-preprocessor-directives
-  '("#set-options" "#reset-options"))
+  '("#set-options" "#reset-options" "#light"))
 
 (defconst fstar-syntax-qualifiers
   '("new" "abstract" "logic" "assume" "visible"
