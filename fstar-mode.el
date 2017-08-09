@@ -477,6 +477,10 @@ function does not move the point."
   (apply #'fstar--insert-with-face face fmt args)
   (insert "\n"))
 
+(defun fstar--set-text-props (str &rest props)
+  "Set text properties on STR to PROPS."
+  (set-text-properties 0 (length str) props str))
+
 ;;; Debugging
 
 (defvar fstar-debug nil
@@ -3603,17 +3607,23 @@ the original query's status."
                ("kind" . ,kind)))
     (format "#completions %s #" prefix)))
 
+(defun fstar-subp-company--post-process-candidate (candidate)
+  "Post-process and return CANDIDATE."
+  candidate)
+
 (defun fstar-subp-company-legacy--prepare-candidate (line)
   "Extract a candidate from LINE."
   (pcase (split-string line " ")
-    (`(,match-end ,ns ,candidate . ,_)
+    (`(,match-end ,annot ,candidate . ,_)
      (setq match-end (string-to-number match-end))
-     (propertize candidate 'match match-end 'ns ns))))
+     (fstar--set-text-props candidate 'match match-end 'annot annot)
+     (fstar-subp-company--post-process-candidate candidate))))
 
 (defun fstar-subp-company-json--prepare-candidate (record)
   "Extract a candidate from RECORD."
-  (pcase-let* ((`(,match-end ,ns ,candidate) record))
-    (propertize candidate 'match match-end 'ns ns)))
+  (pcase-let* ((`(,match-end ,annot ,candidate) record))
+    (fstar--set-text-props candidate 'match match-end 'annot annot)
+    (fstar-subp-company--post-process-candidate candidate)))
 
 (defun fstar-subp-company--candidates-continuation (callback status response)
   "Handle the results (STATUS, RESPONSE) of an `autocomplete' query.
@@ -3643,7 +3653,7 @@ Return (CALLBACK CANDIDATES)."
 
 (defun fstar-subp-company--candidate-fqn (candidate)
   "Compute the fully qualified name of CANDIDATE."
-  (let* ((ns (get-text-property 0 'ns candidate)))
+  (let* ((ns (get-text-property 0 'annot candidate)))
     (if (string= ns "") candidate
       (concat ns "." candidate))))
 
@@ -3774,7 +3784,7 @@ COMMAND, ARG: see `company-backends'."
       (`no-cache t)
       (`duplicates nil)
       (`match (get-text-property 0 'match arg))
-      (`annotation (get-text-property 0 'ns arg)))))
+      (`annotation (get-text-property 0 'annot arg)))))
 
 (defun fstar-setup-company ()
   "Set up Company support."
