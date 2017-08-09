@@ -175,7 +175,8 @@ With SKIP-FIRST-LINE, don't indent the first one."
 (defun fstar--expand-snippet (&rest args)
   "Ensure that Yasnippet is on and forward ARGS to `yas-expand-snippet'."
   (unless yas-minor-mode (yas-minor-mode 1))
-  (apply #'yas-expand-snippet args))
+  (let ((yas-indent-line nil))
+    (apply #'yas-expand-snippet args)))
 
 (defun fstar--refresh-eldoc ()
   "Tell Eldoc to do its thing.
@@ -3297,8 +3298,7 @@ TYPE is used in error messages"
              (branch-strs (mapconcat #'fstar--format-one-branch (cdr branches) "\n"))
              (match (format "match ${%s} with\n%s" name-str branch-strs))
              (indented (fstar--indent-str match (current-column) t)))
-        (let ((yas-indent-line nil))
-          (fstar--expand-snippet (fstar--prepare-match-snippet indented))))
+        (fstar--expand-snippet (fstar--prepare-match-snippet indented)))
     (message "No match found for type `%s'." type)))
 
 (defun fstar--read-type-name ()
