@@ -279,7 +279,7 @@ Prompt should have one string placeholder to accommodate DEFAULT."
 
 (defun fstar--in-code-p (&optional pos)
   "Check if POS is in a code fragment (possibly embedded in a comment)."
-  (let* ((sx (fstar--syntax-ppss (point)))
+  (let* ((sx (fstar--syntax-ppss pos))
          (in-comment (nth 4 sx)))
     (or (not in-comment)
         (and
