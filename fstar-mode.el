@@ -3593,13 +3593,14 @@ the original query's status."
 
 ;;; ;; ;; Company
 
-(defun fstar-subp--completion-query (prefix)
-  "Prepare a `completions' query from PREFIX."
+(defun fstar-subp--completion-query (prefix &optional kind)
+  "Prepare a `completions' query from PREFIX of kind KIND."
   (fstar-assert (not (string-match-p " " prefix)))
   (if (fstar--has-feature 'json-subp)
       (make-fstar-subp-query
        :query "autocomplete"
-       :args `(("partial-symbol" . ,prefix)))
+       :args `(("partial-symbol" . ,prefix)
+               ("kind" . ,kind)))
     (format "#completions %s #" prefix)))
 
 (defun fstar-subp-company-legacy--prepare-candidate (line)
@@ -3715,12 +3716,13 @@ CALLBACK is the company-mode asynchronous meta callback."
   (fstar-subp-company--async-lookup candidate '(defined-at)
     (apply-partially #'fstar-subp-company--location-continuation callback)))
 
-(defun fstar-subp-company-candidates (prefix)
-  "Compute candidates for PREFIX.
+(defun fstar-subp-company-candidates (prefix &optional kind)
+  "Compute candidates for PREFIX of kind KIND.
 Briefly tries to get results synchronously to reduce flicker (see
-URL https://github.com/company-mode/company-mode/issues/654), and
+URL `https://github.com/company-mode/company-mode/issues/654'), and
 then returns an :async cons, as required by company-mode."
-  (let ((retv (fstar-subp--query-and-wait (fstar-subp--completion-query prefix) 0.03)))
+  (let ((retv (fstar-subp--query-and-wait
+               (fstar-subp--completion-query prefix kind) 0.03)))
     (pcase retv
       (`(t . (,status ,results))
        (fstar-subp-company--candidates-continuation #'identity status results))
@@ -3729,6 +3731,18 @@ then returns an :async cons, as required by company-mode."
                      (setf (cdr retv)
                            (apply-partially
                             #'fstar-subp-company--candidates-continuation cb))))))))
+
+(defun fstar-subp-company--completion-kind-at-point ()
+  "Compute kind of prefix at point.
+Must be called with syntax table `fstar--fqn-at-point-syntax-table'"
+  (save-excursion
+    (goto-char (point-at-bol))
+    (cond
+     ((looking-at-p "open ") "open")
+     ((looking-at-p "include ") "include")
+     ((looking-at-p "module \\(?:\\s_\\|\\sw\\)+ *=") "module-alias")
+     ((looking-at-p ".* let open \\s_*\\=") "let-open")
+     (t "symbol"))))
 
 (defun fstar-subp-company-backend (command &optional arg &rest _)
   "Company backend for F*.
@@ -3747,7 +3761,7 @@ COMMAND, ARG: see `company-backends'."
              (when (fstar--in-code-p)
                (substring-no-properties prefix))))))
       (`candidates
-       (fstar-subp-company-candidates arg))
+       (fstar-subp-company-candidates arg (fstar-subp-company--completion-kind-at-point)))
       (`meta
        `(:async . ,(apply-partially #'fstar-subp-company--async-meta arg)))
       (`doc-buffer
