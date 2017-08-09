@@ -4268,16 +4268,16 @@ Function is public to make it easier to debug `fstar-subp-prover-args'."
   "Compute a list of folders to include for hacking on the F* compiler."
   (-if-let* ((fname (buffer-file-name))
              (default-directory (locate-dominating-file fname "_tags")))
-      (let ((exclude-list '("." ".." "VS" "tests" "tools"
+      (let ((exclude-list '("." ".." "VS" "tests" "tools" "boot_fstis"
                             "ocaml-output" "u_ocaml-output" "u_boot_fsts"))
             (src-dir (expand-file-name "src" default-directory))
             (include-dirs nil))
+        (push (expand-file-name "ulib") include-dirs)
         (dolist (dir (directory-files src-dir nil))
           (unless (member dir exclude-list)
             (let ((fulldir (expand-file-name dir src-dir)))
               (when (file-directory-p fulldir)
                 (push fulldir include-dirs)))))
-        (push (expand-file-name "ulib") include-dirs)
         (nreverse include-dirs))
     (user-error (concat "Couldn't find _tags file while trying to "
                         " set up F*-mode for compiler hacking."))))
