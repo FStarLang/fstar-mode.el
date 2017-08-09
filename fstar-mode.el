@@ -3605,6 +3605,8 @@ the original query's status."
                ("kind" . ,kind)))
     (format "#completions %s #" prefix)))
 
+(defconst fstar-subp-company--snippet-re "\\${\\(.+?\\)}")
+
 (defun fstar-subp-company--post-process-candidate (candidate)
   "Post-process and return CANDIDATE."
   candidate)
@@ -3752,10 +3754,28 @@ Must be called with syntax table `fstar--fqn-at-point-syntax-table'"
       (and (looking-back "\\_<let open \\(?:\\s_\\|\\sw\\)*" (point-at-bol)) "let-open")
       "symbol"))
 
-(defun fstar-subp-company-backend (command &optional arg &rest _)
+(defun fstar-subp-company--pre-render-1 (match)
+  "Compute prettified rendition of placeholder MATCH."
+  (propertize (match-string 1 match) 'face '(bold italic)))
+
+(defun fstar-subp-company--pre-render (str annotation-p)
+  "Propertize STR before displaying it.
+ANNOTATION-P indicates where STR will be displayed."
+  (if (and (not annotation-p)
+           (string-match fstar-subp-company--snippet-re str))
+      (replace-regexp-in-string
+       fstar-subp-company--snippet-re #'fstar-subp-company--pre-render-1 str)
+    str))
+
+(defun fstar-subp-company--post-completion (candidate)
+  "Run post-completion action for CANDIDATE."
+  (when (string-match fstar-subp-company--snippet-re candidate)
+    (fstar--expand-snippet candidate (- (point) (length candidate)) (point))))
+
+(defun fstar-subp-company-backend (command &optional arg &rest rest)
   "Company backend for F*.
 Candidates are provided by the F* subprocess.
-COMMAND, ARG: see `company-backends'."
+COMMAND, ARG, REST: see `company-backends'."
   (interactive '(interactive))
   ;; (fstar-log 'info "fstar-subp-company-backend: %S %S" command arg)
   (when (fstar--has-feature 'autocomplete)
@@ -3782,7 +3802,9 @@ COMMAND, ARG: see `company-backends'."
       (`no-cache t)
       (`duplicates nil)
       (`match (get-text-property 0 'match arg))
-      (`annotation (get-text-property 0 'annot arg)))))
+      (`annotation (get-text-property 0 'annot arg))
+      (`pre-render (fstar-subp-company--pre-render arg (car rest)))
+      (`post-completion (fstar-subp-company--post-completion arg)))))
 
 (defun fstar-setup-company ()
   "Set up Company support."
