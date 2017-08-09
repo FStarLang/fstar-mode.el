@@ -3743,14 +3743,14 @@ then returns an :async cons, as required by company-mode."
 (defun fstar-subp-company--completion-kind-at-point ()
   "Compute kind of prefix at point.
 Must be called with syntax table `fstar--fqn-at-point-syntax-table'"
-  (save-excursion
-    (goto-char (point-at-bol))
-    (cond
-     ((looking-at-p "open ") "open")
-     ((looking-at-p "include ") "include")
-     ((looking-at-p "module \\(?:\\s_\\|\\sw\\)+ *=") "module-alias")
-     ((looking-at-p ".* let open \\s_*\\=") "let-open")
-     (t "symbol"))))
+  (or (save-excursion
+        (goto-char (point-at-bol))
+        (cond
+         ((looking-at-p "open ") "open")
+         ((looking-at-p "include ") "include")
+         ((looking-at-p "module \\(?:\\s_\\|\\sw\\)+ *=") "module-alias")))
+      (and (looking-back "\\_<let open \\(?:\\s_\\|\\sw\\)*" (point-at-bol)) "let-open")
+      "symbol"))
 
 (defun fstar-subp-company-backend (command &optional arg &rest _)
   "Company backend for F*.
