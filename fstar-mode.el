@@ -2179,11 +2179,9 @@ Table of continuations was %s" response id conts)))
 (defun fstar-subp-kill-all ()
   "Kill F* subprocesses in all buffers."
   (interactive)
-  (dolist (buf (buffer-list))
-    (when (buffer-live-p buf) ; May have been killed by previous iterations
-      (with-current-buffer buf
-        (when (derived-mode-p 'fstar-mode)
-          (fstar-subp-kill))))))
+  (dolist (proc (process-list))
+    (when (equal (process-name proc) "F* interactive")
+      (kill-process proc))))
 
 (defun fstar-subp-kill-one-or-many (&optional arg)
   "Kill current F* subprocess.
@@ -4332,9 +4330,11 @@ Function is public to make it easier to debug `fstar-subp-prover-args'."
        (tramp-dissect-file-name buffer-file-name))
     (fstar--maybe-cygpath buffer-file-name)))
 
+(defconst fstar-subp--process-name "F* interactive")
+
 (defun fstar-subp--start-process (buf prog args)
   "Start an F* subprocess PROG in BUF with ARGS."
-  (apply #'start-file-process "F* interactive" buf prog args))
+  (apply #'start-file-process fstar-subp--process-name buf prog args))
 
 (defun fstar-subp-start ()
   "Start an F* subprocess attached to the current buffer, if none exists."
