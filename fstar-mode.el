@@ -236,7 +236,7 @@ Prompt should have one string placeholder to accommodate DEFAULT."
     (setq prompt (format prompt default-info)))
   (read-string prompt nil nil default))
 
-(defun fstar--syntax-ppss (pos)
+(defun fstar--syntax-ppss (&optional pos)
   "Like `syntax-ppss' at POS, but don't move point."
   ;; This can be called in a narrowed buffer by `blink-matching-open'.
   (save-excursion (syntax-ppss pos)))
@@ -261,14 +261,20 @@ Prompt should have one string placeholder to accommodate DEFAULT."
     (move-to-column column)
     (fstar-in-comment-p)))
 
+(defvar fstar--syntax-table-for--delimited-by
+  (let ((table (make-syntax-table)))
+    (modify-syntax-entry ?\" "." table)
+    table))
+
 (defun fstar--delimited-by-p (delim pos limit)
   "Check if POS is enclosed in DELIM before LIMIT."
   (let ((found nil))
     (save-restriction
       (narrow-to-region limit (point-max))
-      (while (and (not found)
-                  (setq pos (ignore-errors (scan-lists pos -1 1))))
-        (setq found (eq (char-after pos) delim))))
+      (with-syntax-table fstar--syntax-table-for--delimited-by
+        (while (and (not found)
+                    (setq pos (ignore-errors (scan-lists pos -1 1))))
+          (setq found (eq (char-after pos) delim)))))
     found))
 
 (defun fstar--in-code-p (&optional pos)
