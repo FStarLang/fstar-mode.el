@@ -2,7 +2,7 @@
 
 ;; Copyright (C) 2015-2017 Clément Pit-Claudel
 ;; Author: Clément Pit-Claudel <clement.pitclaudel@live.com>
-;; URL: https://github.com/FStarLang/fstar.el
+;; URL: https://github.com/FStarLang/fstar-mode.el
 
 ;; Created: 27 Aug 2015
 ;; Version: 0.4
