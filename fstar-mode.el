@@ -277,6 +277,11 @@ Prompt should have one string placeholder to accommodate DEFAULT."
           (setq found (eq (char-after pos) delim)))))
     found))
 
+(defun fstar--in-string-p (&optional pos)
+  "Check if POS is in a string.
+This doesn't work for strings in snippets inside of comments."
+  (nth 3 (fstar--syntax-ppss pos)))
+
 (defun fstar--in-code-p (&optional pos)
   "Check if POS is in a code fragment (possibly embedded in a comment)."
   (let* ((sx (fstar--syntax-ppss pos))
@@ -716,6 +721,8 @@ allows composition in code comments."
        (not (fstar--same-ish-syntax (char-after end) (char-before end)))
        ;; Test both endpoints because `syntax-ppss' doesn't include comment
        ;; openers in comments (i.e. the ‘*’ of ‘(*’ isn't in the comment).
+       (not (fstar--in-string-p start))
+       (not (fstar--in-string-p end))
        (fstar--in-code-p start)
        (fstar--in-code-p end)))
 
