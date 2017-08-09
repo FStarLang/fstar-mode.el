@@ -52,7 +52,7 @@
 (require 'tramp)
 (require 'tramp-sh)
 (require 'crm)
-(require 'notifications)
+(require 'notifications nil t)
 ;; replace.el doesn't `provide' in Emacs < 26
 (ignore-errors (require 'replace))
 
@@ -3925,15 +3925,20 @@ Notifications are only displayed if it doesn't.")
 (defun fstar--notify-overlay-processed (_overlay status _response)
   "Possibly show a notification about STATUS."
   (unless (or fstar--emacs-has-focus (fstar-subp-tracking-overlays 'pending))
-    (notifications-notify
-     :urgency 'normal
-     :app-icon (expand-file-name "etc/fstar.png" fstar--directory)
-     :title (let ((fname (file-name-nondirectory (buffer-file-name))))
-              (format "Prover ready (%s)" fname))
-     :body (pcase status
-             (`interrupted "Verification interrupted")
-             (`success "Verification completed successfully")
-             (`failure "Verification failed")))))
+    (let ((title (let ((fname (file-name-nondirectory (buffer-file-name))))
+                   (format "Prover ready (%s)" fname)))
+          (body (pcase status
+                  (`interrupted "Verification interrupted")
+                  (`success "Verification completed successfully")
+                  (`failure "Verification failed")))
+          (icon (expand-file-name "etc/fstar.png" fstar--directory)))
+      (cond
+       ((and (featurep 'dbusbind) (fboundp 'notifications-notify))
+        (notifications-notify :app-icon icon :title title :body body))
+       ((fboundp 'w32-notification-notify)
+        (w32-notification-notify :title title :body body))
+       ((and (require 'alert nil t) (fboundp 'alert))
+        (alert body :icon icon :title title))))))
 
 (defun fstar--notify-focus-in ()
   "Handle a focus-in event."
