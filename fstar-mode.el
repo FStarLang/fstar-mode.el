@@ -754,7 +754,7 @@ allows composition in code comments."
 
 (defconst fstar-syntax-qualifiers
   '("new" "abstract" "logic" "assume" "visible"
-    "unfold" "irreducible" "inline_for_extraction" "noeq" "noextract"
+    "unfold" "irreducible" "inline_for_extraction" "noeq" "noextract" "unopteq"
     "private" "opaque" "total" "default" "reifiable" "reflectable"))
 
 (defconst fstar-syntax-block-header-re
