@@ -1046,6 +1046,7 @@ leads to the binder's start."
           (get-buffer-create (format fstar--scratchpad-name (buffer-name))))
     (with-current-buffer fstar--scratchpad
       (setq-local fstar-enabled-modules '(font-lock prettify))
+      (flycheck-mode -1)
       (fstar-mode))))
 
 (defun fstar--cleanup-type (type)
