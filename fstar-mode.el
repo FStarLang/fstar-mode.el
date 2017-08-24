@@ -136,13 +136,14 @@ returning a string (the full path to the SMT solver)."
     (spinner          . "Blink the modeline while F* is busy.")
     (notifications    . "Show a notification when a proof completes.")
     (literate         . "Prettify “///” comment markers.")
-    (overlay-legend   . "Show a legend in the modeline when hovering an F* overlay."))
+    (overlay-legend   . "Show a legend in the modeline when hovering an F* overlay.")
+    (auto-insert      . "Support for `auto-insert-mode'."))
   "Available components of F*-mode.")
 
 (defcustom fstar-enabled-modules
   '(font-lock prettify indentation comments flycheck interactive
               eldoc company company-defaults spinner notifications
-              literate overlay-legend)
+              literate overlay-legend auto-insert)
   "Which F*-mode components to load."
   :group 'fstar
   :type `(set ,@(cl-loop for (mod . desc) in fstar-known-modules
@@ -1677,6 +1678,38 @@ it created a bunch of issues with point motion and deletion.")
   (visual-line-mode -1)
   (remove-hook 'fstar-newline-hook #'fstar-literate-newline t)
   (font-lock-remove-keywords nil fstar-literate--font-lock-keywords))
+
+;;; Auto-insert support
+
+(defun fstar-auto-insert--infer-module-name ()
+  "Guess name of current module from name of file or buffer."
+  (replace-regexp-in-string
+   "\\(?:^\\|[.]\\)[^.]" #'upcase
+   (file-name-base (or (buffer-file-name) (buffer-name)))))
+
+(defconst fstar-auto-insert--skeleton
+  `(nil
+    "(** " (read-string "Module description: ") | -1 "\n"
+    "@summary " (read-string "Summary: ") | -1 "\n"
+    ;; & "\n" | ,(- (length "@summary ")) ;; Must have @summary (GH-1216)
+    "@author " (user-full-name) " <" (progn user-mail-address) ">" " **)\n"
+    "module " (fstar-auto-insert--infer-module-name) "\n"))
+
+(defconst fstar-auto-insert--alist-form
+  `(("\\.fsti?\\'" . "F* program") . ,fstar-auto-insert--skeleton))
+
+(defvar auto-insert-alist)
+
+(defun fstar-setup-auto-insert ()
+  "Register F* support for `auto-insert'."
+  (with-eval-after-load 'autoinsert
+    (add-to-list 'auto-insert-alist fstar-auto-insert--alist-form)))
+
+(defun fstar-teardown-auto-insert ()
+  "Unregister F* support for `auto-insert'."
+  (with-eval-after-load 'autoinsert
+    (setq auto-insert-alist
+          (delete fstar-auto-insert--alist-form auto-insert-alist))))
 
 ;;; Interactive proofs (fstar-subp)
 
