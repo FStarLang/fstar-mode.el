@@ -750,6 +750,12 @@ allows composition in code comments."
     "exception" "effect" "new_effect" "sub_effect" "new_effect_for_free"
     "kind" "type"))
 
+(defconst fstar-syntax-fsdoc-keywords
+  '("@author" "@summary"))
+
+(defconst fstar-syntax-fsdoc-keywords-re
+  (format "^[[:space:]]*\\(%s\\)\\_>" (regexp-opt fstar-syntax-fsdoc-keywords)))
+
 (defconst fstar-syntax-preprocessor-directives
   '("#set-options" "#reset-options" "#light"))
 
@@ -998,7 +1004,7 @@ leads to the binder's start."
        (1 'fstar-universe-face))
       (,(fstar--fl-conditional-matcher "`.+?`" #'fstar--in-code-p)
        (0 'fstar-operator-face append))
-      ("^[[:space:]]*\\(@summary\\)\\_>"
+      (,fstar-syntax-fsdoc-keywords-re
        (1 'font-lock-constant-face prepend))
       (,(fstar--fl-conditional-matcher (concat "{\\(:" id "\\) *\\([^}]*\\)}") #'fstar--in-code-p)
        (1 'font-lock-builtin-face append)
