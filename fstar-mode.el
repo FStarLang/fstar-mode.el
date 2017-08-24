@@ -4112,8 +4112,8 @@ cell."
     (pcase-dolist (`(,names . ,type) (fstar-tactics--group-hyps .hyps))
       (fstar-tactics--insert-hyp-group names type))
     (fstar--insert-with-face 'fstar-goal-line-face "%s\n" fstar-tactics--goal-separator)
-    (fstar--insert-ln-with-face 'fstar-goal-type-face (fstar-highlight-string .goal.type))
-    (fstar--insert-ln-with-face 'fstar-goal-witness-face (fstar-highlight-string .goal.witness))))
+    (fstar--insert-ln-with-face 'fstar-goal-type-face "%s" (fstar-highlight-string .goal.type))
+    (fstar--insert-ln-with-face 'fstar-goal-witness-face "%s" (fstar-highlight-string .goal.witness))))
 
 (defun fstar-tactics--insert-goals (goals kind)
   "Insert GOALS of type KIND (“Goal” or “SMT goal”) into current buffer."
