@@ -467,14 +467,16 @@ function does not move the point."
     (propertize " " 'display `(space :align-to (- right ,str-width ,(or padding 0))))))
 
 (defun fstar--insert-with-face (face fmt &rest args)
-  "Insert (format FMT args) with FACE."
+  "Insert (format FMT args) with FACE.
+With no ARGS, just insert FMT."
   (declare (indent 2))
   (let ((beg (point)))
-    (insert (apply #'format fmt args))
+    (insert (if args (apply #'format fmt args) fmt))
     (font-lock-append-text-property beg (point) 'face face)))
 
 (defun fstar--insert-ln-with-face (face fmt &rest args)
-  "Insert (format FMT args) with FACE."
+  "Insert (format FMT args) with FACE and add a newline.
+With no ARGS, just insert FMT and a newline."
   (declare (indent 2))
   (apply #'fstar--insert-with-face face fmt args)
   (insert "\n"))
@@ -4120,12 +4122,12 @@ Notifications are only displayed if it doesn't.")
 (defun fstar-tactics--insert-hyp-group (names type)
   "Insert NAMES: TYPE into current buffer."
   (while names
-    (fstar--insert-with-face 'fstar-hypothesis-name-face "%s" (pop names))
+    (fstar--insert-with-face 'fstar-hypothesis-name-face (pop names))
     (insert (if names " " ": ")))
   (let* ((indent (- (point) (point-at-bol)))
          (wrap (concat line-prefix (make-string indent ?\s))))
-    (fstar--insert-ln-with-face 'fstar-hypothesis-face "%s"
-      (propertize (fstar-highlight-string type) 'wrap-prefix wrap))))
+    (fstar--insert-ln-with-face 'fstar-hypothesis-face
+        (propertize (fstar-highlight-string type) 'wrap-prefix wrap))))
 
 (defun fstar-tactics--cons-of-hyp (hyp)
   "Convert HYP into a (NAMES . TYPE) cons."
@@ -4151,8 +4153,8 @@ cell."
     (pcase-dolist (`(,names . ,type) (fstar-tactics--group-hyps .hyps))
       (fstar-tactics--insert-hyp-group names type))
     (fstar--insert-with-face 'fstar-goal-line-face "%s\n" fstar-tactics--goal-separator)
-    (fstar--insert-ln-with-face 'fstar-goal-type-face "%s" (fstar-highlight-string .goal.type))
-    (fstar--insert-ln-with-face 'fstar-goal-witness-face "%s" (fstar-highlight-string .goal.witness))))
+    (fstar--insert-ln-with-face 'fstar-goal-type-face (fstar-highlight-string .goal.type))
+    (fstar--insert-ln-with-face 'fstar-goal-witness-face (fstar-highlight-string .goal.witness))))
 
 (defun fstar-tactics--insert-goals (goals kind)
   "Insert GOALS of type KIND (“Goal” or “SMT goal”) into current buffer."
@@ -4175,9 +4177,9 @@ cell."
       (fstar--insert-with-face 'fstar-proof-state-separator-face
           (propertize "\n" 'line-prefix "" 'line-height t))
       (insert "\n"))
-    (fstar--insert-with-face 'fstar-proof-state-header-face "%s"
-      (let ((label (if (member .label '(nil "")) "…" .label)))
-        (propertize label 'line-prefix "" 'wrap-prefix "" 'fstar--header t)))
+    (fstar--insert-with-face 'fstar-proof-state-header-face
+        (let ((label (if (member .label '(nil "")) "…" .label)))
+          (propertize label 'line-prefix "" 'wrap-prefix "" 'fstar--header t)))
     (let ((timestamp (current-time-string)))
       (insert " " (fstar--specified-space-to-align-right timestamp 1))
       (fstar--insert-with-face 'fstar-proof-state-header-timestamp-face timestamp))
