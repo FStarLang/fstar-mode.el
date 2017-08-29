@@ -107,6 +107,18 @@
   "F* mode."
   :group 'languages)
 
+(defgroup fstar-literate nil
+  "Literate programming support for F* mode."
+  :group 'fstar)
+
+(defgroup fstar-interactive nil
+  "Interactive proofs."
+  :group 'fstar)
+
+(defgroup fstar-tactics nil
+  "Tactics and tactic-based proofs."
+  :group 'fstar-interactive)
+
 (defcustom fstar-executable "fstar.exe"
   "Where to find F*.
 May be either “fstar.exe” (search in $PATH) or an absolute path."
@@ -870,12 +882,12 @@ allows composition in code comments."
 (defface fstar-literate-comment-face
   '((t :inherit default))
   "Face used for literate comments (///)."
-  :group 'fstar)
+  :group 'fstar-literate)
 
 (defface fstar-literate-gutter-face
   '((t :inverse-video t :inherit font-lock-comment-face))
   "Face used for the fringe next to literate comments (///)."
-  :group 'fstar)
+  :group 'fstar-literate)
 
 (defconst fstar-comment-start-skip "\\(//+\\|(\\*+\\)[ \t]*")
 
@@ -1637,7 +1649,7 @@ FROM, TO: see `modification-hooks' text property."
 ;; (defface fstar-literate-tty-gutter-face
 ;;   '((((type tty)) :inherit fstar-literate-gutter-face))
 ;;   "Face used for the gutter next to literate comments (///) on TTYs."
-;;   :group 'fstar)
+;;   :group 'fstar-literate)
 
 (defconst fstar-literate--gutter-font-lock-props
   '(face fstar-literate-gutter-face display (space :width (+ (0) 0.5))))
@@ -1749,60 +1761,60 @@ never contains more than one entry (with ID nil).")
 (defface fstar-subp-overlay-lax-face
   '((t :slant italic))
   "Face used to highlight lax-checked sections of the buffer."
-  :group 'fstar)
+  :group 'fstar-interactive)
 
 (defface fstar-subp-overlay-pending-face
   '((((background light)) :background "#AD7FA8")
     (((background dark))  :background "#5C3566"))
   "Face used to highlight pending sections of the buffer."
-  :group 'fstar)
+  :group 'fstar-interactive)
 
 (defface fstar-subp-overlay-pending-lax-face
   '((t :inherit (fstar-subp-overlay-pending-face fstar-subp-overlay-lax-face)))
   "Face used to highlight pending lax-checked sections of the buffer."
-  :group 'fstar)
+  :group 'fstar-interactive)
 
 (defface fstar-subp-overlay-busy-face
   '((((background light)) :background "mistyrose")
     (((background dark))  :background "mediumorchid"))
   "Face used to highlight busy sections of the buffer."
-  :group 'fstar)
+  :group 'fstar-interactive)
 
 (defface fstar-subp-overlay-busy-lax-face
   '((t :inherit (fstar-subp-overlay-busy-face fstar-subp-overlay-lax-face)))
   "Face used to highlight busy lax-checked sections of the buffer."
-  :group 'fstar)
+  :group 'fstar-interactive)
 
 (defface fstar-subp-overlay-processed-face
   '((((background light)) :background "#EAF8FF")
     (((background dark))  :background "darkslateblue"))
   "Face used to highlight processed sections of the buffer."
-  :group 'fstar)
+  :group 'fstar-interactive)
 
 (defface fstar-subp-overlay-processed-lax-face
   '((t :inherit (fstar-subp-overlay-processed-face fstar-subp-overlay-lax-face)))
   "Face used to highlight processed lax-checked sections of the buffer."
-  :group 'fstar)
+  :group 'fstar-interactive)
 
 (defface fstar-subp-overlay-error-face
   '((t :underline (:color "red" :style wave)))
   "Face used to highlight errors."
-  :group 'fstar)
+  :group 'fstar-interactive)
 
 (defface fstar-subp-overlay-warning-face
   '((t :underline (:color "orange" :style wave)))
   "Face used to highlight warnings."
-  :group 'fstar)
+  :group 'fstar-interactive)
 
 (defface fstar-subp-overlay-bullet-error-face
   '((t :foreground "red"))
   "Face used to color bullets indicating error locations."
-  :group 'fstar)
+  :group 'fstar-interactive)
 
 (defface fstar-subp-overlay-bullet-warning-face
   '((t :foreground "orange"))
   "Face used to color bullets indicating warning locations."
-  :group 'fstar)
+  :group 'fstar-interactive)
 
 (defmacro fstar-subp-with-process-buffer (proc &rest body)
   "If PROC is non-nil, move to PROC's buffer to eval BODY."
@@ -3017,7 +3029,7 @@ Pass ARG to `fstar-subp-advance-or-retract-to-point'."
 
 (defcustom fstar-subp-flycheck-lookahead 3
   "Number of blocks to check continuously, in the background."
-  :group 'fstar-mode
+  :group 'fstar-interactive
   :type 'integer)
 
 (defun fstar-subp--start-syntax-check (_checker callback)
@@ -4076,48 +4088,48 @@ Notifications are only displayed if it doesn't.")
 (defface fstar-proof-state-separator-face
   '((t :inherit highlight :height 0.1))
   "Face applied to the goal line in proof states."
-  :group 'fstar)
+  :group 'fstar-tactics)
 
 (defface fstar-proof-state-header-face
   '((t :weight bold))
   "Face applied to proof-state headers in proof states window."
-  :group 'fstar)
+  :group 'fstar-tactics)
 
 (defface fstar-proof-state-header-timestamp-face
   '((t :inherit font-lock-comment-face))
   "Face applied to proof-state headers in proof states window."
-  :group 'fstar)
+  :group 'fstar-tactics)
 
 (defface fstar-goal-header-face
   '((t :weight demibold))
   "Face applied to goal headers in proof states."
-  :group 'fstar)
+  :group 'fstar-tactics)
 
 (defface fstar-hypothesis-name-face
   '((t :inherit (font-lock-variable-name-face bold)))
   "Face applied to hypothesis names in proof states."
-  :group 'fstar)
+  :group 'fstar-tactics)
 
 (defface fstar-hypothesis-face
   '((t))
   "Face applied to hypotheses in proof states."
-  :group 'fstar)
+  :group 'fstar-tactics)
 
 (defface fstar-goal-line-face
   '((((supports :strike-through t)) :strike-through t :height 0.5)
     (t :underline t))
   "Face applied to the goal line in proof states."
-  :group 'fstar)
+  :group 'fstar-tactics)
 
 (defface fstar-goal-type-face
   '((t))
   "Face applied to the goal's type in proof states."
-  :group 'fstar)
+  :group 'fstar-tactics)
 
 (defface fstar-goal-witness-face
   '((t :height 0.75 :inherit font-lock-comment-face))
   "Face applied to the goal's witness in proof states."
-  :group 'fstar)
+  :group 'fstar-tactics)
 
 (defun fstar-tactics--insert-hyp-group (names type)
   "Insert NAMES: TYPE into current buffer."
@@ -4459,7 +4471,7 @@ Function is public to make it easier to debug `fstar-subp-prover-args'."
 
 (defcustom fstar-interactive-keybinding-style 'pg
   "Which style of bindings to use in F* interactive mode."
-  :group 'fstar
+  :group 'fstar-interactive
   :set #'fstar-subp-set-keybinding-style
   :type '(choice (const :tag "Proof-General style bindings" pg)
                  (const :tag "Atom-style bindings" atom)))
