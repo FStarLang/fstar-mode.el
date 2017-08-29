@@ -710,7 +710,7 @@ to ‘%S’ to use this checker." checker))
                             ("'p" . ?π) ("'q" . ?θ) ("'r" . ?ρ)
                             ("'s" . ?σ) ("'t" . ?τ) ("'u" . ?ψ)
                             ("'w" . ?ω) ("'x" . ?ξ) ("'z" . ?ζ))
-  "Fstar symbols."
+  "F* symbols."
   :group 'fstar
   :type 'alist)
 
