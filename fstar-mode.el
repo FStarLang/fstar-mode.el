@@ -1748,6 +1748,9 @@ it created a bunch of issues with point motion and deletion.")
 (defvar-local fstar-subp--process nil
   "Interactive F* process running in the background.")
 
+(defvar-local fstar-subp--prover-args nil
+  "Arguments passed to F* process running in the background.")
+
 (defvar-local fstar-subp--continuations nil
   "Indicates which continuation to run on next output from F* subprocess.
 This is a map from query ID to continuation.  In legacy mode, it
@@ -2230,6 +2233,7 @@ Table of continuations was %s" response id conts)))
     (setq fstar--vernum nil
           fstar--features nil
           fstar-subp--process nil
+          fstar-subp--prover-args nil
           fstar-subp--queue-timer nil
           fstar-subp--next-query-id 0)))
 
@@ -4444,6 +4448,7 @@ Function is public to make it easier to debug `fstar-subp-prover-args'."
         (set-process-coding-system proc 'utf-8 'utf-8)
         (process-put proc 'fstar-subp-source-buffer (current-buffer))
         (setq fstar-subp--process proc)
+        (setq fstar-subp--prover-args args)
         (setq fstar-subp--continuations (make-hash-table :test 'equal))))))
 
 ;;; ;; Keybindings
