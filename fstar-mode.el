@@ -1601,7 +1601,7 @@ Current document must have a file name."
 
 (define-derived-mode fstar-literate--rst-mode rst-mode "F✪-reStructuredText"
   "Mode for RST buffers backed by an F* file.
-Press \\{fstar-literate-mode-map}\\[fstar-literate-toggle\\] to
+Press \\<fstar-literate--rst-mode-map>\\[fstar-literate-rst2fst] to
 toggle between reStructuredText and F*."
   (add-hook 'write-contents-functions #'fstar-literate--rst-save t t))
 
