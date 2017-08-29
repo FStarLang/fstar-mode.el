@@ -1756,7 +1756,17 @@ never contains more than one entry (with ID nil).")
 (defvar-local fstar-subp--queue-timer nil)
 
 (defvar fstar-subp--lax nil
-  "Whether to process newly sent regions in lax mode.")
+  "Whether to process newly sent regions in lax mode.
+A non-nil `fstar-subp-sloppy' overrides this value.")
+
+(defcustom fstar-subp-sloppy nil
+  "Whether to process all of the current buffer in lax mode.
+
+Individual regions can be sent to F* in lax mode using
+\\<fstar-mode-map>\\[fstar-subp-advance-or-retract-to-point-lax]."
+  :group 'fstar-interactive
+  :type 'boolean
+  :safe 'booleanp)
 
 (defface fstar-subp-overlay-lax-face
   '((t :slant italic))
@@ -2896,7 +2906,8 @@ Report an error if the region is empty and NO-ERROR is nil."
         (cl-incf end))
       (fstar-assert (cl-loop for overlay in (overlays-in beg end)
                         never (fstar-subp-tracking-overlay-p overlay)))
-      (let ((overlay (make-overlay beg end (current-buffer) nil nil)))
+      (let ((overlay (make-overlay beg end (current-buffer) nil nil))
+            (fstar-subp--lax (or fstar-subp--lax fstar-subp-sloppy)))
         (fstar-subp-remove-orphaned-issue-overlays (point-min) (point-max))
         (overlay-put overlay 'fstar-subp--lax fstar-subp--lax)
         (fstar-subp-set-status overlay 'pending)
