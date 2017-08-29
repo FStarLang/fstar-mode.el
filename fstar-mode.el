@@ -241,7 +241,7 @@ Prompt should have one string placeholder to accommodate DEFAULT."
 (defun fstar--syntax-ppss (&optional pos)
   "Like `syntax-ppss' at POS, but don't move point."
   ;; This can be called in a narrowed buffer by `blink-matching-open'.
-  (save-excursion (syntax-ppss pos)))
+  (save-match-data (save-excursion (syntax-ppss pos))))
 
 (defun fstar-in-comment-p (&optional pos)
   "Return non-nil if POS is inside a comment."
