@@ -350,7 +350,7 @@ This doesn't work for strings in snippets inside of comments."
   (when (fboundp 'xref-push-marker-stack)
     (xref-push-marker-stack)))
 
-(defun fstar--navigate-to (fname &optional line col display-action)
+(defun fstar--navigate-to-1 (fname &optional line col display-action)
   "Navigate to LINE, COL of FNAME.
 DISPLAY-ACTION determines where the resulting buffer is
 shown (nil for same window, `window' for a new window, and
@@ -370,18 +370,24 @@ shown (nil for same window, `window' for a new window, and
     (when (and line (fboundp 'pulse-momentary-highlight-one-line))
       (pulse-momentary-highlight-one-line (point)))))
 
+(defun fstar--navigate-to (target &optional display-action)
+  "Jump to TARGET, a location or a path.
+DISPLAY-ACTION: see `fstar--navigate-to-1'."
+  (cl-etypecase target
+    (string
+     (fstar--navigate-to-1 target display-action))
+    (fstar-location
+     (fstar--navigate-to-1 (fstar-location-filename target)
+                      (fstar-location-line-from target)
+                      (fstar-location-col-from target)
+                      display-action))))
+
 (defun fstar--visit-link-target (marker)
   "Jump to file indicated by entry at MARKER."
   (let* ((pos (marker-position marker))
          (buf (marker-buffer marker))
          (target (get-text-property pos 'fstar--target buf)))
-    (cond
-     ((stringp target)
-      (find-file target))
-     ((fstar-location-p target)
-      (fstar--navigate-to (fstar-location-filename target)
-                     (fstar-location-line-from target)
-                     (fstar-location-col-from target))))))
+    (fstar--navigate-to target)))
 
 (defun fstar--insert-link (label target face)
   "Insert a link to TARGET with LABEL and FACE.
@@ -2614,10 +2620,7 @@ Complain if STATUS is `failure' and RESPONSE doesn't contain issues."
 DISPLAY-ACTION is nil, `window', or `frame'."
   (interactive)
   (-if-let* ((loc (car (fstar-subp--alt-locs-at (point)))))
-      (fstar--navigate-to (fstar-location-filename loc)
-                     (fstar-location-line-from loc)
-                     (fstar-location-col-from loc)
-                     display-action)
+      (fstar--navigate-to loc display-action)
     (if (fstar-subp--in-issue-p (point))
         (user-error "No secondary locations for this issue")
       (user-error "No error here"))))
