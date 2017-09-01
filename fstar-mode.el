@@ -1774,6 +1774,7 @@ Individual regions can be sent to F* in lax mode using
   :group 'fstar-interactive
   :type 'boolean
   :safe 'booleanp)
+(make-local-variable 'fstar-subp-sloppy)
 
 (defface fstar-subp-overlay-lax-face
   '((t :slant italic))
