@@ -350,7 +350,7 @@ This doesn't work for strings in snippets inside of comments."
   (when (fboundp 'xref-push-marker-stack)
     (xref-push-marker-stack)))
 
-(defun fstar--navigate-to (fname line col &optional display-action)
+(defun fstar--navigate-to (fname &optional line col display-action)
   "Navigate to LINE, COL of FNAME.
 DISPLAY-ACTION determines where the resulting buffer is
 shown (nil for same window, `window' for a new window, and
@@ -364,9 +364,10 @@ shown (nil for same window, `window' for a new window, and
       (`nil (find-file fname))
       (`window (find-file-other-window fname))
       (`frame (find-file-other-frame fname)))
-    (fstar--goto-line-col line col)
+    (push-mark (point) t) ;; Save default position in mark ring
+    (fstar--goto-line-col (or line 1) col)
     (recenter)
-    (when (fboundp 'pulse-momentary-highlight-one-line)
+    (when (and line (fboundp 'pulse-momentary-highlight-one-line))
       (pulse-momentary-highlight-one-line (point)))))
 
 (defun fstar--visit-link-target (marker)
