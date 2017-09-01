@@ -403,6 +403,10 @@ TARGET is either a string or a location."
   "Return X, or nil if X is `:json-null'."
   (unless (eq x :json-null) x))
 
+(defun fstar--lispify-false (x)
+  "Return X, or nil if X is `:json-false'."
+  (unless (eq x :json-false) x))
+
 (defun fstar--comment-beginning (pos)
   "Exit comment at POS, putting point before its start."
   (goto-char (nth 8 (syntax-ppss pos))))
@@ -3086,6 +3090,82 @@ buffer."
 
 ;;; ;; ;; Lookup queries
 
+;;; ;; ;; ;; Result types and views
+
+(cl-defstruct (fstar-lookup-result
+               (:constructor nil))
+  name doc def-loc)
+
+(cl-defstruct (fstar-symbol-info
+               (:include fstar-lookup-result))
+  type def)
+
+(cl-defstruct (fstar-option-info
+               (:include fstar-lookup-result))
+  sig value default type permission-level)
+
+(cl-defstruct (fstar-ns-or-mod-info
+               (:include fstar-lookup-result))
+  kind loaded)
+
+(defun fstar-lookup-result--doc-keybinding-hint (info help-key)
+  "Compute a message suggesting to use HELP-KEY for docs on INFO.
+Return nil if INFO doesn't include documentation."
+  (if (fstar-lookup-result-doc info)
+      (substitute-command-keys (format " (%s for help)" help-key))))
+
+(defun fstar-lookup-result-docstring (info)
+  "Format docstring of INFO, if any."
+  (-when-let* ((doc (fstar-lookup-result-doc info)))
+    (cl-typecase info
+      (fstar-option-info doc)
+      (otherwise (fstar--highlight-docstring doc)))))
+
+(defun fstar-symbol-info-sig (symbol-info)
+  "Format signature of SYMBOL-INFO."
+  (fstar-highlight-string (format "%s: %s"
+                             (fstar-symbol-info-name symbol-info)
+                             (fstar-symbol-info-type symbol-info))))
+
+(defun fstar-option-info-propertized-sig (info)
+  "Fontify and return (`fstar-option-info-sig' INFO)."
+  (let ((sig (fstar-option-info-sig info)))
+    (string-match "\\([^ ]+\\)\\(.*\\)" sig)
+    (concat
+     (propertize (match-string 1 sig) 'face 'font-lock-function-name-face)
+     (propertize (match-string 2 sig) 'face 'font-lock-variable-name-face))))
+
+(defun fstar-lookup-result--help-ticker (info help-key)
+  "Compute a single-line documentation string from INFO.
+HELP-KEY: See `fstar-lookup-result--doc-keybinding-hint'."
+  (concat
+   (fstar--strip-newlines
+    (cl-etypecase info
+      (fstar-symbol-info
+       (fstar-symbol-info-sig info))
+      (fstar-option-info
+       (format "%s: %s (%s, currently %s, default %s)"
+               (fstar-option-info-propertized-sig info)
+               (propertize (or (fstar-option-info-doc info) "[undocumented]")
+                           'face 'font-lock-doc-face)
+               (propertize (fstar-option-info-type info) 'face 'font-lock-type-face)
+               (fstar-subp--option-val-to-string (fstar-option-info-value info))
+               (fstar-subp--option-val-to-string (fstar-option-info-default info))))
+      (fstar-ns-or-mod-info
+       (concat
+        (propertize (fstar-ns-or-mod-info-kind info) 'face 'fstar-structure-face)
+        " " (propertize (fstar-ns-or-mod-info-name info) 'face 'font-lock-type-face)
+        (-when-let* ((path (fstar-ns-or-mod-info-def-loc info)))
+          (format " (in %s)" (propertize path 'face 'italic)))
+        (unless (fstar-ns-or-mod-info-loaded info)
+          (let ((msg "not loaded: use, save your file, \
+and reset or restart F* to load"))
+            (format " (%s)" (propertize msg 'face 'font-lock-warning-face))))))))
+   (unless (fstar-option-info-p info)
+     (fstar-lookup-result--doc-keybinding-hint info help-key))))
+
+;;; ;; ;; ;; Implementation
+
 (defconst fstar--command-line-option-prefix-re
   "--[-_.0-9A-Za-z]*")
 
@@ -3153,28 +3233,6 @@ CONTEXT indicates where SYMBOL comes from."
 (defconst fstar-subp-legacy--info-response-body-regex
   "\\([^\0]+?\\)\\(?:#doc \\([^\0]+?\\)\\)?\\'")
 
-(cl-defstruct fstar-lookup-result
-  name def-loc type doc def)
-
-(defun fstar-lookup-result-sig (info &optional help-kbd)
-  "Format signature of INFO.
-When HELP-KBD is non nil and info includes a docstring, suggest
-to use HELP-KBD to show documentation."
-  (concat (fstar-highlight-string (format "%s: %s"
-                                     (fstar-lookup-result-name info)
-                                     (fstar-lookup-result-type info)))
-          (and help-kbd (fstar-lookup-result-doc info)
-               (substitute-command-keys (format " (%s for help)" help-kbd)))))
-
-(defun fstar-lookup-result-def-loc-str (info)
-  "Format a location information from INFO."
-  (fstar--loc-to-string (fstar-lookup-result-def-loc info)))
-
-(defun fstar-lookup-result-docstring (info)
-  "Format docstring of INFO, if any."
-  (-when-let* ((doc (fstar-lookup-result-doc info)))
-    (fstar--highlight-docstring doc)))
-
 (defun fstar-subp-legacy--parse-info (response)
   "Parse info structure from RESPONSE."
   (when (string-match fstar-subp-legacy--info-response-header-regex response)
@@ -3187,7 +3245,7 @@ to use HELP-KBD to show documentation."
                   (and (string-match fstar-subp-legacy--info-response-body-regex body)
                        (mapcar #'fstar--string-trim (fstar--match-strings-no-properties
                                                 '(1 2) body)))))
-      (make-fstar-lookup-result
+      (make-fstar-symbol-info
        :name name
        :def-loc (make-fstar-location
                  :filename file
@@ -3212,13 +3270,28 @@ to use HELP-KBD to show documentation."
 
 (defun fstar-subp-json--parse-info (json)
   "Parse info structure from JSON."
-  (let-alist json
-    (make-fstar-lookup-result
-     :name .name
-     :def-loc (fstar-subp-json--parse-defined-at .defined-at)
-     :type (fstar--unparens (fstar--lispify-null .type)) ;; FIXME remove once F* is fixed
-     :doc (fstar--string-trim (fstar--lispify-null .documentation))
-     :def (fstar--unparens (fstar--lispify-null .definition)))))
+  (pcase (or (cdr (assq 'kind json)) "symbol")
+    ("symbol"
+     (let-alist json
+       (make-fstar-symbol-info
+        :name .name
+        :doc (fstar--string-trim (fstar--lispify-null .documentation))
+        :def-loc (fstar-subp-json--parse-defined-at .defined-at)
+        :type (fstar--unparens (fstar--lispify-null .type)) ;; FIXME remove once F* is fixed
+        :def (fstar--unparens (fstar--lispify-null .definition)))))
+    ("option"
+     (let-alist json
+       (make-fstar-option-info
+        :name .name :doc (fstar--lispify-null .documentation)
+        :def-loc nil :sig .signature :value .value :default .default
+        :type .type :permission-level .permission-level)))
+    ((or "module" "namespace")
+     (let-alist json
+       (make-fstar-ns-or-mod-info
+        :name .name :doc nil :def-loc .path :kind .kind
+        :loaded (fstar--lispify-false .loaded))))
+    (other
+     (message "Unrecognized info kind: %s.  Try updating fstar-mode." other))))
 
 (defun fstar-subp--pos-check-wrapper (pos continuation)
   "Construct a continuation that runs CONTINUATION if point is POS.
@@ -3232,8 +3305,10 @@ check is ignored."
 
 (defun fstar-subp--lookup-wrapper (pos continuation)
   "Handle the results of a lookup query at POS.
-If response is valid, forward results to CONTINUATION.  With nil POS, this
-function can also handle results of position-less lookup queries."
+If response is valid, forward results (deserialized into one of
+the various lookup result types) to CONTINUATION.  With nil POS,
+this function can also handle results of position-less lookup
+queries."
   (declare (indent 1))
   (fstar-subp--pos-check-wrapper pos
     (lambda (status response)
@@ -3244,11 +3319,10 @@ function can also handle results of position-less lookup queries."
           (funcall continuation info)
         (funcall continuation nil)))))
 
-(defun fstar--eldoc-continuation (continuation info)
-  "Pass highlighted type information from INFO to CONTINUATION."
+(defun fstar--eldoc-continuation (continuation info) ;; Branch on type of info
+  "Pass eldoc string derived from INFO (if non-nil) to CONTINUATION."
   (when info
-    (funcall continuation
-             (fstar--strip-newlines (fstar-lookup-result-sig info "\\[fstar-doc]")))))
+    (funcall continuation (fstar-lookup-result--help-ticker info "\\[fstar-doc]"))))
 
 (defun fstar--eldoc-function ()
   "Compute an eldoc string for current point.
@@ -3260,7 +3334,7 @@ asynchronously after the fact)."
     (when (and (fstar--has-feature 'lookup) (fstar-subp-available-p)
                (not (fstar-subp--in-issue-p (point))))
       (let* ((query (fstar-subp--positional-lookup-query (point)
-                      '(type documentation))) ;; Needs doc for C-c C-s C-d hint
+                      '(type documentation))) ;; Needs docs for C-c C-s C-d hint
              (retv (fstar-subp--query-and-wait query 0.01)))
         (pcase retv
           (`(t . (,status ,results))
@@ -3316,21 +3390,44 @@ asynchronously after the fact)."
 (defun fstar--doc-buffer-populate (info)
   "Compute contents of doc buffer from INFO."
   (let* ((doc (fstar-lookup-result-doc info))
-         (type (fstar-lookup-result-type info))
-         (def (fstar-lookup-result-def info))
          (name (fstar-lookup-result-name info))
-         (def-loc (fstar-lookup-result-def-loc info))
-         (def-loc-str (fstar-lookup-result-def-loc-str info))
-         (title (fstar--propertize-title name)))
+         (title (fstar--propertize-title name))
+         (def-loc (fstar-lookup-result-def-loc info)))
+    (cl-typecase info
+      (fstar-symbol-info
+       (when doc (setq doc (fstar--highlight-docstring doc)))))
     (save-excursion
       (insert title "\n")
-      (fstar--insert-link def-loc '(:height 0.9 :inherit link))
-      (fstar--doc-buffer-populate-1 "Type"
-        (and type (fstar-highlight-string type)))
-      (fstar--doc-buffer-populate-1 "Definition"
-        (and def (fstar-highlight-string def)))
+      (when def-loc
+        (fstar--insert-link def-loc '(:height 0.9 :inherit link)))
+      (cl-etypecase info
+        (fstar-symbol-info
+         (-when-let* ((type (fstar-symbol-info-type info)))
+           (fstar--doc-buffer-populate-1 "Type" (fstar-highlight-string type)))
+         (-when-let* ((def (fstar-symbol-info-def info)))
+           (fstar--doc-buffer-populate-1 "Definition" (fstar-highlight-string def))))
+        (fstar-option-info
+         (fstar--doc-buffer-populate-1 "Type"
+           (propertize (fstar-option-info-type info) 'face 'font-lock-type-face))
+         (fstar--doc-buffer-populate-1 "Signature"
+           (fstar-option-info-propertized-sig info))
+         (fstar--doc-buffer-populate-1 "Current value"
+           (fstar-subp--option-val-to-string (fstar-option-info-value info)))
+         (fstar--doc-buffer-populate-1 "Default value"
+           (fstar-subp--option-val-to-string (fstar-option-info-default info)))
+         (fstar--doc-buffer-populate-1 "Permission level"
+           (pcase (fstar-option-info-permission-level info)
+             ("" "Can be used with #set-options and #reset-options")
+             (perms perms))))
+        (fstar-ns-or-mod-info
+         (fstar--doc-buffer-populate-1 "Misc"
+           (format "This %s is %s."
+                   (fstar-ns-or-mod-info-kind info)
+                   (if (fstar-ns-or-mod-info-loaded info) "loaded"
+                     "not yet loaded.  \
+Use it, save your file, then restart or reset F* to import it.")))))
       (fstar--doc-buffer-populate-1 "Documentation"
-        (and doc (fstar--highlight-docstring (fstar--unwrap-paragraphs doc)))))))
+        (and doc (fstar--unwrap-paragraphs doc))))))
 
 (defun fstar--doc-at-point-continuation (info)
   "Show documentation and type in INFO."
@@ -3686,14 +3783,17 @@ the original query's status."
 ;;; ;; ;; Quick-peek
 
 (defun fstar--quick-peek-continuation (info)
-  "Show type from INFO in inline pop-up."
+  "Show quick help about INFO in inline pop-up."
   (if info
-      (let ((segments (delq nil (list (fstar-lookup-result-sig info)
-                                      (fstar-lookup-result-docstring info)))))
-        (quick-peek-show (mapconcat #'identity segments "\n\n")
+      (let ((segments (list (cl-typecase info
+                              (fstar-symbol-info (fstar-symbol-info-sig info))
+                              (fstar-option-info (fstar-option-info-sig info))
+                              (otherwise (fstar-lookup-result-name info)))
+                            (fstar-lookup-result-docstring info))))
+        (quick-peek-show (mapconcat #'identity (delq nil segments) "\n\n")
                          (car (with-syntax-table fstar--fqn-at-point-syntax-table
                                 (bounds-of-thing-at-point 'symbol)))))
-    (message "No definition found")))
+    (message "No information found")))
 
 (defun fstar-quick-peek ()
   "Toggle inline window showing type of identifier at point."
@@ -3806,12 +3906,11 @@ CALLBACK is the company-mode asynchronous meta callback."
   (funcall callback (pcase info
                       (`nil nil)
                       (`busy "F* subprocess unavailable")
-                      (_ (fstar--strip-newlines
-                          (fstar-lookup-result-sig info "\\[company-show-doc-buffer]"))))))
+                      (_ (fstar-lookup-result--help-ticker info "\\[company-show-doc-buffer]")))))
 
 (defun fstar-subp-company--async-meta (candidate callback)
   "Find type of CANDIDATE and pass it to CALLBACK."
-  (fstar-subp-company--async-lookup candidate '(type)
+  (fstar-subp-company--async-lookup candidate '(type documentation) ;; Needs docs for C-h hint
     (apply-partially #'fstar-subp-company--meta-continuation callback)))
 
 (defun fstar-subp-company--doc-buffer-continuation (callback info)
@@ -3846,11 +3945,15 @@ CALLBACK is the company-mode asynchronous quickhelp callback."
 CALLBACK is the company-mode asynchronous meta callback."
   (-if-let* ((def-loc (and (fstar-lookup-result-p info)
                            (fstar-lookup-result-def-loc info))))
-      (pcase-let* ((fname (fstar-location-filename def-loc)))
+      (pcase-let* ((`(,fname ,line ,offset)
+                    (cl-etypecase def-loc
+                      (string `(,def-loc ,1 ,(point-min)))
+                      (fstar-location `(,(fstar-location-filename def-loc)
+                                   ,(fstar-location-line-from def-loc)
+                                   ,(fstar-location-beg-offset def-loc))))))
         (funcall callback (if (string= fname "<input>")
-                              (cons (current-buffer)
-                                    (fstar-location-beg-offset def-loc))
-                            (cons fname (fstar-location-line-from def-loc)))))
+                              (cons (current-buffer) offset)
+                            (cons fname line))))
     (funcall callback nil)))
 
 (defun fstar-subp-company--async-location (candidate callback)
