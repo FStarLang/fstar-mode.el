@@ -389,12 +389,15 @@ DISPLAY-ACTION: see `fstar--navigate-to-1'."
          (target (get-text-property pos 'fstar--target buf)))
     (fstar--navigate-to target)))
 
-(defun fstar--insert-link (label target face)
-  "Insert a link to TARGET with LABEL and FACE.
+(defun fstar--insert-link (target face)
+  "Insert a link to TARGET and FACE.
 TARGET is either a string or a location."
-  (insert-text-button label 'fstar--target target
-                      'face face 'follow-link t
-                      'action 'fstar--visit-link-target))
+  (let ((label (cl-typecase target
+                 (string target)
+                 (fstar-location (fstar--loc-to-string target)))))
+    (insert-text-button label 'fstar--target target
+                        'face face 'follow-link t
+                        'action 'fstar--visit-link-target)))
 
 (defun fstar--lispify-null (x)
   "Return X, or nil if X is `:json-null'."
@@ -3274,7 +3277,7 @@ asynchronously after the fact)."
          (title (fstar--propertize-title name)))
     (save-excursion
       (insert title "\n")
-      (fstar--insert-link def-loc-str def-loc '(:height 0.9 :inherit link))
+      (fstar--insert-link def-loc '(:height 0.9 :inherit link))
       (fstar--doc-buffer-populate-1 "Type"
         (and type (fstar-highlight-string type)))
       (fstar--doc-buffer-populate-1 "Definition"
@@ -3607,7 +3610,7 @@ DISP should be nil (display in same window) or
     (insert (fstar--propertize-title title) "\n\n"))
   (dolist (fname deps)
     (insert "  ")
-    (fstar--insert-link fname fname 'default)
+    (fstar--insert-link fname 'default)
     (insert "\n")))
 
 (defun fstar-subp--visit-dependency-continuation (source-buf status response)
