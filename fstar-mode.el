@@ -3086,13 +3086,39 @@ buffer."
 
 ;;; ;; ;; Lookup queries
 
+(defconst fstar--command-line-option-prefix-re
+  "--[-_.0-9A-Za-z]*")
+
+(defun fstar-subp--context-at-point ()
+  "Compute context at point.
+Must be called with syntax table `fstar--fqn-at-point-syntax-table'"
+  (let ((line-context
+         (save-excursion
+           (goto-char (point-at-bol))
+           (cond
+            ((looking-at-p "open ") 'open)
+            ((looking-at-p "include ") 'include)
+            ((looking-at-p "module \\(?:\\s_\\|\\sw\\)+ *=") 'module-alias)
+            ((looking-at-p "#set-options") 'set-options)
+            ((looking-at-p "#reset-options") 'reset-options)))))
+    (cond
+     ((memq line-context '(open include module-alias))
+      line-context)
+     ((memq line-context '(set-options reset-options))
+      (when (looking-back fstar--command-line-option-prefix-re (point-at-bol))
+        line-context))
+     ((looking-back "\\_<let open [^ \n]*" (point-at-bol))
+      'let-open)
+     (t 'code))))
+
 (defun fstar-subp--positional-lookup-query (pos fields)
   "Prepare a header for an info query at POS with FIELDS."
   (declare (indent 1))
   (if (fstar--has-feature 'json-subp)
       (make-fstar-subp-query
        :query "lookup"
-       :args `(("symbol" . ,(or (fstar--fqn-at-point pos) ""))
+       :args `(("context" . ,(symbol-name (or (fstar-subp--context-at-point) 'code)))
+               ("symbol" . ,(or (fstar--fqn-at-point pos) ""))
                ("requested-info" . ,fields)
                ("location" .
                 (("filename" . "<input>")
@@ -3106,6 +3132,20 @@ buffer."
       (format "#info <input> %d %d"
               (line-number-at-pos pos)
               (fstar-subp--column-number-at-pos pos)))))
+
+(defun fstar-subp--positionless-lookup-query (symbol fields context)
+  "Prepare a header for an info query for SYMBOL with FIELDS.
+CONTEXT indicates where SYMBOL comes from."
+  (declare (indent 1))
+  (when (equal symbol "")
+    (user-error "Looking up an empty name"))
+  (if (fstar--has-feature 'json-subp)
+      (make-fstar-subp-query
+       :query "lookup"
+       :args `(("symbol" . ,symbol)
+               ("context" . ,context)
+               ("requested-info" . ,fields)))
+    (format "#info %s" symbol)))
 
 (defconst fstar-subp-legacy--info-response-header-regex
   "^(defined at \\(.+?\\)(\\([0-9]+\\),\\([0-9]+\\)-\\([0-9]+\\),\\([0-9]+\\))) *\\([^ ]+\\) *: +")
@@ -3319,7 +3359,7 @@ Interactively, prompt for ID."
   (when (eq id 'interactive)
     (setq id (fstar--read-string "Show docs for%s: " (fstar--fqn-at-point))))
   (fstar-subp--query (fstar-subp--positionless-lookup-query id
-                  '(type defined-at documentation))
+                  '(type defined-at documentation) 'symbol-only)
                 (fstar-subp--lookup-wrapper (point)
                   #'fstar--doc-at-point-continuation)))
 
@@ -3333,7 +3373,7 @@ Interactively, prompt for ID."
   (when (eq id 'interactive)
     (setq id (fstar--read-string "Show definition of%s: " (fstar--fqn-at-point))))
   (fstar-subp--query (fstar-subp--positionless-lookup-query id
-                  '(type defined-at documentation definition))
+                  '(type defined-at documentation definition) 'symbol-only)
                 (fstar-subp--lookup-wrapper (point)
                   #'fstar--doc-at-point-continuation)))
 
@@ -3667,67 +3707,86 @@ the original query's status."
 
 ;;; ;; ;; Company
 
-(defun fstar-subp--completion-query (prefix &optional kind)
-  "Prepare a `completions' query from PREFIX of kind KIND."
+(defun fstar-subp--completion-query (prefix &optional context)
+  "Prepare a `completions' query from PREFIX in CONTEXT."
   (fstar-assert (not (string-match-p " " prefix)))
   (if (fstar--has-feature 'json-subp)
       (make-fstar-subp-query
        :query "autocomplete"
        :args `(("partial-symbol" . ,prefix)
-               ("kind" . ,kind)))
+               ("context" . ,(symbol-name context))))
     (format "#completions %s #" prefix)))
 
 (defconst fstar-subp-company--snippet-re "\\${\\(.+?\\)}")
 
-(defun fstar-subp-company--post-process-candidate (candidate)
-  "Post-process and return CANDIDATE."
-  candidate)
+(defun fstar-subp-company--fontify-snippets-1 (match)
+  "Compute prettified rendition of placeholder MATCH."
+  (propertize (match-string 1 match) 'face '(bold italic)))
 
-(defun fstar-subp-company-legacy--prepare-candidate (line)
-  "Extract a candidate from LINE."
+(defun fstar-subp-company--post-process-candidate (candidate)
+  "Post-process and return CANDIDATE.
+Post-processing includes fontification of snippets — one might
+hope to do this in company's pre-render, but pre-render can't
+change the length of a candidate."
+  (if (string-match-p fstar-subp-company--snippet-re candidate)
+      (propertize (replace-regexp-in-string
+                   fstar-subp-company--snippet-re
+                   #'fstar-subp-company--fontify-snippets-1
+                   candidate)
+                  'fstar--snippet candidate)
+    candidate))
+
+(defun fstar-subp-company-legacy--make-candidate (context line)
+  "Extract a candidate from LINE and tag it with CONTEXT."
   (pcase (split-string line " ")
     (`(,match-end ,annot ,candidate . ,_)
      (setq match-end (string-to-number match-end))
-     (fstar--set-text-props candidate 'match match-end 'annot annot)
+     (fstar--set-text-props
+      candidate 'fstar--match-end match-end 'fstar--annot annot 'fstar--context context)
      (fstar-subp-company--post-process-candidate candidate))))
 
-(defun fstar-subp-company-json--prepare-candidate (record)
-  "Extract a candidate from RECORD."
+(defun fstar-subp-company-json--make-candidate (context record)
+  "Extract a candidate from RECORD and tag it with CONTEXT."
   (pcase-let* ((`(,match-end ,annot ,candidate) record))
-    (fstar--set-text-props candidate 'match match-end 'annot annot)
+    (fstar--set-text-props
+     candidate 'fstar--match-end match-end 'fstar--annot annot 'fstar--context context)
     (fstar-subp-company--post-process-candidate candidate)))
 
-(defun fstar-subp-company--candidates-continuation (callback status response)
+(defun fstar-subp-company--candidates-continuation (context callback status response)
   "Handle the results (STATUS, RESPONSE) of an `autocomplete' query.
-Return (CALLBACK CANDIDATES)."
+Return (CALLBACK CANDIDATES).  CONTEXT is propertized onto all candidates."
   (pcase status
     ((or `failure `interrupted)
      (funcall callback nil))
     (`success
      (save-match-data
-       (funcall callback
-                (if (fstar--has-feature 'json-subp)
-                    (mapcar #'fstar-subp-company-json--prepare-candidate response)
-                  (delq nil (mapcar #'fstar-subp-company-legacy--prepare-candidate
-                                    (split-string response "\n")))))))))
+       (funcall
+        callback
+        (if (fstar--has-feature 'json-subp)
+            (mapcar (apply-partially
+                     #'fstar-subp-company-json--make-candidate context)
+                    response)
+          (delq nil
+                (mapcar (apply-partially
+                         #'fstar-subp-company-legacy--make-candidate context)
+                        (split-string response "\n")))))))))
 
-(defun fstar-subp--positionless-lookup-query (symbol fields)
-  "Prepare a header for an info query for SYMBOL with FIELDS."
-  (declare (indent 1))
-  (when (equal symbol "")
-    (user-error "Looking up an empty name"))
-  (if (fstar--has-feature 'json-subp)
-      (make-fstar-subp-query
-       :query "lookup"
-       :args `(("symbol" . ,symbol)
-               ("requested-info" . ,fields)))
-    (format "#info %s" symbol)))
+(defconst fstar-subp-company--ns-mod-annots
+  '("mod" "ns" "+mod" "+ns" "(mod)" "(ns)" "-mod" "-ns"))
 
-(defun fstar-subp-company--candidate-fqn (candidate)
-  "Compute the fully qualified name of CANDIDATE."
-  (let* ((ns (get-text-property 0 'annot candidate)))
-    (if (string= ns "") candidate
-      (concat ns "." candidate))))
+(defun fstar-subp-company--candidate-fqn (candidate context)
+  "Compute the fully qualified name of CANDIDATE in CONTEXT."
+  (let* ((ns (get-text-property 0 'fstar--annot candidate))
+         (snippet (or (get-text-property 0 'fstar--snippet candidate) candidate)))
+    (pcase context
+      (`code
+       (if (member ns (cons "" fstar-subp-company--ns-mod-annots))
+           snippet
+         (concat ns "." snippet)))
+      ((or `set-options `reset-options)
+       (replace-regexp-in-string " .*" "" snippet))
+      ((or `open `include `module-alias `let-open)
+       snippet))))
 
 (defun fstar-subp-company--async-lookup (candidate fields continuation)
   "Pass info FIELDS about CANDIDATE to CONTINUATION.
@@ -3735,8 +3794,9 @@ If F* is busy, call CONTINUATION directly with symbol `busy'."
   (declare (indent 2))
   (if (fstar-subp-available-p)
       (fstar-subp--query
-       (fstar-subp--positionless-lookup-query
-           (fstar-subp-company--candidate-fqn candidate) fields)
+       (let* ((context (get-text-property 0 'fstar--context candidate))
+              (fqn (fstar-subp-company--candidate-fqn candidate context)))
+         (fstar-subp--positionless-lookup-query fqn fields context))
        (fstar-subp--lookup-wrapper nil continuation))
     (funcall continuation 'busy)))
 
@@ -3798,51 +3858,48 @@ CALLBACK is the company-mode asynchronous meta callback."
   (fstar-subp-company--async-lookup candidate '(defined-at)
     (apply-partially #'fstar-subp-company--location-continuation callback)))
 
-(defun fstar-subp-company-candidates (prefix &optional kind)
-  "Compute candidates for PREFIX of kind KIND.
+(defun fstar-subp-company-candidates (prefix context)
+  "Compute candidates for PREFIX in CONTEXT.
 Briefly tries to get results synchronously to reduce flicker (see
 URL `https://github.com/company-mode/company-mode/issues/654'), and
 then returns an :async cons, as required by company-mode."
   (let ((retv (fstar-subp--query-and-wait
-               (fstar-subp--completion-query prefix kind) 0.03)))
+               (fstar-subp--completion-query prefix context) 0.03)))
     (pcase retv
       (`(t . (,status ,results))
-       (fstar-subp-company--candidates-continuation #'identity status results))
+       (fstar-subp-company--candidates-continuation
+        context #'identity status results))
       (`(needs-callback . ,_)
-       `(:async . ,(lambda (cb)
-                     (setf (cdr retv)
-                           (apply-partially
-                            #'fstar-subp-company--candidates-continuation cb))))))))
-
-(defun fstar-subp-company--completion-kind-at-point ()
-  "Compute kind of prefix at point.
-Must be called with syntax table `fstar--fqn-at-point-syntax-table'"
-  (or (save-excursion
-        (goto-char (point-at-bol))
-        (cond
-         ((looking-at-p "open ") "open")
-         ((looking-at-p "include ") "include")
-         ((looking-at-p "module \\(?:\\s_\\|\\sw\\)+ *=") "module-alias")))
-      (and (looking-back "\\_<let open \\(?:\\s_\\|\\sw\\)*" (point-at-bol)) "let-open")
-      "symbol"))
-
-(defun fstar-subp-company--pre-render-1 (match)
-  "Compute prettified rendition of placeholder MATCH."
-  (propertize (match-string 1 match) 'face '(bold italic)))
-
-(defun fstar-subp-company--pre-render (str annotation-p)
-  "Propertize STR before displaying it.
-ANNOTATION-P indicates where STR will be displayed."
-  (if (and (not annotation-p)
-           (string-match fstar-subp-company--snippet-re str))
-      (replace-regexp-in-string
-       fstar-subp-company--snippet-re #'fstar-subp-company--pre-render-1 str)
-    str))
+       `(:async
+         . ,(lambda (cb)
+              (setf (cdr retv)
+                    (apply-partially
+                     #'fstar-subp-company--candidates-continuation context cb))))))))
 
 (defun fstar-subp-company--post-completion (candidate)
-  "Run post-completion action for CANDIDATE."
-  (when (string-match fstar-subp-company--snippet-re candidate)
-    (fstar--expand-snippet candidate (- (point) (length candidate)) (point))))
+  "Expand snippet of CANDIDATE, if any."
+  (-when-let* ((snippet (get-text-property 0 'fstar--snippet candidate)))
+    (fstar--expand-snippet snippet (- (point) (length candidate)) (point))))
+
+(defvar-local fstar-subp-company--completion-context nil
+  "Temporary variable to store current completion context.
+It's be easier to annotate prefixes with that, but prefixes may
+be empty and empty strings can't be annotated.")
+
+(defun fstar-subp-company--prefix ()
+  "Compute company prefix at point."
+  (when (fstar-subp-available-p)
+    (with-syntax-table fstar--fqn-at-point-syntax-table
+      (-when-let* ((prefix (company-grab-symbol))
+                   (in-code (fstar--in-code-p))
+                   (ck (fstar-subp--context-at-point)))
+        (let ((always-complete nil))
+          (setq prefix (substring-no-properties prefix))
+          (when (memq ck '(set-options reset-options))
+            (setq prefix (concat "--" prefix))
+            (setq always-complete t))
+          (setq fstar-subp-company--completion-context ck)
+          (if always-complete (cons prefix t) prefix))))))
 
 (defun fstar-subp-company-backend (command &optional arg &rest rest)
   "Company backend for F*.
@@ -3855,13 +3912,9 @@ COMMAND, ARG, REST: see `company-backends'."
       (`interactive
        (company-begin-backend #'fstar-subp-company-backend))
       (`prefix
-       (when (fstar-subp-available-p)
-         (with-syntax-table fstar--fqn-at-point-syntax-table
-           (-when-let* ((prefix (company-grab-symbol)))
-             (when (fstar--in-code-p)
-               (substring-no-properties prefix))))))
+       (fstar-subp-company--prefix))
       (`candidates
-       (fstar-subp-company-candidates arg (fstar-subp-company--completion-kind-at-point)))
+       (fstar-subp-company-candidates arg fstar-subp-company--completion-context))
       (`meta
        `(:async . ,(apply-partially #'fstar-subp-company--async-meta arg)))
       (`doc-buffer
@@ -3873,9 +3926,9 @@ COMMAND, ARG, REST: see `company-backends'."
       (`sorted t)
       (`no-cache t)
       (`duplicates nil)
-      (`match (get-text-property 0 'match arg))
-      (`annotation (get-text-property 0 'annot arg))
-      (`pre-render (fstar-subp-company--pre-render arg (car rest)))
+      (`match (get-text-property 0 'fstar--match-end arg))
+      (`annotation (get-text-property 0 'fstar--annot arg))
+      (`pre-render arg) ;; Preserve fontification of candidates
       (`post-completion (fstar-subp-company--post-completion arg)))))
 
 (defun fstar-setup-company ()
