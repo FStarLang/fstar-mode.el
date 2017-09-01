@@ -308,12 +308,13 @@ This doesn't work for strings in snippets inside of comments."
   "Return column number at POS."
   (save-excursion (goto-char pos) (- (point) (point-at-bol))))
 
-(defun fstar--goto-line-col (line column)
+(defun fstar--goto-line-col (line &optional column)
   "Go to position indicated by LINE, COLUMN."
   (goto-char (point-min))
   (forward-line (1- line))
-  ;; min makes sure that we don't spill to the next line.
-  (forward-char (min (- (point-at-eol) (point-at-bol)) column)))
+  (when column
+    ;; min makes sure that we don't spill to the next line.
+    (forward-char (min (- (point-at-eol) (point-at-bol)) column))))
 
 (defun fstar--line-col-offset (line column)
   "Convert a (LINE, COLUMN) pair into a buffer offset."
