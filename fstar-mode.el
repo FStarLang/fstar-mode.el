@@ -2254,7 +2254,7 @@ Table of continuations was %s" response id conts)))
   "Kill F* subprocesses in all buffers."
   (interactive)
   (dolist (proc (process-list))
-    (when (equal (process-name proc) "F* interactive")
+    (when (process-get proc 'fstar-subp-source-buffer)
       (kill-process proc))))
 
 (defun fstar-subp-kill-one-or-many (&optional arg)
