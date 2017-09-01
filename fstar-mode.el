@@ -337,7 +337,8 @@ This doesn't work for strings in snippets inside of comments."
     (save-excursion
       (goto-char pos)
       (-when-let* ((s (symbol-at-point)))
-        (substring-no-properties (symbol-name s))))))
+        (replace-regexp-in-string ;; Drop final "." from e.g. A.B.(xy)
+         "\\.\\'" "" (substring-no-properties (symbol-name s)))))))
 
 (defun fstar--propertize-title (title)
   "Format TITLE as a title."
