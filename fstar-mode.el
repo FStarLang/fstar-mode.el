@@ -2475,13 +2475,19 @@ Returns a pair of (CLEAN-MESSAGE . LOCATIONS)."
        (string= (expand-file-name buffer-file-name)
                 (expand-file-name (fstar-location-filename location)))))
 
+(defun fstar-subp--fixup-location (loc)
+  "Destructively replace <input> with the name of the current buffer in LOC."
+  (cl-typecase loc
+    (fstar-location (when (equal (fstar-location-filename loc) "<input>")
+                 (fstar-assert buffer-file-name) ;; FIXME "unknown"
+                 (setf (fstar-location-filename loc) buffer-file-name))))
+  loc)
+
 (defun fstar-subp-cleanup-issue (issue &optional ov)
   "Fixup ISSUE: include a file name, and adjust line numbers wrt OV."
   (dolist (loc (fstar-issue-locs issue))
     ;; Clean up file names
-    (when (member (fstar-location-filename loc) '("<input>"))
-      (fstar-assert buffer-file-name) ;; FIXME "unknown"
-      (setf (fstar-location-filename loc) buffer-file-name))
+    (fstar-subp--fixup-location loc)
     ;; Adjust line numbers
     (unless (or (fstar--has-feature 'absolute-linums-in-errors) (null ov))
       (let ((linum (1- (line-number-at-pos (overlay-start ov)))))
@@ -3564,14 +3570,9 @@ the search buffer."
   "Jump to position in INFO.
 DISPLAY-ACTION indicates how: nil means in the current window;
 `window' means in a side window."
-  (-if-let* ((def-loc (and info (fstar-lookup-result-def-loc info))))
-      (let* ((target-fname (fstar-location-filename def-loc)))
-        (if (equal target-fname "<input>")
-            (setq target-fname buffer-file-name))
-        (fstar--navigate-to target-fname
-                       (fstar-location-line-from def-loc)
-                       (fstar-location-col-from def-loc)
-                       display-action))
+  (-if-let* ((def-loc (and (fstar-lookup-result-p info)
+                           (fstar-lookup-result-def-loc info))))
+      (fstar--navigate-to (fstar-subp--fixup-location def-loc) display-action)
     (message "No definition found")))
 
 (defun fstar-jump-to-definition-1 (pos disp)
