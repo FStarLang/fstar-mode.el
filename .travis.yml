@@ -1,6 +1,11 @@
 language: emacs-lisp
 sudo: false
 
+matrix:
+  fast_finish: true
+  allow_failures:
+    - env: EMACS_TARGET=emacs-git  ERROR_ON_WARN=t
+
 env:
   - EMACS_TARGET=emacs-24.3 ERROR_ON_WARN=nil
   - EMACS_TARGET=emacs-24.4 ERROR_ON_WARN=t
