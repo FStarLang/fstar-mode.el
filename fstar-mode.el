@@ -3583,15 +3583,21 @@ that variable."
 
 ;;; ;; ;; Eval
 
-(defconst fstar-subp--eval-all-rules '("beta" "delta" "iota" "zeta"))
+(defun fstar-subp--eval-all-rules ()
+  "Compute rules available to normalize terms."
+  `("beta" "delta" "iota" "zeta"
+    ,@(when (fstar--has-feature 'compute/reify) '("reify"))
+    ,@(when (fstar--has-feature 'compute/pure-subterms) '("pure-subterms"))))
 
-(defun fstar-subp--eval-rule-to-char (rule)
-  "Convert RULE to a single char."
+(defun fstar-subp--eval-rule-to-marker (rule)
+  "Convert reduction RULE to a short string."
   (pcase rule
     ("beta" "β")
     ("delta" "δ")
     ("iota" "ι")
     ("zeta" "ζ")
+    ("reify" (propertize "r" 'face '(:height 0.7)))
+    ("pure-subterms" (propertize "p" 'face '(:height 0.7)))
     (r (user-error "Unknown reduction rule %s" r))))
 
 (defun fstar--reduction-arrow (arrow rules)
@@ -3602,7 +3608,7 @@ that variable."
 
 (defun fstar-subp--eval-continuation (term rules status response)
   "Handle results (STATUS, RESPONSE) of evaluating TERM with RULES."
-  (setq rules (mapconcat #'fstar-subp--eval-rule-to-char rules ""))
+  (setq rules (mapconcat #'fstar-subp--eval-rule-to-marker rules ""))
   (pcase status
     (`success (message "%s%s%s%s%s"
                        (fstar-highlight-string term)
@@ -3627,16 +3633,17 @@ a prefix argument, prompt for rules as well."
   (interactive (list 'interactive (if current-prefix-arg 'interactive)))
   (fstar-subp--ensure-available #'user-error 'compute)
 
-  (when (eq rules 'interactive)
-    (setq rules (completing-read-multiple
-                 "Reduction rules (comma-separated): "
-                 fstar-subp--eval-all-rules nil t nil nil nil)))
-  (setq rules (or rules fstar-subp--eval-all-rules))
+  (let ((all-rules (fstar-subp--eval-all-rules)))
+    (when (eq rules 'interactive)
+      (setq rules (completing-read-multiple
+                   "Reduction rules (comma-separated): "
+                   all-rules nil t nil nil nil)))
+    (setq rules (or rules all-rules)))
 
   (when (eq term 'interactive)
     (setq term
           (fstar--read-string
-           (format "Term to %s-reduce%%s: " (mapconcat #'fstar-subp--eval-rule-to-char rules ""))
+           (format "Term to %s-reduce%%s: " (mapconcat #'fstar-subp--eval-rule-to-marker rules ""))
            (cond
             ((region-active-p)
              (buffer-substring-no-properties (region-beginning) (region-end)))
