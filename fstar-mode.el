@@ -891,17 +891,14 @@ allows composition in code comments."
 
 (defconst fstar-comment-start-skip "\\(//+\\|(\\*+\\)[ \t]*")
 
-(defconst fstar-syntax-id "\\_<[#']?[a-z_]\\(?:\\sw\\|\\s_\\)*\\_>")
-(defconst fstar-syntax-cs "\\_<[#']?[A-Z]\\(?:\\sw\\|\\s_\\)*\\_>")
+(defconst fstar-syntax-ws "\\(?:\\sw\\|\\s_\\)")
+(defconst fstar-syntax-id (concat "\\_<[#']?[a-z_]" fstar-syntax-ws "*\\_>"))
+(defconst fstar-syntax-cs (concat "\\_<[#']?[A-Z]" fstar-syntax-ws "*\\_>"))
 
 (defconst fstar-syntax-id-with-subscript
   "\\_<[#']?_*[a-zA-Z]\\(?:[a-z0-9_']*[a-z]\\)?\\([0-9]+\\)['_]*\\_>")
 
-(defconst fstar-syntax-universe-id-unwrapped (rx "'u" (* (or wordchar (syntax symbol)))))
-
-(defconst fstar-syntax-universe-id (concat "\\_<" fstar-syntax-universe-id-unwrapped "\\_>"))
-
-(defconst fstar-syntax-universe (concat "\\(" fstar-syntax-universe-id "\\|u#([^)]*)\\)"))
+(defconst fstar-syntax-universe (concat "\\_<u#\\(?:([^()]+)\\|" fstar-syntax-ws "*\\_>\\)"))
 
 (defconst fstar-syntax-ids (concat "\\(" fstar-syntax-id "\\(?: +" fstar-syntax-id "\\)*\\)"))
 
@@ -1015,7 +1012,7 @@ leads to the binder's start."
     `((,fstar-syntax-cs
        (0 'font-lock-type-face))
       (,fstar-syntax-universe
-       (1 'fstar-universe-face))
+       (0 'fstar-universe-face))
       (,(fstar--fl-conditional-matcher "`.+?`" #'fstar--in-code-p)
        (0 'fstar-operator-face append))
       (,fstar-syntax-fsdoc-keywords-re
