@@ -4011,7 +4011,7 @@ be empty and empty strings can't be annotated.")
           (setq fstar-subp-company--completion-context ck)
           (if always-complete (cons prefix t) prefix))))))
 
-(defun fstar-subp-company-backend (command &optional arg &rest rest)
+(defun fstar-subp-company-backend (command &optional arg &rest _rest)
   "Company backend for F*.
 Candidates are provided by the F* subprocess.
 COMMAND, ARG, REST: see `company-backends'."
