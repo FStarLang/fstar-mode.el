@@ -4502,7 +4502,7 @@ unless LOCAL-ONLY is set."
   (equal args 'fstar-subp-prover-args-for-compiler-hacking))
 
 (defcustom fstar-subp-prover-args nil
-  "Used for computing arguments to pass to F* in interactive mode.
+  "Arguments to pass to F* in interactive mode.
 
 If set to a string, that string is considered to be a single
 argument to pass to F*.  If set to a list of strings, each element
@@ -4513,17 +4513,19 @@ to produce a string or a list of strings.
 Some examples (see below about `…'):
 
 - (setq fstar-subp-prover-args \"--ab\") results in F* being
-called as ‘fstar.exe … --ab’.
+called as ‘fstar.exe … --ab …’.
 
 - (setq fstar-subp-prover-args \\='(\"--ab\" \"--cd\")) results in
-F* being called as ‘fstar.exe … --ab --cd’.
+F* being called as ‘fstar.exe … --ab --cd …’.
 
 - (setq fstar-subp-prover-args (lambda () \\='(\"--ab\" \"--cd\")))
-results in F* being called as ‘fstar.exe … --ab --cd’.
+results in F* being called as ‘fstar.exe … --ab --cd …’.
 
-In addition to these setting, `fstar-mode' always includes (as
-indicated above with `…') both \\='--smt <path-to-z3>\\=' and one
-of \\='--ide\\=' and \\='--in\\='.
+In addition to these flags, `fstar-mode' always includes (as
+indicated above by the first `…') both \\='--smt <path-to-z3>\\='
+and one of \\='--ide\\=' and \\='--in\\=', and any flags computed
+from `fstar-subp-prover-additional-args' (as indicated above by
+the second `…').
 
 To debug unexpected behaviors with this variable, try
 evaluating (fstar-subp-get-prover-args).  Note that passing
@@ -4533,6 +4535,18 @@ multiple arguments as one string will not work: you should use
   :type '(repeat string)
   :safe #'fstar-subp-prover-args-safe-p)
 
+(defcustom fstar-subp-prover-additional-args nil
+  "Additional arguments to pass to F* in interactive mode.
+
+See `fstar-subp-prover-args' for documentation about the format
+of this variable.  Flags derived from this one are added after
+flags derived from `fstar-subp-prover-args'.
+
+This is mostly useful when working on a project that requires a
+specific value of `fstar-subp-prover-args' (typically a function)."
+  :group 'fstar
+  :type '(repeat string))
+
 (defun fstar-subp-find-fstar ()
   "Find path to F* executable."
   (fstar-find-executable fstar-executable "F*" 'fstar-executable))
@@ -4541,20 +4555,32 @@ multiple arguments as one string will not work: you should use
   "Find path to SMT solver executable."
   (fstar-find-executable fstar-smt-executable "SMT solver" 'fstar-smt-executable))
 
-(defun fstar-subp--parse-prover-args ()
-  "Translate `fstar-subp-prover-args' into a list of strings."
-  (let ((args (fstar--resolve-fn-value fstar-subp-prover-args)))
-    (cond ((listp args) args)
-          ((stringp args) (list args))
-          (t (user-error "Interpreting `fstar-subp-prover-args' \
-led to invalid value [%s]" args)))))
+(defun fstar-subp--parse-prover-args-1 (args var-name)
+  "Parse value of ARGS into a list of strings.
+Complain about VAR-NAME if the final value isn't a string or a
+list of strings."
+  (let ((args (fstar--resolve-fn-value args)))
+    (when (stringp args)
+      (setq args (list args)))
+    (unless (and (listp args) (cl-every #'stringp args))
+      (user-error "Interpreting `%s' \
+led to invalid value [%s]" var-name args))
+    args))
+
+(defmacro fstar-subp--parse-prover-args (argsv)
+  "Like `fstar-subp--parse-prover-args-1' on ARGSV, but infer VAR-NAME."
+  `(fstar-subp--parse-prover-args-1 ,argsv ',argsv))
 
 (defun fstar-subp-get-prover-args ()
   "Compute F*'s arguments.
-Function is public to make it easier to debug `fstar-subp-prover-args'."
+Function is public to make it easier to debug
+`fstar-subp-prover-args' and
+`fstar-subp-prover-additional-args'."
   (let ((smt-path (fstar--maybe-cygpath (fstar-subp-find-smt-solver)))
-        (usr-args (fstar-subp--parse-prover-args))
-        (ide-flag (if (fstar--has-feature 'json-subp) "--ide" "--in")))
+        (ide-flag (if (fstar--has-feature 'json-subp) "--ide" "--in"))
+        (usr-args (append
+                   (fstar-subp--parse-prover-args fstar-subp-prover-args)
+                   (fstar-subp--parse-prover-args fstar-subp-prover-additional-args))))
     `(,(fstar-subp--buffer-file-name) ,ide-flag "--smt" ,smt-path ,@usr-args)))
 
 (defun fstar-subp--prover-includes-for-compiler-hacking ()
