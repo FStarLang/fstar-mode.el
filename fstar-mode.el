@@ -924,7 +924,7 @@ If EXTRA-CHECK is non-nil, it is used as an extra filter on matches."
         (regexp (if must-find-type fstar-syntax-ids-and-type fstar-syntax-ids)))
     (while (and found rejected)
       (setq found (re-search-forward regexp bound t))
-      (setq rejected (and found (or (eq (char-after) ?:) ; h :: t
+      (setq rejected (and found (or (memq (char-after) '(?: ?=)) ; h :: t, h := t
                                     (not (fstar--in-code-p))
                                     (save-excursion
                                       (goto-char (match-beginning 0))
