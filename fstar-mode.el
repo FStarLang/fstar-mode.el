@@ -45,6 +45,7 @@
 ;;; Imports
 
 (require 'cl-lib)
+(require 'json)
 (require 'eldoc)
 (require 'help-at-pt)
 (require 'ansi-color)
@@ -161,6 +162,32 @@ returning a string (the full path to the SMT solver)."
   :type `(set ,@(cl-loop for (mod . desc) in fstar-known-modules
                          collect `(const :tag ,desc ,mod))))
 
+;;; Type definitions
+
+;; `fstar-location' must be defined early to reference it in `cl-typecase'
+
+(cl-defstruct fstar-location
+  filename line-from line-to col-from col-to)
+
+(defun fstar--loc-to-string (loc)
+  "Turn LOC into a string."
+  (format "%s(%d,%d-%d,%d)"
+          (fstar-location-filename loc)
+          (fstar-location-line-from loc)
+          (fstar-location-col-from loc)
+          (fstar-location-line-to loc)
+          (fstar-location-col-to loc)))
+
+(defun fstar-location-beg-offset (location)
+  "Compute LOCATION's beginning offset in the current buffer."
+  (fstar--line-col-offset (fstar-location-line-from location)
+                     (fstar-location-col-from location)))
+
+(defun fstar-location-end-offset (location)
+  "Compute LOCATION's end offset in the current buffer."
+  (fstar--line-col-offset (fstar-location-line-to location)
+                     (fstar-location-col-to location)))
+
 ;;; Utilities
 
 (defconst fstar--spaces "\t\n\r ")
@@ -227,8 +254,8 @@ after."
 
 (defun fstar--tramp-find-executable (prog)
   "Check if PROG is in the remote path."
-  (with-parsed-tramp-file-name buffer-file-name vec
-    (tramp-find-executable vec prog nil)))
+  (let ((tramp-name (tramp-dissect-file-name buffer-file-name)))
+    (tramp-find-executable tramp-name prog nil)))
 
 (defun fstar--hide-buffer (buf)
   "Hide window displaying BUF, if any.
@@ -2360,28 +2387,6 @@ potential errors.")
       (unless (fstar--has-feature 'json-subp)
         (fstar-subp--pop))))
   (run-hook-with-args 'fstar-subp-overlay-processed-hook overlay status response))
-
-(cl-defstruct fstar-location
-  filename line-from line-to col-from col-to)
-
-(defun fstar--loc-to-string (loc)
-  "Turn LOC into a string."
-  (format "%s(%d,%d-%d,%d)"
-          (fstar-location-filename loc)
-          (fstar-location-line-from loc)
-          (fstar-location-col-from loc)
-          (fstar-location-line-to loc)
-          (fstar-location-col-to loc)))
-
-(defun fstar-location-beg-offset (location)
-  "Compute LOCATION's beginning offset in the current buffer."
-  (fstar--line-col-offset (fstar-location-line-from location)
-                     (fstar-location-col-from location)))
-
-(defun fstar-location-end-offset (location)
-  "Compute LOCATION's end offset in the current buffer."
-  (fstar--line-col-offset (fstar-location-line-to location)
-                     (fstar-location-col-to location)))
 
 (cl-defstruct fstar-issue
   level locs message)

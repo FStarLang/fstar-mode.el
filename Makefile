@@ -25,3 +25,6 @@ sandbox:
 				--eval "(add-to-list 'package-archives '(\"melpa\" . \"https://melpa.org/packages/\") t)" \
 				--eval "(package-refresh-contents)" --eval "(package-initialize)" \
 				--eval "(package-install-file \"fstar-mode.el\")"
+
+clean:
+	cask clean-elc
