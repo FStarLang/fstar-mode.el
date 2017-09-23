@@ -3074,7 +3074,9 @@ Pass ARG to `fstar-subp-advance-or-retract-to-point'."
 
 (defun fstar-subp--flycheck-continuation (callback status response)
   "Forward results of Flycheck check (STATUS and RESPONSE) to CALLBACK."
-  (if (eq status 'interrupted)
+  (if (memq status '(interrupted failure))
+      ;; `failure' can be returned when we run a peek query after starting F* on
+      ;; an invalid file.  The first push fails, and so do subsequent peeks.
       (funcall callback 'interrupted nil)
     (let* ((raw-issues (fstar-subp-parse-issues response))
            (issues (mapcar #'fstar-subp-cleanup-issue raw-issues)))
