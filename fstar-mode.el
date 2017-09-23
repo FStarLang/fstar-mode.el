@@ -2737,8 +2737,7 @@ dependency computations may be wrong." original-fname fname))))
 (defun fstar-subp--vfs-add-query ()
   "Prepare a vfs-add query for the current buffer."
   (fstar-subp--warn-about-renames)
-  (let ((contents (save-restriction
-                    (prog-widen)
+  (let ((contents (fstar--prog-widened-excursion
                     (buffer-substring-no-properties (point-min) (point-max)))))
     (make-fstar-subp-query
      :query "vfs-add"
