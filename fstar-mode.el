@@ -2721,19 +2721,23 @@ push."
   (fstar-assert (fstar--has-feature 'json-subp))
   (fstar-subp--push-peek-query-1 "peek" pos kind code))
 
-(defun fstar-subp--vfs-add-query ()
-  "Prepare a vfs-add query for the current buffer."
+(defun fstar-subp--warn-about-renames ()
+  "Warn if the current buffer was renamed since F* was started."
   (let ((fname (fstar-subp--buffer-file-name))
-        (original-fname (car fstar-subp--prover-args))
-        (contents (save-restriction
-                    (prog-widen)
-                    (buffer-substring-no-properties (point-min) (point-max)))))
+        (original-fname (car fstar-subp--prover-args)))
     (unless (equal fname original-fname)
       (warn "F*: Current file was renamed (%s → %s; \
-dependency computations may be wrong." original-fname fname))
+dependency computations may be wrong." original-fname fname))))
+
+(defun fstar-subp--vfs-add-query ()
+  "Prepare a vfs-add query for the current buffer."
+  (fstar-subp--warn-about-renames)
+  (let ((contents (save-restriction
+                    (prog-widen)
+                    (buffer-substring-no-properties (point-min) (point-max)))))
     (make-fstar-subp-query
      :query "vfs-add"
-     :args `(("filename" . ,original-fname)
+     :args `(("filename" . nil) ;; `nil' means "use the current file"
              ("contents" . ,contents)))))
 
 (defun fstar-subp--send-current-file-contents ()
