@@ -1269,11 +1269,13 @@ In non-fstar-mode buffers, call FCP unconditionally."
   (setq-local comment-start-skip fstar-comment-start-skip)
   (setq-local font-lock-syntactic-face-function #'fstar-syntactic-face-function)
   (setq-local syntax-propertize-function fstar-mode-syntax-propertize-function)
-  (advice-add #'fill-comment-paragraph :around #'fstar--fix-fill-comment-paragraph))
+  (when (fboundp 'advice-add)
+    (advice-add #'fill-comment-paragraph :around #'fstar--fix-fill-comment-paragraph)))
 
 (defun fstar-teardown-comments ()
   "Undo F*'s comment setup."
-  (advice-remove 'fill-comment-paragraph #'fstar--fix-fill-comment-paragraph))
+  (when (fboundp 'advice-remove)
+    (advice-remove 'fill-comment-paragraph #'fstar--fix-fill-comment-paragraph)))
 
 ;;; Keymaps
 
@@ -1757,14 +1759,14 @@ it created a bunch of issues with point motion and deletion.")
 
 (defun fstar-setup-auto-insert ()
   "Register F* support for `auto-insert'."
-  (with-eval-after-load 'autoinsert
-    (add-to-list 'auto-insert-alist fstar-auto-insert--alist-form)))
+  (eval-after-load 'autoinsert
+    '(add-to-list 'auto-insert-alist fstar-auto-insert--alist-form)))
 
 (defun fstar-teardown-auto-insert ()
   "Unregister F* support for `auto-insert'."
-  (with-eval-after-load 'autoinsert
-    (setq auto-insert-alist
-          (delete fstar-auto-insert--alist-form auto-insert-alist))))
+  (eval-after-load 'autoinsert
+    '(setq auto-insert-alist
+           (delete fstar-auto-insert--alist-form auto-insert-alist))))
 
 ;;; Interactive proofs (fstar-subp)
 
