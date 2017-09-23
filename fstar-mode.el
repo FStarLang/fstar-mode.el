@@ -1757,7 +1757,9 @@ it created a bunch of issues with point motion and deletion.")
   "Interactive F* process running in the background.")
 
 (defvar-local fstar-subp--prover-args nil
-  "Arguments passed to F* process running in the background.")
+  "Arguments passed to the F* process running in the background.
+The first argument is the name that the current file had when F*
+was started.")
 
 (defvar-local fstar-subp--continuations nil
   "Indicates which continuation to run on next output from F* subprocess.
