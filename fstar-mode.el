@@ -4623,6 +4623,14 @@ Function is public to make it easier to debug
   "Start an F* subprocess PROG in BUF with ARGS."
   (apply #'start-file-process fstar-subp--process-name buf prog args))
 
+(defun fstar-subp--wait-for-features-list (proc)
+  "Busy-wait until the first protocol-info message from PROC."
+  (let ((start-time (current-time)))
+    (while (not (memq 'push fstar--features))
+      (accept-process-output proc 0.01 nil 1))
+    (fstar-log 'info "[%.2fms] Feature list received"
+          (* 1000 (float-time (time-since start-time))))))
+
 (defun fstar-subp-start ()
   "Start an F* subprocess attached to the current buffer, if none exists."
   (interactive)
@@ -4645,7 +4653,9 @@ Function is public to make it easier to debug
         (process-put proc 'fstar-subp-source-buffer (current-buffer))
         (setq fstar-subp--process proc)
         (setq fstar-subp--prover-args args)
-        (setq fstar-subp--continuations (make-hash-table :test 'equal))))))
+        (setq fstar-subp--continuations (make-hash-table :test 'equal))
+        (when (fstar--has-feature 'json-subp)
+          (fstar-subp--wait-for-features-list proc))))))
 
 ;;; ;; Keybindings
 
