@@ -1441,7 +1441,7 @@ ERROR-FMT with error message."
   (fstar-find-executable "git" (format "Git (needed to %s)" reason))
   (with-temp-buffer
     (unless (eq 0 (apply #'process-file "git" nil (current-buffer) nil args))
-      (error error-fmt (string-trim (buffer-string)))))
+      (error error-fmt (fstar--string-trim (buffer-string)))))
   (message "%s… done." progress-msg))
 
 (defun fstar-wiki-init (&optional force)
@@ -2169,7 +2169,7 @@ return value."
     (_ (let ((header (format "[F* %s] " level)))
          (unless (stringp contents)
            (setq contents (prin1-to-string contents)))
-         (message "%s" (fstar--indent-str (string-trim contents) header))))))
+         (message "%s" (fstar--indent-str (fstar--string-trim contents) header))))))
 
 (defun fstar-subp--process-protocol-info (_vernum proto-features)
   "Register information (VERNUM and PROTO-FEATURES) about the protocol."
@@ -3618,7 +3618,7 @@ that variable."
                        (fstar-highlight-string (fstar--unparens response))))
     (`failure (message "Evaluation of [%s] failed: %s"
                        (fstar-highlight-string term)
-                       (string-trim response)))))
+                       (fstar--string-trim response)))))
 
 (defun fstar-subp--eval-query (term rules)
   "Prepare a `compute' query for TERM with specific reduction RULES."
@@ -3651,7 +3651,7 @@ a prefix argument, prompt for rules as well."
              (buffer-substring-no-properties
               (1- (point)) (save-excursion (backward-list) (1+ (point)))))
             (t (fstar--fqn-at-point))))))
-  (setq term (string-trim term))
+  (setq term (fstar--string-trim term))
 
   (fstar-subp--query (fstar-subp--eval-query term rules)
                 (apply-partially #'fstar-subp--eval-continuation term rules)))
@@ -3689,7 +3689,7 @@ a prefix argument, prompt for rules as well."
            (fstar-subp--search-insert-result result)
            (insert "\n")))))
     (`failure
-     (message "Search for [%s] failed: %s" terms (string-trim response)))))
+     (message "Search for [%s] failed: %s" terms (fstar--string-trim response)))))
 
 (defun fstar-subp--search-query (terms)
   "Prepare a `search' terms for TERMS."
@@ -3704,7 +3704,7 @@ the search buffer."
   (fstar-subp--ensure-available #'user-error 'compute)
   (when (eq terms 'interactive)
     (setq terms (fstar--read-string "Search terms%s: " (fstar--fqn-at-point))))
-  (setq terms (string-trim terms))
+  (setq terms (fstar--string-trim terms))
   (fstar-subp--query (fstar-subp--search-query terms)
                 (apply-partially #'fstar-subp--search-continuation terms)))
 
@@ -4101,9 +4101,10 @@ printed.  SP1, SP2, and NL are spacers."
   (let-alist opt-info
     (let ((doc (fstar--lispify-null .documentation))
           (doc-face '(font-lock-comment-face (:height 0.7))))
-      (setq doc (string-trim (or doc "")))
+      (setq doc (or doc ""))
       (setq doc (replace-regexp-in-string " *(default.*)" "" doc t t))
       (setq doc (replace-regexp-in-string " *\n+ *" " " doc t t))
+      (setq doc (fstar--string-trim doc))
       (when (eq doc "") (setq doc "(undocumented)"))
       (insert "  " .name sp1 (fstar-subp--option-val-to-string .value)
               (if (not display-default) "\n"
