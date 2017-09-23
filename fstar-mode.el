@@ -2721,11 +2721,33 @@ push."
   (fstar-assert (fstar--has-feature 'json-subp))
   (fstar-subp--push-peek-query-1 "peek" pos kind code))
 
+(defun fstar-subp--vfs-add-query ()
+  "Prepare a vfs-add query for the current buffer."
+  (let ((fname (fstar-subp--buffer-file-name))
+        (original-fname (car fstar-subp--prover-args))
+        (contents (save-restriction
+                    (prog-widen)
+                    (buffer-substring-no-properties (point-min) (point-max)))))
+    (unless (equal fname original-fname)
+      (warn "F*: Current file was renamed (%s → %s; \
+dependency computations may be wrong." original-fname fname))
+    (make-fstar-subp-query
+     :query "vfs-add"
+     :args `(("filename" . ,original-fname)
+             ("contents" . ,contents)))))
+
+(defun fstar-subp--send-current-file-contents ()
+  "Tell F* about edits in the current buffer not yet reflected to disk."
+  (fstar-subp-start) ;; Ensure the feature list is loaded
+  (when (fstar--has-feature 'vfs-add)
+    (fstar-subp--query (fstar-subp--vfs-add-query) #'ignore)))
+
 (defun fstar-subp-push-region (beg end kind continuation)
   "Push the region between BEG and END to the inferior F* process.
 KIND indicates how to check BEG..END (one of `lax', `full').
 Handle results with CONTINUATION."
   (let* ((payload (fstar-subp--clean-buffer-substring beg end)))
+    (when (eq beg (point-min)) (fstar-subp--send-current-file-contents))
     (fstar-subp--query (fstar-subp--push-query beg kind payload) continuation)))
 
 (defun fstar-subp-peek-region (beg end kind continuation)
