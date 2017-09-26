@@ -1118,15 +1118,19 @@ leads to the binder's start."
       (substring str 1 (- (length str) 1))
     str))
 
+(defun fstar--font-lock-ensure ()
+  "Like `font-lock-flush'+`font-lock-ensure', but compatible with Emacs < 25."
+  (if (fboundp 'font-lock-ensure)
+      (progn (font-lock-flush) (font-lock-ensure))
+    (with-no-warnings (font-lock-fontify-buffer))))
+
 (defun fstar-highlight-string (str)
   "Highlight STR as F* code."
   (fstar--init-scratchpad)
   (with-current-buffer fstar--scratchpad
     (erase-buffer)
     (insert (fstar--cleanup-type str))
-    (if (fboundp 'font-lock-ensure)
-        (font-lock-ensure)
-      (with-no-warnings (font-lock-fontify-buffer)))
+    (fstar--font-lock-ensure)
     (buffer-string)))
 
 (defun fstar--highlight-docstring-region (beg end)
@@ -1590,6 +1594,73 @@ Interactively, offer titles of F* wiki pages."
         (toggle-truncate-lines t)
         (use-local-map fstar--outline-map)
         (fstar--outline-cleanup outline-buffer-title)))))
+
+;;; Selective display
+
+(defconst fstar-selective-display-markers '("\\(?:\n\\|^\\) *(\\*\\*).*$")
+  "Regexps matching fragments to hide in HACL outline mode.")
+
+(defconst fstar-selective-display-ellipsis " 👻"
+  "Ellipsis replacing matches for `fstar-selective-display-markers'.")
+
+(defface fstar-selective-display-face
+  '((t :inherit font-lock-comment-face))
+  "Face used to highlight `fstar-selective-display-ellipsis'."
+  :group 'fstar)
+
+(defun fstar-selective-display--hidden-text-at-1 (pos)
+  "Return text hidden by selective display at POS."
+  (when (get-text-property pos 'fstar-selective-display)
+    (buffer-substring-no-properties
+     (previous-single-property-change (1+ pos) 'fstar-selective-display)
+     (next-single-property-change pos 'fstar-selective-display))))
+
+(defun fstar-selective-display--hidden-text-at (pos)
+  "Compute selective display help-echo at POS."
+  (or (fstar-selective-display--hidden-text-at-1 pos)
+      (fstar-selective-display--hidden-text-at-1 (1- pos))))
+
+(defun fstar-selective-display--show-hidden-text (event)
+  "Show hidden text from F*-mode's selective display at pos of EVENT."
+  (interactive "e")
+  (let ((window (posn-window (event-end event)))
+        (pos (posn-point (event-end event))))
+    (with-current-buffer (window-buffer window)
+      (when-let ((hidden (fstar-selective-display--hidden-text-at pos)))
+        (setq hidden (replace-regexp-in-string "^ *\n+" "" hidden nil t))
+        (message "%s" (fstar-highlight-string hidden))))))
+
+(defconst fstar-selective-display--ellipsis-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map [mouse-2] 'fstar-selective-display--show-hidden-text)
+    map))
+
+(defconst fstar-selective-display--font-lock-face
+  `(face fstar-selective-display-face
+         fstar-selective-display t
+         keymap ,fstar-selective-display--ellipsis-map
+         display ,fstar-selective-display-ellipsis
+         help-echo "Hidden; middle-click (mouse-2) to reveal.")
+  "Font-lock facename for the current match.")
+
+(defun fstar-selective-display--font-lock-spec-1 (regexp)
+  "Compute a `font-lock-keywords' entry to hide REGEXP."
+  `(,regexp 0 fstar-selective-display--font-lock-face prepend))
+
+(defconst fstar-selective-display--font-lock-spec
+  (mapcar #'fstar-selective-display--font-lock-spec-1 fstar-selective-display-markers))
+
+(define-minor-mode fstar-selective-display-mode
+  "Hide lines prefixed by `fstar-hacl-hide-marker'."
+  :lighter " (**)"
+  (cond
+   (fstar-selective-display-mode
+    (font-lock-add-keywords nil fstar-selective-display--font-lock-spec 'append)
+    (add-to-list 'font-lock-extra-managed-props 'display)
+    (add-to-list 'font-lock-extra-managed-props 'help-echo))
+   (t
+    (font-lock-remove-keywords nil fstar-selective-display--font-lock-spec)))
+  (fstar--font-lock-ensure))
 
 ;;; Literate F*
 
