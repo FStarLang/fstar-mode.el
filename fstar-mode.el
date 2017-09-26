@@ -1626,7 +1626,7 @@ Interactively, offer titles of F* wiki pages."
   (let ((window (posn-window (event-end event)))
         (pos (posn-point (event-end event))))
     (with-current-buffer (window-buffer window)
-      (when-let ((hidden (fstar-selective-display--hidden-text-at pos)))
+      (when-let* ((hidden (fstar-selective-display--hidden-text-at pos)))
         (setq hidden (replace-regexp-in-string "^ *\n+" "" hidden nil t))
         (message "%s" (fstar-highlight-string hidden))))))
 
