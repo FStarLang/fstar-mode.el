@@ -4580,7 +4580,7 @@ finds a remote binary when the current buffer is a Tramp file,
 unless LOCAL-ONLY is set."
   (let* ((local (or local-only (not (fstar--remote-p)))))
     (if local
-        (fstar--check-executable (executable-find prog) prog-name var-name)
+        (fstar--check-executable (or (executable-find prog) prog) prog-name var-name)
       (let ((tramp-vect (tramp-dissect-file-name buffer-file-name))
             (prog-name (concat "Remote " prog-name)))
         (if (file-name-absolute-p prog)
