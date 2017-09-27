@@ -4742,7 +4742,7 @@ Could it be a typo in `fstar-subp-prover-args' or \
           (* 1000 (float-time (time-since start-time))))))
 
 (defun fstar-subp-start ()
-  "Start an F* subprocess attached to the current buffer, if none exists."
+  "Start an F* subprocess attached to the current buffer, if none exist."
   (interactive)
   (unless (and buffer-file-name (file-exists-p buffer-file-name))
     (user-error "Can't start F* subprocess without a backing file (save this buffer first)"))
