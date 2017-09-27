@@ -4732,7 +4732,12 @@ Function is public to make it easier to debug
   "Busy-wait until the first protocol-info message from PROC."
   (let ((start-time (current-time)))
     (while (not (memq 'push fstar--features))
-      (accept-process-output proc 0.01 nil 1))
+      (accept-process-output proc 0.01 nil 1)
+      (unless (process-live-p proc)
+        (error "F* exited instantaneously (check *Messages* for more info; \
+this usually stems from mistakes in arguments passed to F*).
+Could it be a typo in `fstar-subp-prover-args' or \
+`fstar-subp-prover-additional-args'?")))
     (fstar-log 'info "[%.2fms] Feature list received"
           (* 1000 (float-time (time-since start-time))))))
 
