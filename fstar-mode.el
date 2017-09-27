@@ -1120,7 +1120,7 @@ leads to the binder's start."
 
 (defun fstar--font-lock-ensure ()
   "Like `font-lock-flush'+`font-lock-ensure', but compatible with Emacs < 25."
-  (if (fboundp 'font-lock-ensure)
+  (if (and (fboundp 'font-lock-flush) (fboundp 'font-lock-ensure))
       (progn (font-lock-flush) (font-lock-ensure))
     (with-no-warnings (font-lock-fontify-buffer))))
 
