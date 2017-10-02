@@ -2351,15 +2351,19 @@ Table of continuations was %s" response id conts)))
           fstar-subp--next-query-id 0)))
 
 (defun fstar-subp-kill ()
-  "Kill F* subprocess and clean up current buffer."
+  "Kill F* subprocess and clean up current buffer.
+This first sends EOF, and .25 seconds later sends a SIGTERM."
   (interactive)
-  (when (fstar-subp-live-p)
+  (when (fstar-subp-live-p) ;; Try to exit gently first…
+    (process-send-eof fstar-subp--process)
+    (accept-process-output fstar-subp--process 0.25 nil t))
+  (when (fstar-subp-live-p) ;; …and then not so gently
     (kill-process fstar-subp--process)
     (accept-process-output fstar-subp--process 0.25 nil t))
   (fstar-subp-killed))
 
 (defun fstar-subp-kill-all ()
-  "Kill F* subprocesses in all buffers."
+  "Kill (send a SIGTERM to) F* subprocesses in all buffers."
   (interactive)
   (dolist (proc (process-list))
     (when (process-get proc 'fstar-subp-source-buffer)
