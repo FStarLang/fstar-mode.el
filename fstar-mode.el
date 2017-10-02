@@ -2205,11 +2205,13 @@ return value."
 \(response was [%s])" status response))
           (fstar-subp--process-response nil status response))))))
 
-(defun fstar-subp-json--parse-status (status)
-  "Convert STATUS to a symbol indicating success."
+(defun fstar-subp-json--parse-status (status response)
+  "Convert STATUS to a symbol indicating success.
+RESPONSE is used in warning messages printed upon failure."
   (pcase status
     ((or "success" "failure") (intern status))
-    (_ (warn "Unknown status %S from F* subprocess" status)
+    (_ (warn "Unknown status %S from F* subprocess \
+\(response was [%S])" status response)
        `failure)))
 
 (defun fstar-subp-json--read-response (beg end)
@@ -2252,7 +2254,7 @@ return value."
                (when (fstar-subp-live-p proc)
                  (fstar-subp--process-protocol-info .version .features)))
               ("response"
-               (let ((status (fstar-subp-json--parse-status .status)))
+               (let ((status (fstar-subp-json--parse-status .status .response)))
                  (when (fstar-subp-live-p proc)
                    (fstar-subp--process-response .query-id status .response))))))))))
   ;; Skip to end of partial response
