@@ -257,9 +257,13 @@ after."
 Return a file name prefix if so, and nil otherwise."
   (file-remote-p (or buffer-file-name default-directory)))
 
+(defun fstar--local-p ()
+  "Check if current buffer is local."
+  (not (fstar--remote-p)))
+
 (defun fstar--maybe-cygpath (path)
   "Translate PATH using Cygpath if appropriate."
-  (if (and (eq system-type 'cygwin) (not (fstar--remote-p)))
+  (if (and (eq system-type 'cygwin) (fstar--local-p))
       (string-trim-right (car (process-lines "cygpath" "-w" path)))
     path))
 
@@ -4583,12 +4587,16 @@ This function exists to work around the fact that
 
 ;;; ;; Starting the F* subprocess
 
+(defun fstar--raise-file-not-found (path prog-name var-name)
+  "Use PROG-NAME and VAR-NAME to complain about PATH not being found."
+  (user-error "%s (“%s”) not found%s" prog-name path
+              (if var-name (format "; please adjust `%s'" var-name) "")))
+
 (defun fstar--check-executable (path prog-name var-name)
   "Check if PATH exists and is executable.
 PROG-NAME and VAR-NAME are used in error messages."
   (unless (and path (file-exists-p path))
-    (user-error "%s (“%s”) not found%s" prog-name path
-                (if var-name (format "; please adjust `%s'" var-name) "")))
+    (fstar--raise-file-not-found path prog-name var-name))
   (unless (file-executable-p path)
     (user-error "%s (“%s”) not executable%s" prog-name path
                 (if var-name (format "; please check `%s'" var-name) "")))
@@ -4600,18 +4608,17 @@ Check that the binary exists and is executable; if not, raise an
 error referring to PROG as PROG-NAME and VAR-NAME.  This function
 finds a remote binary when the current buffer is a Tramp file,
 unless LOCAL-ONLY is set."
-  (-if-let* ((local (or local-only (not (fstar--remote-p)))))
+  (if (or local-only (fstar--local-p))
       (fstar--check-executable (or (executable-find prog) prog) prog-name var-name)
-    (let ((tramp-vect (tramp-dissect-file-name buffer-file-name))
-          (prog-name (concat "Remote " prog-name)))
+    (let ((prog-name (concat "Remote " prog-name))
+          (tramp-vect (tramp-dissect-file-name buffer-file-name)))
       (if (file-name-absolute-p prog)
-          (fstar--check-executable
-           (concat (file-remote-p buffer-file-name) prog)
-           prog-name var-name)
-        (when (tramp-find-executable tramp-vect prog nil)
-          ;; We don't return the output of `tramp-find-executable' because it is
-          ;; "\\PROG" when PROG is in $PATH, which confuses `process-file'.
-          prog)))))
+          (fstar--check-executable (concat (fstar--remote-p) prog) prog-name var-name)
+        (unless (tramp-find-executable tramp-vect prog nil)
+          (fstar--raise-file-not-found prog prog-name var-name))
+        ;; Return PROG directly, because `tramp-find-executable' prepends
+        ;; PROG with “\” when it's in $PATH, which confuses `process-file'.
+        prog))))
 
 (defun fstar-subp-buffer-killed ()
   "Kill F* process associated to current buffer."
