@@ -169,10 +169,20 @@ returning a string (the full path to the SMT solver)."
 (cl-defstruct fstar-location
   filename line-from line-to col-from col-to)
 
+(defun fstar--expand-file-name-on-remote (path)
+  "Expand PATH and add Tramp's prefix to it if needed."
+  (setq path (expand-file-name path))
+  (if (file-remote-p path) path
+    (concat (or (fstar--remote-p) "") path)))
+
+(defun fstar-location-remote-filename (loc)
+  "Expand LOC's filename and add Tramp's prefix to it if needed."
+  (fstar--expand-file-name-on-remote (fstar-location-filename loc)))
+
 (defun fstar--loc-to-string (loc)
   "Turn LOC into a string."
   (format "%s(%d,%d-%d,%d)"
-          (fstar-location-filename loc)
+          (fstar-location-remote-filename loc)
           (fstar-location-line-from loc)
           (fstar-location-col-from loc)
           (fstar-location-line-to loc)
@@ -243,19 +253,15 @@ after."
     fn-or-v))
 
 (defun fstar--remote-p ()
-  "Check if current buffer is remote."
-  (and buffer-file-name (tramp-tramp-file-p buffer-file-name)))
+  "Check if current buffer is remote.
+Return a file name prefix if so, and nil otherwise."
+  (file-remote-p (or buffer-file-name default-directory)))
 
 (defun fstar--maybe-cygpath (path)
   "Translate PATH using Cygpath if appropriate."
   (if (and (eq system-type 'cygwin) (not (fstar--remote-p)))
       (string-trim-right (car (process-lines "cygpath" "-w" path)))
     path))
-
-(defun fstar--tramp-find-executable (prog)
-  "Check if PROG is in the remote path."
-  (let ((tramp-name (tramp-dissect-file-name buffer-file-name)))
-    (tramp-find-executable tramp-name prog nil)))
 
 (defun fstar--hide-buffer (buf)
   "Hide window displaying BUF, if any.
@@ -404,7 +410,7 @@ DISPLAY-ACTION: see `fstar--navigate-to-1'."
     (string
      (fstar--navigate-to-1 target display-action))
     (fstar-location
-     (fstar--navigate-to-1 (fstar-location-filename target)
+     (fstar--navigate-to-1 (fstar-location-remote-filename target)
                       (fstar-location-line-from target)
                       (fstar-location-col-from target)
                       display-action))))
@@ -644,9 +650,13 @@ enable all experimental features."
 
 (defun fstar--query-vernum (executable)
   "Ask F* EXECUTABLE for its version number."
-  (with-temp-buffer
-    (process-file executable nil t nil "--version")
-    (buffer-string)))
+  (let ((fname buffer-file-name))
+    (with-temp-buffer
+      (let ((buffer-file-name fname)
+            (exit-code (process-file executable nil t nil "--version")))
+        (unless (equal exit-code 0)
+          (error "Failed to check F*'s version: “%s”" (buffer-string))))
+      (buffer-string))))
 
 (defun fstar--init-compatibility-layer (executable)
   "Adjust compatibility settings based on EXECUTABLE's version number."
@@ -2559,24 +2569,26 @@ Returns a pair of (CLEAN-MESSAGE . LOCATIONS)."
                    collect (fstar-subp-legacy--parse-issue bound)
                    do (setq bound (match-beginning 0)))))))))
 
-(defun fstar-subp--local-loc-p (location)
-  "Check if LOCATION came from the current buffer."
-  (and location
-       (string= (expand-file-name buffer-file-name)
-                (expand-file-name (fstar-location-filename location)))))
+(defun fstar-subp--local-loc-p (loc)
+  "Check if LOC came from the current buffer."
+  (and loc (string= buffer-file-name (fstar-location-remote-filename loc))))
+
+(defun fstar-subp--fixup-fname (fname)
+  "Return FNAME, or the name of the current buffer if FNAME is <input>."
+  (if (equal fname "<input>")
+      (progn (fstar-assert buffer-file-name) buffer-file-name)
+    fname))
 
 (defun fstar-subp--fixup-location (loc)
-  "Destructively replace <input> with the name of the current buffer in LOC."
+  "Replace <input> with the name of the current buffer in LOC."
   (cl-typecase loc
-    (fstar-location (when (equal (fstar-location-filename loc) "<input>")
-                 (fstar-assert buffer-file-name) ;; FIXME "unknown"
-                 (setf (fstar-location-filename loc) buffer-file-name))))
+    (fstar-location (cl-callf fstar-subp--fixup-fname (fstar-location-filename loc))))
   loc)
 
 (defun fstar-subp-cleanup-issue (issue &optional ov)
-  "Fixup ISSUE: include a file name, and adjust line numbers wrt OV."
+  "Fixup ISSUE: clean up file name and adjust line numbers wrt OV."
   (dolist (loc (fstar-issue-locs issue))
-    ;; Clean up file names
+    ;; Clean up file name
     (fstar-subp--fixup-location loc)
     ;; Adjust line numbers
     (unless (or (fstar--has-feature 'absolute-linums-in-errors) (null ov))
@@ -2612,10 +2624,14 @@ Returns a pair of (CLEAN-MESSAGE . LOCATIONS)."
   "Remove OVERLAY."
   (delete-overlay overlay))
 
+(defconst fstar-subp--related-location-help-string-1
+  (format "\\[fstar-jump-to-related-error] to visit, %s to come back"
+          (if (fboundp 'xref-pop-marker-stack)
+              "\\[xref-pop-marker-stack]" "\\[pop-global-mark]")))
+
 (defun fstar-subp--related-location-help-string ()
   "Build a string describing motion commands for related locations."
-  (substitute-command-keys
-   "\\[fstar-jump-to-related-error] to visit, \\[pop-global-mark] to come back"))
+  (substitute-command-keys fstar-subp--related-location-help-string-1))
 
 (defun fstar-subp--help-echo-for-alt-locs (locs)
   "Prepare a string describing LOCS and how to browse to them."
@@ -3153,7 +3169,7 @@ Pass ARG to `fstar-subp-advance-or-retract-to-point'."
      (fstar-issue-level issue)
      (fstar-issue-message issue)
      :checker 'fstar-interactive
-     :filename (fstar-location-filename loc))))
+     :filename (fstar-location-remote-filename loc))))
 
 (defun fstar-subp--flycheck-continuation (callback status response)
   "Forward results of Flycheck check (STATUS and RESPONSE) to CALLBACK."
@@ -4068,7 +4084,7 @@ CALLBACK is the company-mode asynchronous meta callback."
       (pcase-let* ((`(,fname ,line ,offset)
                     (cl-etypecase def-loc
                       (string `(,def-loc ,1 ,(point-min)))
-                      (fstar-location `(,(fstar-location-filename def-loc)
+                      (fstar-location `(,(fstar-location-remote-filename def-loc)
                                    ,(fstar-location-line-from def-loc)
                                    ,(fstar-location-beg-offset def-loc))))))
         (funcall callback (if (string= fname "<input>")
