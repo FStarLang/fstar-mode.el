@@ -4584,16 +4584,18 @@ Check that the binary exists and is executable; if not, raise an
 error referring to PROG as PROG-NAME and VAR-NAME.  This function
 finds a remote binary when the current buffer is a Tramp file,
 unless LOCAL-ONLY is set."
-  (let* ((local (or local-only (not (fstar--remote-p)))))
-    (if local
-        (fstar--check-executable (or (executable-find prog) prog) prog-name var-name)
-      (let ((tramp-vect (tramp-dissect-file-name buffer-file-name))
-            (prog-name (concat "Remote " prog-name)))
-        (if (file-name-absolute-p prog)
-            (fstar--check-executable
-             (concat (file-remote-p buffer-file-name) prog)
-             prog-name var-name)
-          (tramp-find-executable tramp-vect prog nil))))))
+  (-if-let* ((local (or local-only (not (fstar--remote-p)))))
+      (fstar--check-executable (or (executable-find prog) prog) prog-name var-name)
+    (let ((tramp-vect (tramp-dissect-file-name buffer-file-name))
+          (prog-name (concat "Remote " prog-name)))
+      (if (file-name-absolute-p prog)
+          (fstar--check-executable
+           (concat (file-remote-p buffer-file-name) prog)
+           prog-name var-name)
+        (when (tramp-find-executable tramp-vect prog nil)
+          ;; We don't return the output of `tramp-find-executable' because it is
+          ;; "\\PROG" when PROG is in $PATH, which confuses `process-file'.
+          prog)))))
 
 (defun fstar-subp-buffer-killed ()
   "Kill F* process associated to current buffer."
