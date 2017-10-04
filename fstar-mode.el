@@ -4030,15 +4030,19 @@ Return (CALLBACK CANDIDATES).  CONTEXT is propertized onto all candidates."
 
 (defun fstar-subp-company--async-lookup (candidate fields continuation)
   "Pass info FIELDS about CANDIDATE to CONTINUATION.
-If F* is busy, call CONTINUATION directly with symbol `busy'."
+If CANDIDATE is nil, call CONTINUATION directly with nil.  If F*
+is busy, call CONTINUATION directly with symbol `busy'."
   (declare (indent 2))
-  (if (fstar-subp-available-p)
-      (fstar-subp--query
-       (let* ((context (get-text-property 0 'fstar--context candidate))
-              (fqn (fstar-subp-company--candidate-fqn candidate context)))
-         (fstar-subp--positionless-lookup-query fqn fields context))
-       (fstar-subp--lookup-wrapper nil continuation))
-    (funcall continuation 'busy)))
+  (cond
+   ((null candidate) ;; `company-mode' sometimes passes us a nil candidate?!
+    (funcall continuation nil))
+   ((fstar-subp-available-p)
+    (fstar-subp--query
+     (let* ((context (get-text-property 0 'fstar--context candidate))
+            (fqn (fstar-subp-company--candidate-fqn candidate context)))
+       (fstar-subp--positionless-lookup-query fqn fields context))
+     (fstar-subp--lookup-wrapper nil continuation)))
+   (t (funcall continuation 'busy))))
 
 (defun fstar-subp-company--meta-continuation (callback info)
   "Forward type INFO to CALLBACK.
