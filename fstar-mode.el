@@ -4035,6 +4035,8 @@ is busy, call CONTINUATION directly with symbol `busy'."
   (declare (indent 2))
   (cond
    ((null candidate) ;; `company-mode' sometimes passes us a nil candidate?!
+    (let ((debug-on-error t))
+      (error "Nil arguments from company"))
     (funcall continuation nil))
    ((fstar-subp-available-p)
     (fstar-subp--query
