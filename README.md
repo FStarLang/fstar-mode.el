@@ -6,6 +6,8 @@
 
 ## Setup
 
+### Emacs
+
 F*-mode requires Emacs 24.3 or newer, and is distributed through [MELPA](https://melpa.org).
 
 1.  Add the following to your init file (usually `.emacs`) if it is not already there:
@@ -24,6 +26,35 @@ F*-mode requires Emacs 24.3 or newer, and is distributed through [MELPA](https:/
     (setq-default fstar-executable "PATH-TO-FSTAR.EXE")
     (setq-default fstar-smt-executable "PATH-TO-Z3(.EXE)")
     ```
+
+`fstar-mode` is compatible with Tramp: if you open an F* file on a remote machine, `fstar-mode` run F* remotely [over SSH](#editing-remote-f*-files).
+
+### Spacemacs
+
+To install F*-mode on Spacemacs, the method mentionned above won't work.
+
+1. Go to your `.spacemacs`.
+2. Look for `dotspacemacs-additional-packages` and add `fstar-mode`:
+
+    ```elisp
+    ;; List of additional packages that will be installed without being
+    ;; wrapped in a layer. If you need some configuration for these
+    ;; packages, then consider creating a layer. You can also put the
+    ;; configuration in `dotspacemacs/user-config'.
+    dotspacemacs-additional-packages '(fstar-mode)
+    ```
+
+3. Look for `dotspacemacs/user-config` and add the following lines:
+
+    ```elisp
+    (require 'helm-bookmark)
+    
+    (setq auto-mode-alist (cons'("\\.fst$" . fstar-mode) auto-mode-alist))
+    (setq-default fstar-executable "PATH-TO-FSTAR.EXE")
+    (setq-default fstar-smt-executable "PATH-TO-Z3(.EXE)")
+    ```
+
+4. Start Emacs, Spacemacs will take care of downloading the package.
 
 `fstar-mode` is compatible with Tramp: if you open an F* file on a remote machine, `fstar-mode` run F* remotely [over SSH](#editing-remote-f*-files).
 
