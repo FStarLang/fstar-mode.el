@@ -31,30 +31,29 @@ F*-mode requires Emacs 24.3 or newer, and is distributed through [MELPA](https:/
 
 ### Spacemacs
 
-To install F*-mode on Spacemacs, the method mentionned above won't work.
+To install F*-mode on Spacemacs, the method mentionned above won't work, it is better to use the layer provided by [kyoDrallian](https://github.com/kyoDralliam/fstar-layer):
 
-1. Go to your `.spacemacs`.
-2. Look for `dotspacemacs-additional-packages` and add `fstar-mode`:
+1. Clone the layer in `.emacs.d/layers/lang`
 
-    ```elisp
-    ;; List of additional packages that will be installed without being
-    ;; wrapped in a layer. If you need some configuration for these
-    ;; packages, then consider creating a layer. You can also put the
-    ;; configuration in `dotspacemacs/user-config'.
-    dotspacemacs-additional-packages '(fstar-mode)
+    ```sh
+    cd ~/.emacs.d/layers/lang/
+    git clone git@github.com:kyoDralliam/fstar-layer.git fstar
     ```
 
-3. Look for `dotspacemacs/user-config` and add the following lines:
+2. Edit your `.spacemacs` and add `fstar` in your `dotspacemacs-configuration-layers`:
 
     ```elisp
-    (require 'helm-bookmark)
-    
-    (setq auto-mode-alist (cons'("\\.fst$" . fstar-mode) auto-mode-alist))
-    (setq-default fstar-executable "PATH-TO-FSTAR.EXE")
-    (setq-default fstar-smt-executable "PATH-TO-Z3(.EXE)")
+    dotspacemacs-configuration-layers
+    '(
+      ;; ----------------------------------------------------------------
+      ;; Example of useful layers you may want to use right away.
+      ;; Uncomment some layer names and press <SPC f e R> (Vim style) or
+      ;; <M-m f e R> (Emacs style) to install them.
+      ;; ----------------------------------------------------------------
+      fstar
     ```
 
-4. Start Emacs, Spacemacs will take care of downloading the package.
+3. Start Emacs, Spacemacs will take care of downloading the packages.
 
 `fstar-mode` is compatible with Tramp: if you open an F* file on a remote machine, `fstar-mode` run F* remotely [over SSH](#editing-remote-f*-files).
 
