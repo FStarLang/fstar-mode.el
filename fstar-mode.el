@@ -2199,7 +2199,7 @@ return value."
   "Find full response in PROC's legacy-mode buffer; handle it if found."
   (setq ansi-color-context-region nil)
   (ansi-color-filter-region (point-min) (point-max))
-  (goto-char (point-min)) ;; FIXME better protocol wouldn't require re-scans
+  (goto-char (point-min))
   (when (search-forward fstar-subp-legacy--done nil t)
     (let* ((status        (cond
                            ((looking-at fstar-subp-legacy--success) 'success)
@@ -3192,6 +3192,12 @@ Pass ARG to `fstar-subp-advance-or-retract-to-point'."
   :group 'fstar-interactive
   :type 'integer)
 
+(defcustom fstar-subp-flycheck-level 'lax
+  "Stringency level of continuous Flycheck checking."
+  :group 'fstar-interactive
+  :type '(choice (const :tag "Syntax only" syntax)
+                 (const :tag "Syntax + lax typechecking" lax)))
+
 (defun fstar-subp--start-syntax-check (_checker callback)
   "Start a light syntax check; pass results to CALLBACK."
   (fstar--widened
@@ -3200,7 +3206,7 @@ Pass ARG to `fstar-subp-advance-or-retract-to-point'."
               (end (fstar-subp--find-point-to-process fstar-subp-flycheck-lookahead)))
           (if (and (numberp end) (< beg end))
               (fstar-subp-peek-region
-               beg end 'lax ;; FIXME make configurable
+               beg end fstar-subp-flycheck-level
                (apply-partially #'fstar-subp--flycheck-continuation callback))
             (funcall callback 'finished nil)))
       (funcall callback 'interrupted nil))))
