@@ -54,6 +54,7 @@
 (require 'tramp)
 (require 'tramp-sh)
 (require 'crm)
+(require 'tool-bar)
 (require 'notifications nil t)
 ;; replace.el doesn't `provide' in Emacs < 26
 (ignore-errors (require 'replace))
@@ -151,13 +152,14 @@ returning a string (the full path to the SMT solver)."
     (notifications    . "Show a notification when a proof completes.")
     (literate         . "Prettify “///” comment markers.")
     (overlay-legend   . "Show a legend in the modeline when hovering an F* overlay.")
+    (tool-bar         . "Customize the toolbar for interactive use of F*.")
     (auto-insert      . "Support for `auto-insert-mode'."))
   "Available components of F*-mode.")
 
 (defcustom fstar-enabled-modules
   '(font-lock prettify indentation comments flycheck interactive
               eldoc company company-defaults spinner notifications
-              literate overlay-legend auto-insert)
+              literate overlay-legend tool-bar auto-insert)
   "Which F*-mode components to load."
   :group 'fstar
   :type `(set ,@(cl-loop for (mod . desc) in fstar-known-modules
@@ -4949,6 +4951,81 @@ Could it be a typo in `fstar-subp-prover-args' or \
      ["Copy error message at point"
       fstar-copy-help-at-point (fstar--check-help-at-point)])
     ["Configuration" fstar-customize]))
+
+;;; Tool bar
+
+(defun fstar-tool-bar--add-item (command icon map)
+  "Add an ICON running COMMAND to MAP."
+  (tool-bar-local-item-from-menu
+   command nil map fstar-mode-map
+   :vert-only t :fstar-icon icon))
+
+(defun fstar-tool-bar--cleanup-binding (binding)
+  "Recompute :image spec in toolbar entry BINDING."
+  (pcase binding
+    (`(,key menu-item ,doc ,cmd . ,props)
+     (-when-let* ((img (plist-get props :fstar-icon)))
+       (let ((specs nil))
+         (dolist (type '(xpm png svg))
+           (push `(:type ,type :file ,(format "%s.%S" img type)) specs))
+         (setq props (plist-put props :image `(find-image '(,@specs))))))
+     `(,key menu-item ,doc ,cmd . ,props))
+    (_ binding)))
+
+(defun fstar-tool-bar--cleanup-map (map)
+  "Replace image paths in MAP.
+This is a hacky way to work around the fact that
+`tool-bar-local-item-from-menu' doesn't include `png' files in
+its `find-image' forms."
+  (pcase map
+    (`(keymap . ,bindings)
+     `(keymap . ,(mapcar #'fstar-tool-bar--cleanup-binding bindings)))
+    (_ map)))
+
+(defvar fstar-tool-bar--map
+  (let ((map (make-sparse-keymap)))
+    (cl-flet ((add-item (cmd img) (fstar-tool-bar--add-item cmd img map)))
+      (add-item 'fstar-subp-advance-or-retract-to-point "goto-point")
+      (add-item 'fstar-subp-advance-or-retract-to-point-lax "goto-point-lax")
+      (add-item 'fstar-subp-retract-last "previous")
+      (define-key-after map [basic-actions-sep] '(menu-item "--"))
+      (add-item 'fstar-subp-advance-next "next")
+      (add-item 'fstar-subp-advance-next-lax "next-lax")
+      (add-item 'fstar-subp-advance-to-point-max-lax "goto-end-lax")
+      (add-item 'fstar-subp-reload-to-point "reload")
+      (define-key-after map [views-sep] '(menu-item "--"))
+      (add-item 'fstar-eval "eval")
+      (add-item 'fstar-quick-peek "quick-peek")
+      (add-item 'fstar-doc "lookup-documentation")
+      (add-item 'fstar-print "lookup-definition")
+      (add-item 'fstar-search "search")
+      (add-item 'fstar-copy-help-at-point "copy-error-message")
+      (add-item 'fstar-list-options "list-options")
+      (define-key-after map [actions-sep] '(menu-item "--"))
+      (add-item 'fstar-outline "outline")
+      (add-item 'fstar-selective-display-mode "ghost")
+      (add-item 'fstar--visit-interface "switch-to-interface")
+      (add-item 'fstar--visit-implementation "switch-to-implementation")
+      (add-item 'fstar-literate-fst2rst "switch-to-rst")
+      (define-key-after map [queries-sep] '(menu-item "--"))
+      (add-item 'fstar-quit-windows "quit-windows")
+      (add-item 'fstar-subp-kill-one-or-many "stop")
+      (define-key-after map `[process-management-sep] '(menu-item "--"))
+      (add-item 'fstar-customize "settings"))
+    (fstar-tool-bar--cleanup-map map)))
+
+(defconst fstar-tool-bar--icons-directory
+  (expand-file-name "etc/icons/" fstar--directory))
+
+(defun fstar-setup-tool-bar ()
+  "Display the F* toolbar."
+  (setq-local tool-bar-map fstar-tool-bar--map)
+  (setq-local image-load-path `(,fstar-tool-bar--icons-directory ,@image-load-path)))
+
+(defun fstar-teardown-tool-bar ()
+  "Hide the F* toolbar."
+  (kill-local-variable 'tool-bar-map)
+  (kill-local-variable 'image-load-path))
 
 ;;; Main mode
 
