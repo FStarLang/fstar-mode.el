@@ -1366,7 +1366,13 @@ In non-fstar-mode buffers, call FCP unconditionally."
 (defun fstar-copy-help-at-point ()
   "Copy contents of help-echo at point."
   (interactive)
-  (kill-new (help-at-pt-string)))
+  (-if-let* ((help (help-at-pt-string)))
+      (kill-new help)
+    (user-error "No error message here")))
+
+(defun fstar--check-help-at-point ()
+  "Check if help is available at point."
+  (car (get-char-property-and-overlay (point) 'help-echo)))
 
 ;;; Indentation
 
@@ -1466,6 +1472,9 @@ In non-fstar-mode buffers, call FCP unconditionally."
            (other-ext (cdr (assoc ext fstar--interface-implementation-ext-alist))))
       (let ((auto-mode-alist '(("" . fstar-mode))))
         (find-file (concat fname "." (or other-ext ext)))))))
+
+(defalias 'fstar--visit-interface #'fstar-visit-interface-or-implementation)
+(defalias 'fstar--visit-implementation #'fstar-visit-interface-or-implementation)
 
 (defun fstar--visiting-interface-p ()
   "Check whether current buffer is an interface file."
@@ -3070,6 +3079,11 @@ Report an error if the region is empty and NO-ERROR is nil."
         (let ((fstar-subp--lax lax))
           (fstar-subp-enqueue-until (goto-char target)))
       (user-error "Cannot find a full block to process"))))
+
+(defun fstar-subp-advance-next-lax ()
+  "Process next block in LAX mode."
+  (interactive)
+  (fstar-subp-advance-next t))
 
 (defun fstar-subp-pop-overlay (overlay)
   "Remove overlay OVERLAY and issue the corresponding `pop' command."
@@ -4880,13 +4894,15 @@ Could it be a typo in `fstar-subp-prover-args' or \
   '(#("F✪" 1 2 (composition ((1 . "\t✪\t"))))
     ("Navigation"
      ["Visit interface file"
-      fstar-visit-interface-or-implementation :visible (not (fstar--visiting-interface-p))]
+      fstar--visit-interface :visible (not (fstar--visiting-interface-p))]
      ["Visit implementation file"
-      fstar-visit-interface-or-implementation :visible (fstar--visiting-interface-p)]
+      fstar--visit-implementation :visible (fstar--visiting-interface-p)]
      ["Visit a dependency of this file"
       fstar-visit-dependency :visible (fstar-subp-available-p)]
      ["Show an outline of this file"
       fstar-outline]
+     ["Hide/show lines annotated with (**)"
+      fstar-selective-display-mode]
      ["Close all temporary F* windows"
       fstar-quit-windows])
     (#("F✪ subprocess" 1 2 (composition ((1 . "\t✪\t"))))
@@ -4899,6 +4915,8 @@ Could it be a typo in `fstar-subp-prover-args' or \
     ("Proof state"
      ["Typecheck next definition"
       fstar-subp-advance-next]
+     ["Typecheck next definition (lax)"
+      fstar-subp-advance-next-lax]
      ["Retract last definition"
       fstar-subp-retract-last]
      ["Typecheck everything up to point"
@@ -4907,6 +4925,8 @@ Could it be a typo in `fstar-subp-prover-args' or \
       fstar-subp-advance-or-retract-to-point-lax]
      ["Typecheck whole buffer (lax)"
       fstar-subp-advance-to-point-max-lax]
+     ["Reload dependencies and re-typecheck up to point"
+      fstar-subp-reload-to-point]
      ["Show current value of all F* options"
       fstar-list-options (fstar-subp-available-p)])
     ("Interactive queries"
@@ -4927,7 +4947,7 @@ Could it be a typo in `fstar-subp-prover-args' or \
       fstar-literate-fst2rst])
     ("Utilities"
      ["Copy error message at point"
-      fstar-copy-help-at-point])
+      fstar-copy-help-at-point (fstar--check-help-at-point)])
     ["Configuration" fstar-customize]))
 
 ;;; Main mode
