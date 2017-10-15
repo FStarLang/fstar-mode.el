@@ -52,6 +52,9 @@ In HTML mode, set the refuri appropriately; in other modes, remove them."""
         else:
             node.parent.remove(node)
 
+def register_fst_parser(app):
+    app.config.source_parsers['.fst'] = 'fslit.sphinx4fstar.LiterateFStarParser'
+
 def add_html_assets(app):
     app.config.html_static_path.append(docutils4fstar.ASSETS_PATH)
 
@@ -88,6 +91,7 @@ def setup(app):
     if app.buildername == "html":
         app.connect('builder-inited', add_html_assets)
         app.connect('doctree-resolved', unfold_folded_fst_blocks)
+    app.connect('builder-inited', register_fst_parser)
     app.connect('doctree-resolved', process_external_editor_references)
 
     return {'version': '0.1', "parallel_read_safe": True}
