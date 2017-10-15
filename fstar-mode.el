@@ -2500,6 +2500,12 @@ potential errors.")
   "Extract locations attached to ISSUE, except the first one."
   (cdr (fstar-issue-locs issue)))
 
+(defun fstar-issue-message-with-level (issue)
+  "Concatenate ISSUE's level and message."
+  (format "(%s) %s"
+          (capitalize (symbol-name (fstar-issue-level issue)))
+          (fstar-issue-message issue)))
+
 (defconst fstar-subp-issue-location-regexp
   "\\(.*?\\)(\\([[:digit:]]+\\),\\([[:digit:]]+\\)-\\([[:digit:]]+\\),\\([[:digit:]]+\\))")
 
@@ -2567,7 +2573,7 @@ Returns a pair of (CLEAN-MESSAGE . LOCATIONS)."
       (make-fstar-issue
        :level (intern .level)
        :locs (append (mapcar #'fstar-subp-json--parse-location .ranges) alt-locs)
-       :message msg))))
+       :message (fstar--string-trim msg)))))
 
 (defun fstar-subp-parse-issues (response)
   "Parse RESPONSE into a list of issues."
@@ -2663,7 +2669,7 @@ Returns a pair of (CLEAN-MESSAGE . LOCATIONS)."
 (defun fstar-subp--help-echo-at (pos)
   "Compute help-echo message at POS."
   (-when-let* ((issues (fstar-subp--issues-at pos)))
-    (concat (mapconcat #'fstar-issue-message issues "\n")
+    (concat (mapconcat #'fstar-issue-message-with-level issues "\n")
             (fstar-subp--help-echo-for-alt-locs (fstar-subp--alt-locs-at pos)))))
 
 (defun fstar-subp--help-echo (_window object pos)
