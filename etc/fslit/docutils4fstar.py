@@ -16,6 +16,12 @@ from docutils.parsers.rst.directives import admonitions
 
 from .translate import fst2rst_linums
 
+# Constants
+# =========
+
+SCRIPT_PATH = os.path.dirname(os.path.realpath(__file__))
+ASSETS_PATH = os.path.join(SCRIPT_PATH, "assets")
+
 # Utilities
 # =========
 

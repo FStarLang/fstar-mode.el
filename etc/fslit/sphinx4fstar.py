@@ -1,11 +1,8 @@
 # -*- coding: utf-8 -*-
 
-from docutils import nodes
 from sphinx.domains import Domain
 from sphinx.util.osutil import relative_uri
 from . import docutils4fstar
-
-# FIXME Should use copy_asset_file to copy the fslit CSS
 
 # Export here so config files can refer to just this module
 LiterateFStarParser = docutils4fstar.LiterateFStarParser
@@ -42,18 +39,30 @@ class FStarDomain(Domain):
     }
 
 
-def unfold_folded_fst_blocks(app, doctree, _fromdocname):
-    if app.buildername == 'html':
-        for node in doctree.traverse(docutils4fstar.fst_node):
-            node.replace_self(node.original_node)
+def unfold_folded_fst_blocks(_app, doctree, _fromdocname):
+    for node in doctree.traverse(docutils4fstar.fst_node):
+        node.replace_self(node.original_node)
 
 def process_external_editor_references(app, doctree, fromdocname):
-    """Adjust references to the external editor."""
-    if app.buildername == "html":
-        for node in doctree.traverse(docutils4fstar.standalone_editor_reference_node):
+    """Adjust links to the external editor.
+In HTML mode, set the refuri appropriately; in other modes, remove them."""
+    for node in doctree.traverse(docutils4fstar.standalone_editor_reference_node):
+        if app.buildername == "html":
             node['refuri'] = relative_uri(app.builder.get_target_uri(fromdocname), node['docpath'])
-    else:
-        node.parent.remove(node)
+        else:
+            node.parent.remove(node)
+
+def add_html_assets(app):
+    app.config.html_static_path.append(docutils4fstar.ASSETS_PATH)
+
+    app.add_javascript("https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.27.2/codemirror.min.js")
+    app.add_stylesheet("https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.27.2/codemirror.min.css")
+
+    app.add_javascript("fstar.cm.js")
+    app.add_stylesheet("cm.tango.css")
+
+    app.add_javascript("fslit.js")
+    app.add_stylesheet("fslit.css")
 
 def setup(app):
     """Register the F* domain"""
@@ -76,11 +85,9 @@ def setup(app):
     for transform in docutils4fstar.TRANSFORMS:
         app.add_transform(transform)
 
-    app.connect('doctree-resolved', unfold_folded_fst_blocks)
+    if app.buildername == "html":
+        app.connect('builder-inited', add_html_assets)
+        app.connect('doctree-resolved', unfold_folded_fst_blocks)
     app.connect('doctree-resolved', process_external_editor_references)
-
-    # FIXME
-    # Add fslit.css ("copy asset"?)
-    # app.add_stylesheet("….css")
 
     return {'version': '0.1', "parallel_read_safe": True}
