@@ -229,7 +229,7 @@ def main():
     if args.input == "-":
         writeout(args.fn(sys.stdin, args.marker))
     else:
-        with open(args.input) as fstream:
+        with open(args.input, encoding="utf-8") as fstream:
             writeout(args.fn(fstream, args.marker))
 
 if __name__ == '__main__':
