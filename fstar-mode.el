@@ -55,6 +55,7 @@
 (require 'tramp-sh)
 (require 'crm)
 (require 'tool-bar)
+(require 'image)
 (require 'notifications nil t)
 ;; replace.el doesn't `provide' in Emacs < 26
 (ignore-errors (require 'replace))
