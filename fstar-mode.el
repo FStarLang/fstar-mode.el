@@ -142,6 +142,7 @@ returning a string (the full path to the SMT solver)."
 (defconst fstar-known-modules
   '((font-lock        . "Syntax highlighting")
     (prettify         . "Unicode math (e.g. display forall as ∀; requires emacs 24.4 or later)")
+    (subscripts       . #("Pretty susbcripts (e.g. display x1 as x1)" 39 40 (display (raise -0.3))))
     (indentation      . "Indentation (relative to previous lines)")
     (comments         . "Comment syntax and special comments ('(***', '(*+', etc.)")
     (flycheck         . "Real-time verification with Flycheck")
@@ -158,7 +159,7 @@ returning a string (the full path to the SMT solver)."
   "Available components of F*-mode.")
 
 (defcustom fstar-enabled-modules
-  '(font-lock prettify indentation comments flycheck interactive
+  '(font-lock prettify subscripts indentation comments flycheck interactive
               eldoc company company-defaults spinner notifications
               literate overlay-legend tool-bar auto-insert)
   "Which F*-mode components to load."
@@ -1104,9 +1105,7 @@ leads to the binder's start."
       ("!"
        (0 'fstar-dereference-face))
       (,(fstar--fl-conditional-matcher "[{}]" #'fstar--in-code-p)
-       (0 'fstar-braces-face append))
-      (,(fstar--fl-conditional-matcher fstar-syntax-id-with-subscript #'fstar--in-code-p)
-       (1 '(face fstar-subscript-face display (raise -0.3)) append)))))
+       (0 'fstar-braces-face append)))))
 
 (defconst fstar--scratchpad-name " *%s-scratchpad*")
 
@@ -1195,6 +1194,20 @@ leads to the binder's start."
   "Disable F*-related font-locking."
   (when (buffer-live-p fstar--scratchpad)
     (kill-buffer fstar--scratchpad)))
+
+;;; Subscripts
+
+(defconst fstar-subscripts--font-lock-spec
+  `(,(fstar--fl-conditional-matcher fstar-syntax-id-with-subscript #'fstar--in-code-p)
+    (1 '(face fstar-subscript-face display (raise -0.3)) append)))
+
+(defun fstar-setup-subscripts ()
+  "Setup pretty subscripts."
+  (font-lock-add-keywords nil (list fstar-subscripts--font-lock-spec) 'append))
+
+(defun fstar-teardown-subscripts ()
+  "Teardown pretty subscripts."
+  (font-lock-remove-keywords nil (list fstar-subscripts--font-lock-spec)))
 
 ;;; Syntax table
 
