@@ -42,9 +42,14 @@ cp calculator_cut_24px.svg ../etc/icons/eval.svg
 cp ghost_24px.svg ../etc/icons/ghost.svg
 
 cd ../etc/icons/
-rm ./*.png ./*.xpm
-for icon in *.svg; do
-    # inkscape -z -e "${icon%.svg}.png" -w 24 -h 24 "$icon"
-    rsvg -w 24 -h 24 "$icon" "${icon%.svg}.png"
-    convert "${icon%.svg}.png" "${icon%.svg}.xpm"
+for shade in light dark; do
+    mkdir -p "$shade"
+    rm "$shade"/*.png "$shade"/*.xpm
+    for svg in *.svg; do
+        icon="${svg%.svg}"
+        shaded="$shade/$icon"
+        ../../icons/recolor.py "$shade" "$icon.svg" "$shaded.svg"
+        rsvg -w 24 -h 24 "$shaded.svg" "$shaded.png"
+        convert "$shaded.png" "$shaded.xpm"
+    done
 done

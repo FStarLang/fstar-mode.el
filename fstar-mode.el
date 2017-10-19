@@ -5022,7 +5022,8 @@ its `find-image' forms."
     (fstar-tool-bar--cleanup-map map)))
 
 (defconst fstar-tool-bar--icons-directory
-  (expand-file-name "etc/icons/" fstar--directory))
+  (let ((shade (pcase frame-background-mode (`dark 'light) (_ 'dark))))
+    (expand-file-name (format "etc/icons/%S" shade) fstar--directory)))
 
 (defun fstar-setup-tool-bar ()
   "Display the F* toolbar."
