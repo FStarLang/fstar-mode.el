@@ -120,12 +120,12 @@ F*-mode recognizes and highlights certain special comments as titles: `(***` and
 
 F*-mode's completion uses `company-mode` under the hood.  Try `M-x customize-group company`, and in particular consider changing `company-idle-delay` to get completions faster.
 
-### Using F*-mode for `.fsi` files
+### Using F*-mode for F# files
 
 Use the following snippet:
 
 ```elisp
-(add-to-list 'auto-mode-alist '("\\.fsi\\'" . fstar-mode))
+(add-to-list 'auto-mode-alist '("\\.fsi?\\'" . fstar-mode))
 ```
 
 ### Including non-standard libraries when using fstar-mode
