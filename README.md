@@ -128,15 +128,15 @@ Use the following snippet:
 (add-to-list 'auto-mode-alist '("\\.fsi?\\'" . fstar-mode))
 ```
 
-### Including non-standard libraries when using fstar-mode
+### Including external libraries and passing custom flags to F*
 
-Add the following line to your `.emacs`.
+Add the following line to your `.emacs`:
 
 ```elisp
 (setq fstar-subp-prover-args '("--include" "<your-path>"))
 ```
 
-Use `C-h v fstar-subp-prover-args` for more details.
+Use `C-h v fstar-subp-prover-args` for more details.  If your project requires a set of flags to be passed to `fstar`, it's OK to use a `.dir-locals.el` to set `fstar-subp-prover-args`.  In that case, users can add further arguments using `fstar-subp-prover-additional-args`.
 
 ### Editing remote F* files
 
