@@ -53,3 +53,6 @@ for shade in light dark; do
         convert "$shaded.png" "$shaded.xpm"
     done
 done
+
+# get rid of pre-recoloring templates
+rm ./*.svg
