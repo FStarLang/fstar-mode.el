@@ -43,6 +43,7 @@ Key                         | Action
 `C-h M-w`                   | Copy current error message
 `TAB` / `S-TAB`             | Indent / Unindent
 `C-RET`                     | :zap: :sparkles: Autocomplete word at point
+`C-c C-v` (**v**erify)      | :sparkles: Verify current file on the command line
 `C-c C-s C-q` (**q**uit)    | Close temporary windows opened by fstar-mode
 
 ### Navigation
