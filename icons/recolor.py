@@ -14,7 +14,7 @@ def set_style(node, style):
     node.attributes["style"] = ";".join(k + ":" + v for (k, v) in sorted(style.items()))
 
 def set_fills(svg, color):
-    for path in svg.getElementsByTagName('path'):
+    for path in svg.getElementsByTagName('path') + svg.getElementsByTagName('rect'):
         style = dict(get_style(path))
         style["fill"] = color
         if style.get("stroke") not in [None, "none"]:
