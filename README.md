@@ -33,7 +33,7 @@ F*-mode requires Emacs 24.3 or newer, and is distributed through [MELPA](https:/
 :sparkles: indicates features added since the latest F* release.<br/>
 :unicorn: indicates features that require yet-unmerged patches to F*.<br/>
 
-The common prefix for fstar-mode keybindings in `C-c C-s` (short for **s**tar).
+The common prefix for `fstar-mode` keybindings in `C-c C-s` (short for **s**tar).
 
 ### General
 
@@ -44,7 +44,7 @@ Key                         | Action
 `TAB` / `S-TAB`             | Indent / Unindent
 `C-RET`                     | :zap: :sparkles: Autocomplete word at point
 `C-c C-v` (**v**erify)      | :sparkles: Verify current file on the command line
-`C-c C-s C-q` (**q**uit)    | Close temporary windows opened by fstar-mode
+`C-c C-s C-q` (**q**uit)    | Close temporary windows opened by `fstar-mode`
 
 ### Navigation
 
@@ -107,19 +107,11 @@ Key     | Action
 
 ### Enabling and disabling individual F* mode components
 
-Use <kbd>M-x customize-variable RET fstar-enabled-modules RET</kbd> to choose which parts of fstar-mode to enable.
+Use <kbd>M-x customize-variable RET fstar-enabled-modules RET</kbd> to choose which parts of `fstar-mode` to enable.
 
 ### Title comments
 
 F*-mode recognizes and highlights certain special comments as titles: `(***` and `(** *`; `(*+`, `(**+`, and `(** **`; and `(*!`, `(**!`, and `(** ***`.
-
-### Real-time verification
-
- Customize the variable `fstar-flycheck-checker` to pick your favorite style of real-time verification (full-buffer verification or lightweight typechecking).  F*-mode's real-time checking uses `flycheck-mode` under the hood: try `M-x customize-group flycheck` to tweak Flycheck further.
-
-### Completion
-
-F*-mode's completion uses `company-mode` under the hood.  Try `M-x customize-group company`, and in particular consider changing `company-idle-delay` to get completions faster.
 
 ### Using F*-mode for F# files
 
@@ -145,6 +137,22 @@ F*-mode is compatible with Emacs' Tramp.  To use F*-mode over tramp:
 
 * Set `fstar-executable` and `z3-executable` appropriately (if F* and Z3 are in your path on the remote machine it's enough to use `fstar.exe` and `z3`; otherwise, use their full paths on the remote machine — e.g. `~/FStar/bin/fstar.exe`),
 * Open a remote file (`C-x C-f /sshx:username@remote-server: RET test.fst RET`).  Processing this file should invoke a remote F* through SSH.
+
+### Hiding parts of a buffer
+
+Use `M-x fstar-selective-display-mode` to toggle selective display.  In selective display mode, consecutive lines prefixed with `(**)` are collapsed into a single `👻`.
+
+### Programming with tactics
+
+`fstar-mode` opens a `*goals*` window as soon as an F* tactic prints out a goal.  Use `<prior>` and `<next>` (“page up” and “page down”) to navigate that window.
+
+### Completion
+
+F*-mode's completion uses `company-mode` under the hood.  Try `M-x customize-group company`.
+
+### Real-time verification
+
+Customize the variable `fstar-flycheck-checker` to pick your favorite style of real-time verification (full-buffer verification or lightweight typechecking).  F*-mode's real-time checking uses `flycheck-mode` under the hood: try `M-x customize-group flycheck` to tweak Flycheck further.
 
 ## Troubleshooting
 
