@@ -726,20 +726,6 @@ in your version of F*.  You're running version %s" fstar--vernum)))))
 to ‘%S’ to use this checker." checker))
     :face (if (fstar--flycheck-enabled checker) 'success '(bold error)))))
 
-(defun fstar--flycheck-verify-subp-available ()
-  "Create a verification result announcing availability of the F* subprocess."
-  (list
-   (flycheck-verification-result-new
-    :label "Subprocess running"
-    :message (if (fstar-subp-live-p) "OK, F* started."
-               "This checker requires a running F* subprocess.")
-    :face (if (fstar-subp-live-p) 'success '(bold error)))
-   (flycheck-verification-result-new
-    :label "Subprocess started"
-    :message (if (fstar-subp-available-p) "OK, F* idle."
-               "This checker only runs when the F* subprocess is idle.")
-    :face (if (fstar-subp-available-p) 'success '(bold error)))))
-
 (flycheck-define-command-checker 'fstar
   "Flycheck checker for F*."
   :command '("fstar.exe" source-inplace)
@@ -1329,6 +1315,7 @@ In non-fstar-mode buffers, call FCP unconditionally."
   (let ((map (make-sparse-keymap)))
     ;; Basics
     (define-key map (kbd "RET") #'fstar-newline)
+    (define-key map (kbd "C-c C-v") #'fstar-cli-verify)
     ;; Navigation
     (define-key map (kbd "M-p") 'fstar-subp-previous-block-start)
     (define-key map (kbd "M-n") 'fstar-subp-next-block-start)
@@ -3245,6 +3232,20 @@ Pass ARG to `fstar-subp-advance-or-retract-to-point'."
             (funcall callback 'finished nil)))
       (funcall callback 'interrupted nil))))
 
+(defun fstar--flycheck-verify-subp-available ()
+  "Create a verification result announcing availability of the F* subprocess."
+  (list
+   (flycheck-verification-result-new
+    :label "Subprocess running"
+    :message (if (fstar-subp-live-p) "OK, F* started."
+               "This checker requires a running F* subprocess.")
+    :face (if (fstar-subp-live-p) 'success '(bold error)))
+   (flycheck-verification-result-new
+    :label "Subprocess started"
+    :message (if (fstar-subp-available-p) "OK, F* idle."
+               "This checker only runs when the F* subprocess is idle.")
+    :face (if (fstar-subp-available-p) 'success '(bold error)))))
+
 (flycheck-define-generic-checker 'fstar-interactive
   "Flycheck checker for F*'s interactive mode.
 This checker uses the F* subprocess to do light real-time
@@ -4754,17 +4755,19 @@ led to invalid value [%s]" var-name args))
   "Like `fstar-subp--parse-prover-args-1' on ARGSV, but infer VAR-NAME."
   `(fstar-subp--parse-prover-args-1 ,argsv ',argsv))
 
-(defun fstar-subp-get-prover-args ()
+(defun fstar-subp-get-prover-args (&optional no-ide)
   "Compute F*'s arguments.
 Function is public to make it easier to debug
 `fstar-subp-prover-args' and
-`fstar-subp-prover-additional-args'."
+`fstar-subp-prover-additional-args'.
+Non-nil NO-IDE means don't include `--ide' and `--in'."
   (let ((smt-path (fstar--maybe-cygpath (fstar-subp-find-smt-solver)))
-        (ide-flag (if (fstar--has-feature 'json-subp) "--ide" "--in"))
+        (ide-flag (if no-ide nil
+                    (if (fstar--has-feature 'json-subp) '("--ide") '("--in"))))
         (usr-args (append
                    (fstar-subp--parse-prover-args fstar-subp-prover-args)
                    (fstar-subp--parse-prover-args fstar-subp-prover-additional-args))))
-    `(,(fstar-subp--buffer-file-name) ,ide-flag "--smt" ,smt-path ,@usr-args)))
+    `(,(fstar-subp--buffer-file-name) ,@ide-flag "--smt" ,smt-path ,@usr-args)))
 
 (defun fstar-subp--prover-includes-for-compiler-hacking ()
   "Compute a list of folders to include for hacking on the F* compiler."
@@ -4841,6 +4844,26 @@ Could it be a typo in `fstar-subp-prover-args' or \
         (setq fstar-subp--continuations (make-hash-table :test 'equal))
         (when (fstar--has-feature 'json-subp)
           (fstar-subp--wait-for-features-list proc))))))
+
+;;; Running F* on the CLI
+
+(defconst fstar--cli-verification-buffer-name "*fstar: CLI verification of %S")
+(push fstar--cli-verification-buffer-name fstar--all-temp-buffer-names)
+
+(defun fstar-cli-verify ()
+  "Send the whole buffer to a fresh instance of F* running in CLI mode.
+This is useful to spot discrepancies between the CLI and IDE frontends."
+  (interactive)
+  (let* ((f* (fstar-subp-find-fstar))
+         (args (fstar-subp-get-prover-args t))
+         (cmd (mapconcat #'shell-quote-argument (cons f* args) " "))
+         (buf-name (buffer-file-name))
+         (name-fn (lambda (_) (format fstar--cli-verification-buffer-name buf-name)))
+         (compilation-buffer (compilation-start cmd t name-fn)))
+    (with-current-buffer compilation-buffer
+      (defvar compilation-error-regexp-alist)
+      (setq-local compilation-error-regexp-alist
+                  (flycheck-checker-compilation-error-regexp-alist 'fstar)))))
 
 ;;; ;; Keybindings
 
@@ -4965,6 +4988,8 @@ Could it be a typo in `fstar-subp-prover-args' or \
      ["Switch to reStructuredText mode"
       fstar-literate-fst2rst])
     ("Utilities"
+     ["Verify current file on the command line"
+      fstar-cli-verify]
      ["Copy error message at point"
       fstar-copy-help-at-point (fstar--check-help-at-point)])
     ["Configuration" fstar-customize]))
@@ -5027,6 +5052,7 @@ its `find-image' forms."
       (define-key-after map [queries-sep] '(menu-item "--"))
       (add-item 'fstar-quit-windows "quit-windows")
       (add-item 'fstar-subp-kill-one-or-many "stop")
+      (add-item 'fstar-cli-verify "cli-verify")
       (define-key-after map `[process-management-sep] '(menu-item "--"))
       (add-item 'fstar-customize "settings"))
     (fstar-tool-bar--cleanup-map map)))
