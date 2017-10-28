@@ -704,13 +704,10 @@ in your version of F*.  You're running version %s" fstar--vernum)))))
 (make-variable-buffer-local 'fstar-flycheck-checker)
 
 (defconst fstar-error-patterns
-  (let ((fstar-pat '((message) "near line " line ", character " column " in file " (file-name)))
-        (z3-pat  '((file-name) "(" line "," column "-" (+ (any digit)) "," (+ (any digit)) ")"
-                   (* (any ": ")) (? "Error" (* (any " \n")))
-                   (message))))
-    `((error "ERROR: " ,@fstar-pat)
-      (warning "WARNING: " ,@fstar-pat)
-      (error ,@z3-pat))))
+  (let* ((digits '(+ (any digit)))
+         (line-col `("(" line "," column "-" ,digits "," ,digits ")")))
+    `((error (file-name) ,@line-col ": (Error) " (message))
+      (warning (file-name) ,@line-col ": (Warning) " (message)))))
 
 (defvaralias 'flycheck-fstar-executable 'fstar-executable)
 (make-obsolete-variable 'flycheck-fstar-executable 'fstar-executable "0.2" 'set)
