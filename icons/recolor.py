@@ -11,7 +11,7 @@ def get_style(node):
             yield kv.split(":", 2)
 
 def set_style(node, style):
-    node.attributes["style"] = ";".join(k + ":" + v for (k, v) in style.items())
+    node.attributes["style"] = ";".join(k + ":" + v for (k, v) in sorted(style.items()))
 
 def set_fills(svg, color):
     for path in svg.getElementsByTagName('path'):
