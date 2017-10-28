@@ -13,6 +13,7 @@
 # find -path "./**/production/ic_tune_24px.svg" -exec cp {} ~/.emacs.d/lisp/fstar.el/icons/ \;
 # find -path "./**/production/ic_bug_report_24px.svg" -exec cp {} ~/.emacs.d/lisp/fstar.el/icons/ \;
 # find -path "./**/production/ic_content_copy_24px.svg" -exec cp {} ~/.emacs.d/lisp/fstar.el/icons/ \;
+# find -path "./**/production/ic_done_24px.svg" -exec cp {} ~/.emacs.d/lisp/fstar.el/icons/ \;
 
 cp ic_close_24px.svg ../etc/icons/quit-windows.svg
 cp ic_code_24px.svg ../etc/icons/switch-to-implementation.svg
@@ -38,6 +39,7 @@ cp ic_vertical_align_bottom_white_24px.svg ../etc/icons/goto-end-lax.svg
 cp ic_vertical_align_center_white_bold_24px.svg ../etc/icons/goto-point-lax.svg
 
 # cp equal_sign_24px.svg ../etc/icons/eval.svg
+cp verify_cli_24px.svg ../etc/icons/cli-verify.svg
 cp calculator_cut_24px.svg ../etc/icons/eval.svg
 cp ghost_24px.svg ../etc/icons/ghost.svg
 
@@ -46,6 +48,7 @@ for shade in light dark; do
     mkdir -p "$shade"
     rm "$shade"/*.png "$shade"/*.xpm
     for svg in *.svg; do
+        echo "$svg"
         icon="${svg%.svg}"
         shaded="$shade/$icon"
         ../../icons/recolor.py "$shade" "$icon.svg" "$shaded.svg"
