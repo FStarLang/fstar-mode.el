@@ -43,32 +43,32 @@ Key                         | Action
 `C-h M-w`                   | Copy current error message
 `TAB` / `S-TAB`             | Indent / Unindent
 `C-RET`                     | :zap: :sparkles: Autocomplete word at point
-`C-c C-s C-q` (**q**uit)    | :sparkles: Close temporary windows opened by fstar-mode
+`C-c C-s C-q` (**q**uit)    | Close temporary windows opened by fstar-mode
 
 ### Navigation
 
 Key                                            | Action
 -----------------------------------------------|----------------------------------
-`M-n`, `M-p`                                   | :sparkles: Jump to previous/next block in current file
-`M-.`, `C-x 4 .`, `C-x 5 .`                    | :zap: :sparkles: Jump to definition (same window, other window, other frame)
-`C-c C-'`, `C-x 4 '`, `C-x 5 '`                | :zap: :sparkles: Browse to secondary location of current error (same window, other window, other frame)
-`C-c C-a` (**a**lternate)                      | :sparkles: Switch to interface file (and back to implementation)
-`C-c C-s C-o` (**o**utline)                    | :sparkles: Show an outline of the current buffer
-`C-c C-s C-j C-d` (**j**ump to **d**ependency) | :zap: :sparkles: Jump to one of the dependencies of the current buffer
-`M-,`                                          | :sparkles: Return to point before last jump
+`M-n`, `M-p`                                   | Jump to previous/next block in current file
+`M-.`, `C-x 4 .`, `C-x 5 .`                    | :zap: Jump to definition (same window, other window, other frame)
+`C-c C-'`, `C-x 4 '`, `C-x 5 '`                | :zap: Browse to secondary location of current error (same window, other window, other frame)
+`C-c C-a` (**a**lternate)                      | Switch to interface file (and back to implementation)
+`C-c C-s C-o` (**o**utline)                    | Show an outline of the current buffer
+`C-c C-s C-j C-d` (**j**ump to **d**ependency) | :zap: Jump to one of the dependencies of the current buffer
+`M-,`                                          | Return to point before last jump
 
 ### Documentation, type hints, and computation
 
 Key                                  | Action
 -------------------------------------|----------------------------------
-`<menu>`, `M-<f12>`                  | :zap: :sparkles: Show type and docs in a small inline window (repeat to hide the window)
-`C-c C-s C-e` (**e**val)             | :zap: :sparkles: Evaluate (reduce) an expression (`C-u` to pick reduction rules)
-`C-c C-s C-s` (**s**earch)           | :zap: :sparkles: Search F*'s global context for functions and theorems
-`C-c C-s C-d` (**d**ocumentation)    | :zap: :sparkles: Show type and documentation of a symbol
-`C-c C-s C-p` (**p**rint)            | :zap: :sparkles: Show type, documentation, and full definition of a symbol
-`C-c C-s h o` (**h**elp **o**ptions) | :zap: :sparkles: Show values of F* options
-`C-c C-s h w` (**h**elp **w**iki)    | :sparkles: Browse F\*'s wiki in Emacs
-`C-c C-s h W` (**h**elp **W**iki)    | :sparkles: Browse F\*'s wiki in your browser
+`<menu>`, `M-<f12>`                  | :zap: Show type and docs in a small inline window (repeat to hide the window)
+`C-c C-s C-e` (**e**val)             | :zap: Evaluate (reduce) an expression (`C-u` to pick reduction rules)
+`C-c C-s C-s` (**s**earch)           | :zap: Search F*'s global context for functions and theorems
+`C-c C-s C-d` (**d**ocumentation)    | :zap: Show type and documentation of a symbol
+`C-c C-s C-p` (**p**rint)            | :zap: Show type, documentation, and full definition of a symbol
+`C-c C-s h o` (**h**elp **o**ptions) | :zap: Show values of F* options
+`C-c C-s h w` (**h**elp **w**iki)    | Browse F\*'s wiki in Emacs
+`C-c C-s h W` (**h**elp **W**iki)    | Browse F\*'s wiki in your browser
 
 ### Matching
 
@@ -114,7 +114,7 @@ F*-mode recognizes and highlights certain special comments as titles: `(***` and
 
 ### Real-time verification
 
-:sparkles: Customize the variable `fstar-flycheck-checker` to pick your favorite style of real-time verification (full-buffer verification or lightweight typechecking).  F*-mode's real-time checking uses `flycheck-mode` under the hood: try `M-x customize-group flycheck` to tweak Flycheck further.
+ Customize the variable `fstar-flycheck-checker` to pick your favorite style of real-time verification (full-buffer verification or lightweight typechecking).  F*-mode's real-time checking uses `flycheck-mode` under the hood: try `M-x customize-group flycheck` to tweak Flycheck further.
 
 ### Completion
 
