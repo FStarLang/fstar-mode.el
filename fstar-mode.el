@@ -55,7 +55,6 @@
 (require 'tramp-sh)
 (require 'crm)
 (require 'tool-bar)
-(require 'image)
 (require 'notifications nil t)
 ;; replace.el doesn't `provide' in Emacs < 26
 (ignore-errors (require 'replace))
@@ -5002,6 +5001,10 @@ This is useful to spot discrepancies between the CLI and IDE frontends."
    command nil map fstar-mode-map
    :vert-only t :fstar-icon icon))
 
+(defconst fstar-tool-bar--icons-directory
+  (let ((shade (pcase frame-background-mode (`dark 'light) (_ 'dark))))
+    (expand-file-name (format "etc/icons/%S" shade) fstar--directory)))
+
 (defun fstar-tool-bar--cleanup-binding (binding)
   "Recompute :image spec in toolbar entry BINDING."
   (pcase binding
@@ -5009,7 +5012,9 @@ This is useful to spot discrepancies between the CLI and IDE frontends."
      (-when-let* ((img (plist-get props :fstar-icon)))
        (let ((specs nil))
          (dolist (type '(xpm png svg))
-           (push `(:type ,type :file ,(format "%s.%S" img type)) specs))
+           (let* ((fname (format "%s.%S" img type))
+                  (fpath (expand-file-name fname fstar-tool-bar--icons-directory)))
+             (push `(:type ,type :file ,fpath) specs)))
          (setq props (plist-put props :image `(find-image '(,@specs))))))
      `(,key menu-item ,doc ,cmd . ,props))
     (_ binding)))
@@ -5057,19 +5062,13 @@ its `find-image' forms."
       (add-item 'fstar-customize "settings"))
     (fstar-tool-bar--cleanup-map map)))
 
-(defconst fstar-tool-bar--icons-directory
-  (let ((shade (pcase frame-background-mode (`dark 'light) (_ 'dark))))
-    (expand-file-name (format "etc/icons/%S" shade) fstar--directory)))
-
 (defun fstar-setup-tool-bar ()
   "Display the F* toolbar."
-  (setq-local tool-bar-map fstar-tool-bar--map)
-  (setq-local image-load-path `(,fstar-tool-bar--icons-directory ,@image-load-path)))
+  (setq-local tool-bar-map fstar-tool-bar--map))
 
 (defun fstar-teardown-tool-bar ()
   "Hide the F* toolbar."
-  (kill-local-variable 'tool-bar-map)
-  (kill-local-variable 'image-load-path))
+  (kill-local-variable 'tool-bar-map))
 
 ;;; Main mode
 
