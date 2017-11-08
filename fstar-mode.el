@@ -87,16 +87,16 @@
 
 (eval-and-compile
   (unless (featurep 'subr-x)
-    (defsubst string-trim-left (string)
+    (defsubst string-trim-left (strg)
       "Remove leading whitespace from STRING."
-      (if (string-match "\\`[ \t\n\r]+" string)
-          (replace-match "" t t string)
-        string))
-    (defsubst string-trim-right (string)
+      (if (string-match "\\`[ \t\n\r]+" strg)
+          (replace-match "" t t strg)
+        strg))
+    (defsubst string-trim-right (strg)
       "Remove trailing whitespace from STRING."
-      (if (string-match "[ \t\n\r]+\\'" string)
-          (replace-match "" t t string)
-        string)))
+      (if (string-match "[ \t\n\r]+\\'" strg)
+          (replace-match "" t t strg)
+        strg)))
   (unless (fboundp 'prog-widen)
     (defalias 'prog-widen 'widen)))
 
@@ -2320,22 +2320,22 @@ Table of continuations was %s" response id conts)))
       (with-current-buffer source-buffer
         (fstar-subp--set-queue-timer)))))
 
-(defun fstar-subp-warn-unexpected-output (string)
+(defun fstar-subp-warn-unexpected-output (strg)
   "Warn user about unexpected output STRING."
-  (message "F*: received unexpected output from subprocess (%s)" string))
+  (message "F*: received unexpected output from subprocess (%s)" strg))
 
-(defun fstar-subp-filter (proc string)
+(defun fstar-subp-filter (proc strg)
   "Handle PROC's output (STRING)."
-  (when string
-    (fstar-log 'out "%s" string)
+  (when strg
+    (fstar-log 'out "%s" strg)
     (let ((proc-buf (process-buffer proc)))
       (if (buffer-live-p proc-buf)
           (fstar-subp-with-process-buffer proc
             (save-excursion
               (goto-char (point-max))
-              (insert string))
+              (insert strg))
             (fstar-subp-find-response proc))
-        (run-with-timer 0 nil #'fstar-subp-warn-unexpected-output string)))))
+        (run-with-timer 0 nil #'fstar-subp-warn-unexpected-output strg)))))
 
 (defun fstar-subp-sentinel (proc signal)
   "Handle PROC's SIGNAL."
