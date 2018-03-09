@@ -409,6 +409,15 @@ This doesn't work for strings in snippets inside of comments."
               (reusable-frames . 0)
               (inhibit-same-window . t)))))
 
+(defun fstar--highlight-region (beg end)
+  "Pulse BEG..END.
+If END is nil, pulse the entire line containing BEG."
+  (if end
+      (when (fboundp 'pulse-momentary-highlight-region)
+        (pulse-momentary-highlight-region beg end))
+    (when (fboundp 'pulse-momentary-highlight-one-line)
+      (pulse-momentary-highlight-one-line beg))))
+
 (defun fstar--navigate-to-1 (location display-action switch)
   "Navigate to LOCATION.
 DISPLAY-ACTION determines where the resulting buffer is
@@ -436,12 +445,9 @@ and selected."
             (push-mark (point) t) ;; Save default position in mark ring
             (fstar--goto-line-col (or line 1) col)
             (recenter)
-            (cond
-             ((and line line-to (fboundp 'pulse-momentary-highlight-region))
-              (pulse-momentary-highlight-region
-               (point) (fstar--line-col-offset line-to col-to)))
-             ((and line (fboundp #'pulse-momentary-highlight-one-line))
-              (pulse-momentary-highlight-one-line (point))))))))))
+            (when line
+              (let ((end (and line-to (fstar--line-col-offset line-to col-to))))
+                (fstar--highlight-region (point) end)))))))))
 
 (defun fstar--navigate-to (target &optional display-action)
   "Jump to TARGET, a location or a path.
