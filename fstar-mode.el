@@ -2571,7 +2571,7 @@ Returns a pair of (CLEAN-MESSAGE . LOCATIONS)."
   "Convert JSON info an fstar-mode location."
   (let-alist json
     (make-fstar-location
-     :filename .fname
+     :filename (fstar-subp--fixup-fname .fname)
      :line-from (elt .beg 0)
      :line-to (elt .end 0)
      :col-from (elt .beg 1)
@@ -2612,17 +2612,9 @@ Returns a pair of (CLEAN-MESSAGE . LOCATIONS)."
       (progn (fstar-assert buffer-file-name) buffer-file-name)
     fname))
 
-(defun fstar-subp--fixup-location (loc)
-  "Replace <input> with the name of the current buffer in LOC."
-  (cl-typecase loc
-    (fstar-location (cl-callf fstar-subp--fixup-fname (fstar-location-filename loc))))
-  loc)
-
 (defun fstar-subp-cleanup-issue (issue &optional ov)
   "Fixup ISSUE: clean up file name and adjust line numbers wrt OV."
   (dolist (loc (fstar-issue-locs issue))
-    ;; Clean up file name
-    (fstar-subp--fixup-location loc)
     ;; Adjust line numbers
     (unless (or (fstar--has-feature 'absolute-linums-in-errors) (null ov))
       (let ((linum (1- (line-number-at-pos (overlay-start ov)))))
@@ -3449,7 +3441,7 @@ CONTEXT indicates where SYMBOL comes from."
   (when (fstar--lispify-null defined-at)
     (let-alist defined-at
       (make-fstar-location
-       :filename .fname
+       :filename (fstar-subp--fixup-fname .fname)
        :line-from (elt .beg 0)
        :col-from (elt .beg 1)
        :line-to (elt .end 0)
@@ -3903,7 +3895,7 @@ DISPLAY-ACTION indicates how: nil means in the current window;
 `window' means in a side window."
   (-if-let* ((def-loc (and (fstar-lookup-result-p info)
                            (fstar-lookup-result-def-loc info))))
-      (fstar--navigate-to (fstar-subp--fixup-location def-loc) display-action)
+      (fstar--navigate-to def-loc display-action)
     (message "No definition found")))
 
 (defun fstar-jump-to-definition-1 (pos disp)
