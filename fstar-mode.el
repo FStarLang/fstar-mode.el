@@ -433,18 +433,21 @@ DISPLAY-ACTION: see `fstar--navigate-to-1'."
   "Jump to file indicated by entry at MARKER."
   (let* ((pos (marker-position marker))
          (buf (marker-buffer marker))
-         (target (get-text-property pos 'fstar--target buf)))
-    (fstar--navigate-to target)))
+         (target (get-text-property pos 'fstar--target buf))
+         (display-action (get-text-property pos 'fstar--display-action buf)))
+    (fstar--navigate-to target display-action)))
 
-(defun fstar--insert-link (target face)
+(defun fstar--insert-link (target face &optional display-action)
   "Insert a link to TARGET and FACE.
-TARGET is either a string or a location."
+TARGET is either a string or a location.
+DISPLAY-ACTION: see `fstar--navigate-to-1'."
   (let ((label (cl-typecase target
                  (string target)
                  (fstar-location (fstar--loc-to-string target)))))
     (insert-text-button label 'fstar--target target
                         'face face 'follow-link t
-                        'action 'fstar--visit-link-target)))
+                        'action 'fstar--visit-link-target
+                        'fstar--display-action display-action)))
 
 (defun fstar--lispify-null (x)
   "Return X, or nil if X is `:json-null'."
