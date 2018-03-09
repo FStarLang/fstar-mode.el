@@ -93,6 +93,15 @@ Proof-General            | :atom: Atom   | Action
 
 Use <kbd>M-x customize-variable RET fstar-interactive-keybinding-style RET</kbd> to pick a keybinding style. The default is Proof-General; the other option is Atom. Please be aware of the [current restrictions](https://github.com/FStarLang/FStar/wiki/Dealing-with-F%E2%98%85-dependencies#when-invoking-f-in-interactive-mode) on the interactive-mode.
 
+### Tactics
+
+Key                   | Action
+----------------------|-----------------------------------
+`<next> (page down)`  | :zap: :unicorn: Show next goal
+`<prev> (page up)`    | :zap: :unicorn: Show previous goal
+
+In trace mode (:unicorn:), `<prev>` and `<next>` also highlight the tactic that produced the goal in the source buffer.
+
 ### Completion
 
 These keybindings are available during completion only:
