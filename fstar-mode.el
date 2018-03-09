@@ -4602,6 +4602,12 @@ cell."
   "Read the proof state from the current point."
   (get-text-property (point) 'fstar--proof-state))
 
+(defun fstar-tactics-display-source-location ()
+  "Highlight source of goal at point."
+  (-when-let* ((ps (fstar-tactics--proof-state-at-point))
+               (loc (fstar-proof-state-location ps)))
+    (fstar--navigate-to-1 loc 'window nil)))
+
 (defun fstar-tactics--next-proof-state (&optional n)
   "Go forward N goals (default: 1)."
   (interactive "^p")
@@ -4613,6 +4619,7 @@ cell."
       (let ((next (next-single-char-property-change (point) 'fstar--proof-state)))
         (unless (eq next (point-max)) (goto-char next)))
       (goto-char (point-at-bol)))
+    (fstar-tactics-display-source-location)
     (recenter 0)))
 
 (defun fstar-tactics--previous-proof-state (&optional n)
@@ -4626,6 +4633,7 @@ cell."
       (dotimes (_ 3)
         (goto-char (previous-single-char-property-change (point) 'fstar--proof-state))))
     (goto-char (point-at-bol))
+    (fstar-tactics-display-source-location)
     (recenter 0)))
 
 (defvar fstar-tactics--goals-mode-map
