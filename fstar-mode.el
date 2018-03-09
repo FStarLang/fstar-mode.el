@@ -4558,7 +4558,7 @@ cell."
     (insert "\n"))
   (fstar--insert-with-face 'fstar-proof-state-header-face
       (propertize (or (fstar-proof-state-label ps) "…")
-                  'line-prefix "" 'wrap-prefix "" 'fstar--header t))
+                  'line-prefix "" 'wrap-prefix "" 'fstar--proof-state ps))
   (when (fstar-proof-state-location ps)
     (insert " @ ")
     (fstar--insert-link (fstar-proof-state-location ps) 'link 'window))
@@ -4569,6 +4569,10 @@ cell."
   (fstar-tactics--insert-goals (fstar-proof-state-goals ps) "Goal")
   (fstar-tactics--insert-goals (fstar-proof-state-smt-goals ps) "SMT goal"))
 
+(defun fstar-tactics--proof-state-at-point ()
+  "Read the proof state from the current point."
+  (get-text-property (point) 'fstar--proof-state))
+
 (defun fstar-tactics--next-proof-state (&optional n)
   "Go forward N goals (default: 1)."
   (interactive "^p")
@@ -4577,7 +4581,7 @@ cell."
       (fstar-tactics--previous-proof-state (- n))
     (dotimes (_ n)
       (goto-char (point-at-eol))
-      (let ((next (next-single-char-property-change (point) 'fstar--header)))
+      (let ((next (next-single-char-property-change (point) 'fstar--proof-state)))
         (unless (eq next (point-max)) (goto-char next)))
       (goto-char (point-at-bol)))
     (recenter 0)))
@@ -4591,7 +4595,7 @@ cell."
     (dotimes (_ n)
       (goto-char (point-at-eol))
       (dotimes (_ 3)
-        (goto-char (previous-single-char-property-change (point) 'fstar--header))))
+        (goto-char (previous-single-char-property-change (point) 'fstar--proof-state))))
     (goto-char (point-at-bol))
     (recenter 0)))
 
