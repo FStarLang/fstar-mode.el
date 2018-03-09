@@ -559,6 +559,13 @@ With no ARGS, just insert FMT and a newline."
   "Set text properties on STR to PROPS."
   (set-text-properties 0 (length str) props str))
 
+(defun fstar--truncate-left (str maxlen)
+  "Truncate STR from the start to MAXLEN characters."
+  (let* ((strlen (length str))
+         (ntrunc (- strlen maxlen)))
+    (if (<= ntrunc 0) str
+      (concat "…" (substring str (1+ ntrunc) strlen)))))
+
 ;;; Debugging
 
 (defvar fstar-debug nil
@@ -4560,9 +4567,11 @@ cell."
   (fstar--insert-with-face 'fstar-proof-state-header-face
       (propertize (or (fstar-proof-state-label ps) "…")
                   'line-prefix "" 'wrap-prefix "" 'fstar--proof-state ps))
-  (when (fstar-proof-state-location ps)
+  (-when-let* ((loc (fstar-proof-state-location ps))
+               (txt (fstar--loc-to-string loc))
+               (link-text (fstar--truncate-left txt 40)))
     (insert " @ ")
-    (fstar--insert-link (fstar-proof-state-location ps) 'link 'window))
+    (fstar--insert-link loc 'link link-text 'window))
   (let ((timestamp (current-time-string)))
     (insert " " (fstar--specified-space-to-align-right timestamp 1))
     (fstar--insert-with-face 'fstar-proof-state-header-timestamp-face timestamp))
