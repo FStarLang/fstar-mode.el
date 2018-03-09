@@ -202,6 +202,13 @@ returning a string (the full path to the SMT solver)."
   (fstar--line-col-offset (fstar-location-line-to location)
                      (fstar-location-col-to location)))
 
+(cl-defstruct fstar-continuation
+  id body start-time)
+
+(defun fstar-continuation--delay (continuation)
+  "Return the time elapsed since CONTINUATION was created."
+  (time-since (fstar-continuation-start-time continuation)))
+
 ;;; Utilities
 
 (defconst fstar--spaces "\t\n\r ")
@@ -2188,6 +2195,13 @@ FEATURE, if specified."
                    ("query" . ,(fstar-subp-query-query query))
                    ("args" . ,(or (fstar-subp-query-args query) dummy-alist))))))
 
+(defun fstar-subp-continuations--put (id continuation)
+  "Add CONTINUATION with ID in continuations table."
+  (puthash id (make-fstar-continuation
+               :id id :body continuation
+               :start-time (current-time))
+           fstar-subp--continuations))
+
 (defvar-local fstar-subp--next-query-id 0)
 
 (defun fstar-subp--query (query continuation)
@@ -2198,7 +2212,7 @@ FEATURE, if specified."
       (setq query (fstar-subp--serialize-query query id)))
     (fstar-log 'in "%s" query)
     (if continuation
-        (puthash id continuation fstar-subp--continuations)
+        (fstar-subp-continuations--put id continuation)
       (remhash id fstar-subp--continuations))
     (fstar-subp-start)
     (process-send-string fstar-subp--process (concat query "\n"))))
@@ -2357,7 +2371,10 @@ RESPONSE is used in warning messages printed upon failure."
 Table of continuations was %s" response id conts)))
     (remhash id fstar-subp--continuations)
     (unwind-protect
-        (fstar--widened (funcall continuation status response))
+        (fstar--widened
+          (fstar--log 'info "Query %S completed in %.4fs" id
+                 (float-time (fstar-continuation--delay continuation)))
+          (funcall (fstar-continuation-body continuation) status response))
       (with-current-buffer source-buffer
         (fstar-subp--set-queue-timer)))))
 
