@@ -4700,7 +4700,7 @@ This function exists to work around the fact that
   (let-alist json
     (make-fstar-proof-state
      :label (if (equal .label "") nil .label)
-     :location (fstar-subp-json--parse-location .position)
+     :location (fstar-subp-json--parse-location .location)
      :goals .goals
      :smt-goals .smt-goals)))
 
