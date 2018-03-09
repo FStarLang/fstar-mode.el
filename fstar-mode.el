@@ -437,13 +437,14 @@ DISPLAY-ACTION: see `fstar--navigate-to-1'."
          (display-action (get-text-property pos 'fstar--display-action buf)))
     (fstar--navigate-to target display-action)))
 
-(defun fstar--insert-link (target face &optional display-action)
-  "Insert a link to TARGET and FACE.
+(defun fstar--insert-link (target face &optional label display-action)
+  "Insert a link to TARGET with LABEL and FACE.
 TARGET is either a string or a location.
 DISPLAY-ACTION: see `fstar--navigate-to-1'."
-  (let ((label (cl-typecase target
-                 (string target)
-                 (fstar-location (fstar--loc-to-string target)))))
+  (let ((label (or label
+                   (cl-typecase target
+                     (string target)
+                     (fstar-location (fstar--loc-to-string target))))))
     (insert-text-button label 'fstar--target target
                         'face face 'follow-link t
                         'action 'fstar--visit-link-target
