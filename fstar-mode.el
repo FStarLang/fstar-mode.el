@@ -391,43 +391,62 @@ This doesn't work for strings in snippets inside of comments."
   (when (fboundp 'xref-push-marker-stack)
     (xref-push-marker-stack)))
 
-(defun fstar--navigate-to-1 (fname line col line-to col-to display-action)
-  "Navigate to LINE, COL of FNAME.
+(defun fstar--navigate-to-parse-display-action (display-action)
+  "Convert DISPLAY-ACTION into an argument to `display-buffer'."
+  (pcase display-action
+    (`nil '((display-buffer-reuse-window)))
+    (`window '((display-buffer-reuse-window display-buffer-pop-up-window)
+               (reusable-frames . 0)
+               (inhibit-same-window . t)))
+    (`frame '((display-buffer-reuse-window display-buffer-pop-up-frame)
+              (reusable-frames . 0)
+              (inhibit-same-window . t)))))
+
+(defun fstar--navigate-to-1 (location display-action switch)
+  "Navigate to LOCATION.
 DISPLAY-ACTION determines where the resulting buffer is
-shown (nil for same window, `window' for a new window, and
-`frame' for a new frame)."
+shown (nil for the currently selected window, `window' for a
+separate window, and `frame' for a separate frame).  SWITCH
+determines whether the resulting buffer and window become current
+and selected."
   (fstar--push-mark)
-  (catch 'not-found
-    (unless (file-exists-p fname)
-      (message "File not found: %S" fname)
-      (throw 'not-found nil))
-    (pcase display-action
-      (`nil (find-file fname))
-      (`window (find-file-other-window fname))
-      (`frame (find-file-other-frame fname)))
-    (push-mark (point) t) ;; Save default position in mark ring
-    (fstar--goto-line-col (or line 1) col)
-    (recenter)
-    (cond
-     ((and line line-to (fboundp 'pulse-momentary-highlight-region))
-      (pulse-momentary-highlight-region
-       (point) (fstar--line-col-offset line-to col-to)))
-     ((and line (fboundp #'pulse-momentary-highlight-one-line))
-      (pulse-momentary-highlight-one-line (point))))))
+  (let ((fname (fstar-location-filename location))
+        (line (fstar-location-line-from location))
+        (col (fstar-location-col-from location))
+        (line-to (fstar-location-line-to location))
+        (col-to (fstar-location-col-to location))
+        (action (fstar--navigate-to-parse-display-action display-action)))
+    (if (not (file-exists-p fname))
+        (message "File not found: %S" fname)
+      (-when-let* ((buf (find-file-noselect fname))
+                   (win (if (not switch)
+                            (display-buffer buf action)
+                          (when (eq (pop-to-buffer buf action)
+                                    (window-buffer (selected-window)))
+                            (selected-window)))))
+        (with-selected-window win
+          (with-current-buffer buf ;; FIXME check this
+            (push-mark (point) t) ;; Save default position in mark ring
+            (fstar--goto-line-col (or line 1) col)
+            (recenter)
+            (cond
+             ((and line line-to (fboundp 'pulse-momentary-highlight-region))
+              (pulse-momentary-highlight-region
+               (point) (fstar--line-col-offset line-to col-to)))
+             ((and line (fboundp #'pulse-momentary-highlight-one-line))
+              (pulse-momentary-highlight-one-line (point))))))))))
 
 (defun fstar--navigate-to (target &optional display-action)
   "Jump to TARGET, a location or a path.
 DISPLAY-ACTION: see `fstar--navigate-to-1'."
-  (cl-etypecase target
-    (string
-     (fstar--navigate-to-1 target 1 nil nil nil display-action))
-    (fstar-location
-     (fstar--navigate-to-1 (fstar-location-remote-filename target)
-                      (fstar-location-line-from target)
-                      (fstar-location-col-from target)
-                      (fstar-location-line-to target)
-                      (fstar-location-col-to target)
-                      display-action))))
+  (fstar--navigate-to-1
+   (cl-etypecase target
+     (fstar-location target)
+     (string (make-fstar-location
+              :filename target
+              :line-from nil :line-to nil
+              :col-from nil :col-to nil)))
+   display-action t))
 
 (defun fstar--visit-link-target (marker)
   "Jump to file indicated by entry at MARKER."
