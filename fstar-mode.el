@@ -391,7 +391,7 @@ This doesn't work for strings in snippets inside of comments."
   (when (fboundp 'xref-push-marker-stack)
     (xref-push-marker-stack)))
 
-(defun fstar--navigate-to-1 (fname &optional line col display-action)
+(defun fstar--navigate-to-1 (fname line col line-to col-to display-action)
   "Navigate to LINE, COL of FNAME.
 DISPLAY-ACTION determines where the resulting buffer is
 shown (nil for same window, `window' for a new window, and
@@ -408,19 +408,25 @@ shown (nil for same window, `window' for a new window, and
     (push-mark (point) t) ;; Save default position in mark ring
     (fstar--goto-line-col (or line 1) col)
     (recenter)
-    (when (and line (fboundp 'pulse-momentary-highlight-one-line))
-      (pulse-momentary-highlight-one-line (point)))))
+    (cond
+     ((and line line-to (fboundp 'pulse-momentary-highlight-region))
+      (pulse-momentary-highlight-region
+       (point) (fstar--line-col-offset line-to col-to)))
+     ((and line (fboundp #'pulse-momentary-highlight-one-line))
+      (pulse-momentary-highlight-one-line (point))))))
 
 (defun fstar--navigate-to (target &optional display-action)
   "Jump to TARGET, a location or a path.
 DISPLAY-ACTION: see `fstar--navigate-to-1'."
   (cl-etypecase target
     (string
-     (fstar--navigate-to-1 target display-action))
+     (fstar--navigate-to-1 target 1 nil nil nil display-action))
     (fstar-location
      (fstar--navigate-to-1 (fstar-location-remote-filename target)
                       (fstar-location-line-from target)
                       (fstar-location-col-from target)
+                      (fstar-location-line-to target)
+                      (fstar-location-col-to target)
                       display-action))))
 
 (defun fstar--visit-link-target (marker)
