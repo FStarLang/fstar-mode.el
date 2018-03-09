@@ -4441,6 +4441,9 @@ Notifications are only displayed if it doesn't.")
 
 ;;; ;; ;; Tactics
 
+(cl-defstruct fstar-proof-state
+  label goals smt-goals)
+
 (defconst fstar--goals-buffer-name "*fstar: goals*")
 (push fstar--goals-buffer-name fstar--all-temp-buffer-names)
 
@@ -4547,22 +4550,21 @@ cell."
       (fstar-tactics--insert-goal goal)
       (insert "\n"))))
 
-(defun fstar-tactics--insert-proof-state (proof-state)
-  "Dump PROOF-STATE into current buffer."
-  (let-alist proof-state
-    (unless (bobp)
-      (fstar--insert-with-face 'fstar-proof-state-separator-face
-          (propertize "\n" 'line-prefix "" 'line-height t))
-      (insert "\n"))
-    (fstar--insert-with-face 'fstar-proof-state-header-face
-        (let ((label (if (member .label '(nil "")) "…" .label)))
-          (propertize label 'line-prefix "" 'wrap-prefix "" 'fstar--header t)))
-    (let ((timestamp (current-time-string)))
-      (insert " " (fstar--specified-space-to-align-right timestamp 1))
-      (fstar--insert-with-face 'fstar-proof-state-header-timestamp-face timestamp))
-    (insert (propertize "\n" 'line-spacing 0.2))
-    (fstar-tactics--insert-goals .goals "Goal")
-    (fstar-tactics--insert-goals .smt-goals "SMT goal")))
+(defun fstar-tactics--insert-proof-state (ps)
+  "Dump proof state PS into current buffer."
+  (unless (bobp)
+    (fstar--insert-with-face 'fstar-proof-state-separator-face
+        (propertize "\n" 'line-prefix "" 'line-height t))
+    (insert "\n"))
+  (fstar--insert-with-face 'fstar-proof-state-header-face
+      (propertize (or (fstar-proof-state-label ps) "…")
+                  'line-prefix "" 'wrap-prefix "" 'fstar--header t))
+  (let ((timestamp (current-time-string)))
+    (insert " " (fstar--specified-space-to-align-right timestamp 1))
+    (fstar--insert-with-face 'fstar-proof-state-header-timestamp-face timestamp))
+  (insert (propertize "\n" 'line-spacing 0.2))
+  (fstar-tactics--insert-goals (fstar-proof-state-goals ps) "Goal")
+  (fstar-tactics--insert-goals (fstar-proof-state-smt-goals ps) "SMT goal"))
 
 (defun fstar-tactics--next-proof-state (&optional n)
   "Go forward N goals (default: 1)."
@@ -4626,13 +4628,22 @@ This function exists to work around the fact that
        (with-selected-window window
          (recenter 0)))))
 
+(defun fstar-subp-json--parse-proof-state (json)
+  "Convert JSON proof-state an fstar-mode proof state."
+  (let-alist json
+    (make-fstar-proof-state
+     :label (if (equal .label "") nil .label)
+     :goals .goals
+     :smt-goals .smt-goals)))
+
 (defun fstar-tactics--display-proof-state (proof-state)
   "Display PROOF-STATE in a separate *goals* buffer."
-  (let ((help-window-select nil))
+  (let ((help-window-select nil)
+        (ps (fstar-subp-json--parse-proof-state proof-state)))
     (fstar-tactics--with-goals-buffer
       (goto-char (point-max))
       (save-excursion
-        (fstar-tactics--insert-proof-state proof-state))
+        (fstar-tactics--insert-proof-state ps))
       (unless (bobp) (forward-line 2)))))
 
 ;;; ;; Starting the F* subprocess
