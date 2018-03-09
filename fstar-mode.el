@@ -4442,7 +4442,7 @@ Notifications are only displayed if it doesn't.")
 ;;; ;; ;; Tactics
 
 (cl-defstruct fstar-proof-state
-  label goals smt-goals)
+  label location goals smt-goals)
 
 (defconst fstar--goals-buffer-name "*fstar: goals*")
 (push fstar--goals-buffer-name fstar--all-temp-buffer-names)
@@ -4559,6 +4559,9 @@ cell."
   (fstar--insert-with-face 'fstar-proof-state-header-face
       (propertize (or (fstar-proof-state-label ps) "…")
                   'line-prefix "" 'wrap-prefix "" 'fstar--header t))
+  (when (fstar-proof-state-location ps)
+    (insert " @ ")
+    (fstar--insert-link (fstar-proof-state-location ps) 'link 'window))
   (let ((timestamp (current-time-string)))
     (insert " " (fstar--specified-space-to-align-right timestamp 1))
     (fstar--insert-with-face 'fstar-proof-state-header-timestamp-face timestamp))
@@ -4633,6 +4636,7 @@ This function exists to work around the fact that
   (let-alist json
     (make-fstar-proof-state
      :label (if (equal .label "") nil .label)
+     :location (fstar-subp-json--parse-location .position)
      :goals .goals
      :smt-goals .smt-goals)))
 
