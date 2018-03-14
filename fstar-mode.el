@@ -2415,7 +2415,9 @@ Table of continuations was %s" response id conts)))
 (defun fstar-subp--clear-continuations ()
   "Get rid of all pending continuations."
   (when fstar-subp--continuations
-    (maphash (lambda (_ cont) (funcall cont 'interrupted nil)) fstar-subp--continuations)
+    (maphash (lambda (_ cont)
+               (funcall (fstar-continuation-body cont) 'interrupted nil))
+             fstar-subp--continuations)
     (clrhash fstar-subp--continuations)))
 
 (defun fstar-subp-killed ()
