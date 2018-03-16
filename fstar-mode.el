@@ -4403,8 +4403,7 @@ the original query's status."
 
 (defvar-local fstar--spin-counter 0)
 
-(defcustom fstar-spin-theme
-  "✪⍟"
+(defcustom fstar-spin-theme "✪⍟"
   "Which theme to use in indicating that F* is busy."
   :type '(choice (const "✪⍟")
                  (const "✪●")
