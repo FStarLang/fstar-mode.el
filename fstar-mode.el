@@ -2780,6 +2780,7 @@ reported."
 (defun fstar-subp-jump-to-issue (issue)
   "Jump to ISSUE in current buffer."
   (-when-let* ((loc (car (fstar-issue-locs issue))))
+    (push-mark nil t)
     (goto-char (fstar-location-beg-offset loc))
     (display-local-help)))
 
