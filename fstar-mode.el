@@ -2780,12 +2780,19 @@ reported."
 (defun fstar-subp-jump-to-issue (issue)
   "Jump to ISSUE in current buffer."
   (-when-let* ((loc (car (fstar-issue-locs issue))))
-    (goto-char (fstar-location-beg-offset loc))))
+    (goto-char (fstar-location-beg-offset loc))
+    (display-local-help)))
 
 (defun fstar-subp--local-issue-p (issue)
   "Check if any location in ISSUE came from the current buffer."
   ;; Local locations come first in list of locations
   (fstar-subp--local-loc-p (car (fstar-issue-locs issue))))
+
+(defcustom fstar-jump-to-errors t
+  "Whether to move to the first error after processing a fragment."
+  :group 'fstar-interactive
+  :type 'boolean
+  :safe 'booleanp)
 
 (defun fstar-subp-parse-and-highlight-issues (status response overlay)
   "Parse issues in RESPONSE (caused by processing OVERLAY) and display them.
@@ -2802,9 +2809,10 @@ Complain if STATUS is `failure' and RESPONSE doesn't contain issues."
     (when issues
       (fstar-log 'info "Highlighting issues: %s" issues))
     (when local-issues
-      (fstar-subp-jump-to-issue (car local-issues))
       (fstar-subp-highlight-issues local-issues overlay)
-      (display-local-help))))
+      (if fstar-jump-to-errors
+          (fstar-subp-jump-to-issue (car local-issues))
+        (message (fstar-issue-message-with-level (car local-issues)))))))
 
 ;;; ;; Visiting related errors
 
