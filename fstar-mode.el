@@ -1106,8 +1106,10 @@ leads to the binder's start."
        (0 'font-lock-type-face))
       (,fstar-syntax-universe
        (0 'fstar-universe-face))
-      (,(fstar--fl-conditional-matcher "`.+?`" #'fstar--in-code-p)
+      (,(fstar--fl-conditional-matcher (concat "`" fstar-syntax-ws "+?`") #'fstar--in-code-p)
        (0 'fstar-operator-face append))
+      (,(fstar--fl-conditional-matcher "`" #'fstar--in-code-p)
+       (0 'font-lock-negation-char-face))
       (,fstar-syntax-fsdoc-keywords-re
        (1 'font-lock-constant-face prepend))
       (,(fstar--fl-conditional-matcher (concat "{\\(:" id "\\) *\\([^}]*\\)}") #'fstar--in-code-p)
