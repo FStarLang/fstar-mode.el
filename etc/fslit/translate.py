@@ -70,6 +70,7 @@ def rst2fst(rawlines, marker): # type: (Iterable[str], str) -> Iterable[str]
             break
 
         # Skip until actual code
+        dropped_lines = []
         has_direct_opts = fst_directive.end() < len(lines[idx].clean)
         has_further_opts = idx + 1 < len(lines) and not empty(lines[idx + 1])
         is_top_of_file = first_round and prev_indentation is None
@@ -81,10 +82,11 @@ def rst2fst(rawlines, marker): # type: (Iterable[str], str) -> Iterable[str]
                 break
             if keep_header:
                 output.append((line, "/// " + line.raw))
+            elif line.marker_pos >= 0:
+                dropped_lines.append(marker)
             idx += 1
 
         # Get rid of extra empty lines
-        dropped_lines = []
         while output and empty(output[-1][0]):
             dropped_lines.append(output.pop()[0].raw)
         while idx < len(lines):
@@ -99,7 +101,7 @@ def rst2fst(rawlines, marker): # type: (Iterable[str], str) -> Iterable[str]
         for _, o in output:
             yield o
 
-        # Dump markers found trimmed whitespace
+        # Dump markers found in dropped lines (whitespace and ‘.. fst::’)
         if not is_top_of_file:
             yield dropped_markers
             dropped_markers = ""
