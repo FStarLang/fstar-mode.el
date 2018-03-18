@@ -767,19 +767,16 @@ in your version of F*.  You're running version %s" fstar--vernum)))))
 (defvaralias 'flycheck-fstar-executable 'fstar-executable)
 (make-obsolete-variable 'flycheck-fstar-executable 'fstar-executable "0.2" 'set)
 
-(defun fstar--flycheck-enabled (checker)
-  "Check whether CHECKER should be used."
-  (eq fstar-flycheck-checker checker))
-
 (defun fstar--flycheck-verify-enabled (checker)
   "Create a verification result announcing whether CHECKER is enabled."
-  (list
-   (flycheck-verification-result-new
-    :label "Checker selection"
-    :message (if (fstar--flycheck-enabled checker) "OK, checker selected."
-               (format "Set ‘fstar-flycheck-checker’ \
+  (let ((enabled (eq fstar-flycheck-checker checker)))
+    (list
+     (flycheck-verification-result-new
+      :label "Checker selection"
+      :message (if enabled "OK, checker selected."
+                 (format "Set ‘fstar-flycheck-checker’ \
 to ‘%S’ to use this checker." checker))
-    :face (if (fstar--flycheck-enabled checker) 'success '(bold error)))))
+      :face (if enabled 'success '(bold error))))))
 
 (flycheck-define-command-checker 'fstar
   "Flycheck checker for F*."
@@ -787,8 +784,8 @@ to ‘%S’ to use this checker." checker))
   :error-patterns fstar-error-patterns
   :error-filter #'flycheck-increment-error-columns
   :modes '(fstar-mode)
-  :verify #'fstar--flycheck-verify-enabled
-  :predicate (apply-partially #'fstar--flycheck-enabled 'fstar))
+  :verify (apply-partially #'fstar--flycheck-verify-enabled)
+  :predicate (lambda () (eq fstar-flycheck-checker 'fstar)))
 
 (add-to-list 'flycheck-checkers 'fstar)
 
@@ -1747,7 +1744,7 @@ Interactively, offer titles of F* wiki pages."
 ;;; Literate F*
 
 (defconst fstar-literate--point-marker
-  "<<<\"P\"O\"I\"N\"T\">>>")
+  "<<<'P'O'I'N'T'>>>")
 
 (defun fstar-literate--run-converter (&rest args)
   "Run converter with ARGS on current buffer.
@@ -3307,12 +3304,12 @@ Pass ARG to `fstar-subp-advance-or-retract-to-point'."
   "Create a verification result announcing availability of the F* subprocess."
   (list
    (flycheck-verification-result-new
-    :label "Subprocess running"
+    :label "Subprocess started"
     :message (if (fstar-subp-live-p) "OK, F* started."
                "This checker requires a running F* subprocess.")
     :face (if (fstar-subp-live-p) 'success '(bold error)))
    (flycheck-verification-result-new
-    :label "Subprocess started"
+    :label "Subprocess available"
     :message (if (fstar-subp-available-p) "OK, F* idle."
                "This checker only runs when the F* subprocess is idle.")
     :face (if (fstar-subp-available-p) 'success '(bold error)))))
@@ -3328,7 +3325,7 @@ buffer."
                                (fstar--flycheck-verify-subp-available)))
   :predicate (lambda ()
                (and (fstar--has-feature 'peek)
-                    (fstar--flycheck-enabled 'fstar-interactive)
+                    (eq fstar-flycheck-checker 'fstar-interactive)
                     (fstar-subp--can-run-flycheck))))
 
 (add-to-list 'flycheck-checkers 'fstar-interactive)
