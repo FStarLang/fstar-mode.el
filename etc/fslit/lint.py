@@ -10,6 +10,7 @@ import codecs
 
 try:
     from docutils.parsers.rst import Parser
+    from docutils.readers.standalone import Reader
     from docutils.frontend import OptionParser
     from docutils.utils import new_document
 except ImportError:
@@ -58,11 +59,15 @@ def main():
     real_filename = args.stdin_filename if args.filename == "-" else args.filename
 
     docutils4fstar.register()
-    settings = init_settings((Parser,))
+    settings = init_settings((Parser, Reader))
     parser, line_translator = init_parser(args.dialect)
+    reader = docutils4fstar.StandaloneLiterateFStarReader(parser)
     document = new_document(real_filename, settings)
+    document.transformer.populate_from_components((parser, reader))
     document.reporter.attach_observer(docutils4fstar.JsErrorPrinter(line_translator, settings))
+
     parser.parse(read_input(args.filename), document)
+    document.transformer.apply_transforms()
 
 if __name__ == '__main__':
     main()
