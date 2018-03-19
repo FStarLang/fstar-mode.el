@@ -1764,7 +1764,7 @@ OUTPUT is the result of Flychecking BUFFER with CHECKER."
         :buffer buffer)))
    (flycheck-parse-json output)))
 
-(defun fstar-literate--flycheck-verify-enabled (_checker)
+(defun fstar-literate--flycheck-verify-enabled ()
   "Create a verification result announcing whether fstar-literate is enabled."
   (let ((enabled (memq 'literate-flycheck fstar-enabled-modules)))
     (list
@@ -1787,8 +1787,13 @@ module in fstar-enabled-modules to use this checker.")
              "-")
   :standard-input t
   :error-parser #'fstar-literate--parse-errors
+  :enabled (lambda () (or (not (fboundp 'flycheck-python-find-module))
+                     (flycheck-python-find-module 'fstar-literate "docutils")))
   :predicate (lambda () (memq 'literate-flycheck fstar-enabled-modules))
-  :verify #'fstar-literate--flycheck-verify-enabled
+  :verify (lambda (_checker)
+            (append (fstar-literate--flycheck-verify-enabled)
+                    (when (fboundp 'flycheck-python-verify-module)
+                      (flycheck-python-verify-module 'fstar-literate "docutils"))))
   :modes '(fstar-mode fstar-literate--rst-mode))
 
 (add-to-list 'flycheck-checkers 'fstar-literate)

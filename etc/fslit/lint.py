@@ -8,9 +8,13 @@ Use ``./lint.py --help`` to show the documentation."""
 import argparse
 import codecs
 
-from docutils.parsers.rst import Parser
-from docutils.frontend import OptionParser
-from docutils.utils import new_document
+try:
+    from docutils.parsers.rst import Parser
+    from docutils.frontend import OptionParser
+    from docutils.utils import new_document
+except ImportError:
+    import sys
+    sys.exit(0)
 
 if __name__ == "__main__" and __package__ is None:
     from os import sys, path
