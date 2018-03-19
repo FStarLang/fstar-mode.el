@@ -2,6 +2,8 @@
 # -*- coding: utf-8 -*-
 # pylint: disable=too-few-public-methods,too-many-ancestors
 
+from __future__ import unicode_literals
+
 import re
 import os
 import codecs
