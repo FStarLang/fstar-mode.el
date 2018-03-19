@@ -449,6 +449,7 @@ class ExerciseSnippetsVisitor(nodes.SparseNodeVisitor):
     def visit_solution_node(self, _): # pylint: disable=no-self-use
         raise nodes.StopTraversal()
 
+# This is Sphinx-specific (because of env.docname and env.app.builder.outdir)
 class BuildFStarArtifactsTransform(Transform):
     default_priority = 402
 
@@ -600,7 +601,7 @@ class LiterateFStarParser(docutils.parsers.Parser):
 
 class StandaloneLiterateFStarReader(Reader):
     def get_transforms(self):
-        return Reader.get_transforms(self) + TRANSFORMS
+        return Reader.get_transforms(self) + DOCUTILS_TRANSFORMS
 
 # FStar.js support
 # ================
@@ -652,4 +653,6 @@ NODES = [exercise_node, solution_node, fst_node, exercise_code_node,
 DIRECTIVES = [FixmeAuthorsDirective, FixmeDirective, FStarBlockDirective,
               ExerciseDirective, SolutionDirective, ExerciseCode,
               TagAllDirective]
-TRANSFORMS = [CheckExerciseSubNodesTransform, ApplyTagsTransform, BuildFStarArtifactsTransform]
+DOCUTILS_TRANSFORMS = [CheckExerciseSubNodesTransform, ApplyTagsTransform]
+SPHINX_TRANSFORMS = [BuildFStarArtifactsTransform]
+TRANSFORMS = DOCUTILS_TRANSFORMS + SPHINX_TRANSFORMS
