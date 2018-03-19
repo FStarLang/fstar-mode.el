@@ -573,6 +573,8 @@ class LiterateFStarParser(docutils.parsers.Parser):
 
     @staticmethod
     def fst2rst(fst_string):
+        if fst_string == "":
+            return [], ""
         linemap, rst_lines = zip(*fst2rst_linums(fst_string.splitlines(), None))
         return list(linemap), "\n".join(rst_lines)
 

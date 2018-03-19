@@ -146,6 +146,9 @@ def fst2rst_annotate(raw, marker): # type: (str, str) -> Tuple[int, Line]
     return kind, line
 
 def fst2rst_linums(rawlines, marker): # type: Iterable[str] -> Iterable[Tuple[int, str]]
+    if not rawlines:
+        return
+
     idx = 0
     kinds, lines = zip(*(fst2rst_annotate(raw, marker) for raw in rawlines))
 
