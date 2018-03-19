@@ -561,7 +561,8 @@ class LiterateFStarParser(docutils.parsers.Parser):
     supported = ('fst', 'fsti')
     """Aliases this parser supports."""
 
-    settings_spec = ('Literate F* Parser Options', None, ())
+    settings_spec = ('Literate F* Parser Options', None,
+                     docutils.parsers.rst.Parser.settings_spec[2])
     config_section = 'Literate F* parser'
     config_section_dependencies = ('parsers',)
 
@@ -617,6 +618,11 @@ def register():
         roles.register_local_role(role.role, role)
     for directive in DIRECTIVES:
         directives.register_directive(directive.directive, directive)
+
+def add_nodes(translator_class):
+    for node in NODES:
+        setattr(translator_class, 'visit_' + node.__name__, node.visit)
+        setattr(translator_class, 'depart_' + node.__name__, node.depart)
 
 # Index
 # =====
