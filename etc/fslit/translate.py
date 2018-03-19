@@ -170,19 +170,28 @@ def fst2rst_linums(rawlines, marker): # type: Iterable[str] -> Iterable[Tuple[in
             yield idx, line.raw
             idx += 1
 
+        # Skip blank lines
+        while idx < len(lines) and empty(lines[idx]):
+            yield idx, lines[idx].raw
+            idx += 1
+
         if idx >= len(lines):
             break
+
+        # Was this an empty code section?
+        if kinds[idx] != F2R_CODE:
+            continue
 
         # Emit code header
         prev_line_empty = idx == 0 or empty(lines[idx - 1])
         if existing_header_indentation is None:
             if not prev_line_empty:
-                yield idx, ""
+                yield idx, "" # Empty line before ‘.. fst::’
             yield idx, " " * rst_indentation + ".. fst::"
             prev_line_empty = False
             existing_header_indentation = rst_indentation
         if not empty(lines[idx]) and not prev_line_empty:
-            yield idx, ""
+            yield idx, "" # Empty line after ‘.. fst::’
 
         # Emit actual code
         while idx < len(lines):
