@@ -498,11 +498,33 @@ FStarTypeRole.role = "type"
 # FST parser
 # ==========
 
-# FIXME line numbers in error messages are wrong
+class WrappedWarningStream(object):
+    """A wrapper around error streams to fix line numbers in error messages."""
+    RE = re.compile(r'^(?P<source>.*?):(?P<line>[0-9]+):', re.MULTILINE)
+
+    def __init__(self, stream, source, linemap):
+        self.raw_stream = stream
+        self.source = source
+        self.linemap = linemap
+
+    def rstline2fstline(self, match):
+        """Adjust line numbers in `match`."""
+        line, source = int(match.group('line')), match.group('source')
+        if source == self.source and self.linemap and line < len(self.linemap):
+            line = self.linemap[line]
+        return "{}:{}:".format(source, line)
+
+    def write(self, text):
+        if hasattr(self.raw_stream, 'write'):
+            self.raw_stream.write(WrappedWarningStream.RE.sub(self.rstline2fstline, text))
 
 class LiterateFStarParser(docutils.parsers.Parser):
     """A wrapper around the reStructuredText parser for F* literate files.
-Line numbers are incorrectly reported, though."""
+
+    It's hard to systematically translate reStructuredText line numbers into F*
+    line numbers (line numbers are pretty deeply baked into reStructuredText's
+    state machine), so we just translate them in error messages.
+    """
 
     supported = ('fst', 'fsti')
     """Aliases this parser supports."""
@@ -512,12 +534,9 @@ Line numbers are incorrectly reported, though."""
     config_section_dependencies = ('parsers',)
 
     def __init__(self):
-        self.reporter = None
+        self.source = None
         self.linemap = None # type: List[int]
         self.parser = docutils.parsers.rst.Parser()
-
-    def get_transforms(self):
-        return self.parser.get_transforms()
 
     @staticmethod
     def fst2rst(fst_string):
@@ -526,8 +545,12 @@ Line numbers are incorrectly reported, though."""
 
     def parse(self, fst_string, document):
         """Parse `inputstring` and populate `document`, a document tree."""
+        self.source = document['source']
         self.linemap, rst_string = LiterateFStarParser.fst2rst(fst_string)
+        document.reporter.stream = WrappedWarningStream(document.reporter.stream, self.source, self.linemap)
         self.parser.parse(rst_string, document)
+        document.reporter.stream = document.reporter.stream.raw_stream
+        self.linemap, self.source = None, None
 
 # FStar.js support
 # ================
