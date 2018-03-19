@@ -7,6 +7,9 @@ from . import docutils4fstar
 # Export here so config files can refer to just this module
 LiterateFStarParser = docutils4fstar.LiterateFStarParser
 
+# Sphinx domain
+# =============
+
 class FStarDomain(Domain):
     """A domain to document F* code.
 
@@ -39,6 +42,9 @@ class FStarDomain(Domain):
     }
 
 
+# Event handlers
+# ==============
+
 def unfold_folded_fst_blocks(_app, doctree, _fromdocname):
     for node in doctree.traverse(docutils4fstar.fst_node):
         node.replace_self(node.original_node)
@@ -51,6 +57,9 @@ In HTML mode, set the refuri appropriately; in other modes, remove them."""
             node['refuri'] = relative_uri(app.builder.get_target_uri(fromdocname), node['docpath'])
         else:
             node.parent.remove(node)
+
+# Setup
+# =====
 
 def register_fst_parser(app):
     app.config.source_parsers['.fst'] = 'fslit.sphinx4fstar.LiterateFStarParser'
