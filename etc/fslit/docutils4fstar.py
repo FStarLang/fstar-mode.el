@@ -548,7 +548,8 @@ def insert_fstarjs_script_tags(_app, doctree, fromdocname):
 # ================
 
 def register():
-    roles.register_local_role("type", nodes.literal)
+    for role in ROLES:
+        roles.register_local_role(role.role, role)
     for directive in DIRECTIVES:
         directives.register_directive(directive.directive, directive)
 
