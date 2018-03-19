@@ -241,13 +241,16 @@ def writeout(lines):
         stdout.write(line)
         stdout.write("\n")
 
+def run(translator, fname, marker):
+    if fname == "-":
+        writeout(translator(codecs.getreader('utf-8')(sys.stdin), marker))
+    else:
+        with codecs.open(fname, encoding="utf-8") as fstream:
+            writeout(translator(fstream, marker))
+
 def main():
     args = parse_args()
-    if args.input == "-":
-        writeout(args.fn(sys.stdin, args.marker))
-    else:
-        with codecs.open(args.input, encoding="utf-8") as fstream:
-            writeout(args.fn(fstream, args.marker))
+    run(args.fn, args.input, args.marker)
 
 if __name__ == '__main__':
     main()
