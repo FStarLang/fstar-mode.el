@@ -81,6 +81,12 @@ def join_blocks(blocks):
 # .. fixme
 # --------
 
+class Env(object):
+    pass
+
+def getenv(directive):
+    return directive.state.document.settings.ensure_value('env', Env())
+
 class FixmeAuthorsDirective(Directive):
     directive = "fixme-authors"
 
@@ -90,11 +96,11 @@ class FixmeAuthorsDirective(Directive):
     option_spec = {}
 
     def run(self):
-        env = self.state.document.settings.env
+        env = getenv(self)
         if not hasattr(env, "fixme_authors"):
-            env.fixme_authors = {}
+            setattr(env, "fixme_authors", {})
         for line in self.content:
-            nick, name = line.split(maxsplit=1)
+            nick, name = line.split(None, 1)
             env.fixme_authors[nick] = name
         return []
 
@@ -109,7 +115,7 @@ class FixmeDirective(admonitions.BaseAdmonition):
     option_spec = {}
 
     def run(self):
-        env = self.state.document.settings.env
+        env = getenv(self)
         nicknames = getattr(env, "fixme_authors", {})
         author = nicknames.get(self.arguments[0], self.arguments[0])
         self.options["class"] = ["admonition-fixme"]
