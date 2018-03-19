@@ -774,7 +774,7 @@ in your version of F*.  You're running version %s" fstar--vernum)))))
     (list
      (flycheck-verification-result-new
       :label "Checker selection"
-      :message (if enabled "OK, checker selected."
+      :message (if enabled "OK, checker selected"
                  (format "Set ‘fstar-flycheck-checker’ \
 to ‘%S’ to use this checker." checker))
       :face (if enabled 'success '(bold error))))))
@@ -3357,12 +3357,12 @@ Pass ARG to `fstar-subp-advance-or-retract-to-point'."
   (list
    (flycheck-verification-result-new
     :label "Subprocess started"
-    :message (if (fstar-subp-live-p) "OK, F* started."
+    :message (if (fstar-subp-live-p) "OK, F* started"
                "This checker requires a running F* subprocess.")
     :face (if (fstar-subp-live-p) 'success '(bold error)))
    (flycheck-verification-result-new
     :label "Subprocess available"
-    :message (if (fstar-subp-available-p) "OK, F* idle."
+    :message (if (fstar-subp-available-p) "OK, F* idle"
                "This checker only runs when the F* subprocess is idle.")
     :face (if (fstar-subp-available-p) 'success '(bold error)))))
 
