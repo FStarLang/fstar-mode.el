@@ -139,28 +139,29 @@ returning a string (the full path to the SMT solver)."
   :risky t)
 
 (defconst fstar-known-modules
-  '((font-lock        . "Syntax highlighting")
-    (prettify         . "Unicode math (e.g. display forall as ∀; requires emacs 24.4 or later)")
-    (subscripts       . #("Pretty susbcripts (e.g. display x1 as x1)" 39 40 (display (raise -0.3))))
-    (indentation      . "Indentation (relative to previous lines)")
-    (comments         . "Comment syntax and special comments ('(***', '(*+', etc.)")
-    (flycheck         . "Real-time verification with Flycheck")
-    (interactive      . "Interactive verification (à la Proof-General)")
-    (eldoc            . "Type annotations in the minibuffer.")
-    (company          . "Completion with company-mode.")
-    (company-defaults . "Opinionated company-mode configuration.")
-    (spinner          . "Blink the modeline while F* is busy.")
-    (notifications    . "Show a notification when a proof completes.")
-    (literate         . "Prettify “///” comment markers.")
-    (overlay-legend   . "Show a legend in the modeline when hovering an F* overlay.")
-    (tool-bar         . "Customize the toolbar for interactive use of F*.")
-    (auto-insert      . "Support for `auto-insert-mode'."))
+  '((font-lock         . "Syntax highlighting")
+    (prettify          . "Unicode math (e.g. display forall as ∀; requires emacs 24.4 or later)")
+    (subscripts        . #("Pretty susbcripts (e.g. display x1 as x1)" 39 40 (display (raise -0.3))))
+    (indentation       . "Indentation (relative to previous lines)")
+    (comments          . "Comment syntax and special comments ('(***', '(*+', etc.)")
+    (flycheck          . "Real-time verification with Flycheck.")
+    (interactive       . "Interactive verification (à la Proof-General).")
+    (eldoc             . "Type annotations in the minibuffer.")
+    (company           . "Completion with company-mode.")
+    (company-defaults  . "Opinionated company-mode configuration.")
+    (spinner           . "Blink the modeline while F* is busy.")
+    (notifications     . "Show a notification when a proof completes.")
+    (literate          . "Prettify “///” comment markers.")
+    (literate-flycheck . "Real-time syntax-checking for literate comments.")
+    (overlay-legend    . "Show a legend in the modeline when hovering an F* overlay.")
+    (tool-bar          . "Customize the toolbar for interactive use of F*.")
+    (auto-insert       . "Support for `auto-insert-mode'."))
   "Available components of F*-mode.")
 
 (defcustom fstar-enabled-modules
   '(font-lock prettify subscripts indentation comments flycheck interactive
               eldoc company company-defaults spinner notifications
-              literate overlay-legend tool-bar auto-insert)
+              literate literate-flycheck overlay-legend tool-bar auto-insert)
   "Which F*-mode components to load."
   :group 'fstar
   :type `(set ,@(cl-loop for (mod . desc) in fstar-known-modules
@@ -1742,6 +1743,56 @@ Interactively, offer titles of F* wiki pages."
   (fstar--font-lock-ensure))
 
 ;;; Literate F*
+
+(defconst fstar-literate--error-levels
+  '(("debug" . info)
+    ("info" . info)
+    ("warning" . warning)
+    ("error" . error)
+    ("severe" . eror)))
+
+(defun fstar-literate--parse-errors (output checker buffer)
+  "Parse literate F* errors in OUTPUT.
+OUTPUT is the result of Flychecking BUFFER with CHECKER."
+  (mapcar
+   (lambda (js-error)
+     (let-alist js-error
+       (flycheck-error-new-at
+        .line nil (cdr (assoc .level fstar-literate--error-levels)) .message
+        :checker checker
+        :filename .source
+        :buffer buffer)))
+   (flycheck-parse-json output)))
+
+(defun fstar-literate--flycheck-verify-enabled (_checker)
+  "Create a verification result announcing whether fstar-literate is enabled."
+  (let ((enabled (memq 'literate-flycheck fstar-enabled-modules)))
+    (list
+     (flycheck-verification-result-new
+      :label "Checker selection"
+      :message (if enabled "OK, checker enabled."
+                 "Enable the ‘literate-flycheck’ \
+module in fstar-enabled-modules to use this checker.")
+      :face (if enabled 'success '(bold error))))))
+
+(flycheck-define-command-checker 'fstar-literate
+  "Flycheck checker for F*."
+  :command '("python"
+             (eval (expand-file-name "etc/fslit/lint.py" fstar--directory))
+             "--stdin-filename" source-original
+             "--dialect"
+             (eval (cond ((derived-mode-p 'fstar-mode) "fst-rst")
+                         ((derived-mode-p 'rst-mode) "rst")
+                         (t (error "Unrecognized mode %S" major-mode))))
+             "-")
+  :standard-input t
+  :error-parser #'fstar-literate--parse-errors
+  :predicate (lambda () (memq 'literate-flycheck fstar-enabled-modules))
+  :verify #'fstar-literate--flycheck-verify-enabled
+  :modes '(fstar-mode fstar-literate--rst-mode))
+
+(add-to-list 'flycheck-checkers 'fstar-literate)
+(cl-pushnew 'fstar-literate--rst-mode (flycheck-checker-get 'rst-sphinx 'modes))
 
 (defconst fstar-literate--point-marker
   "<<<'P'O'I'N'T'>>>")

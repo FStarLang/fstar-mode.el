@@ -504,6 +504,32 @@ FStarTypeRole.role = "type"
 # FST parser
 # ==========
 
+class JsErrorPrinter(object):
+    @staticmethod
+    def json_of_message(level, message, source, line):
+        js = { "level": level,
+               "message": message,
+               "source": source,
+               "line": line }
+        return js
+
+    def __init__(self, line_translator, settings):
+        import sys
+        self.stream = sys.stderr
+        self.line_translator = line_translator or (lambda s, l: l)
+        self.report_level = settings.report_level
+
+    def __call__(self, msg):
+        import json
+        message = msg.children[0].astext() if msg.children else "Unknown error"
+        level, source, line = msg['level'], msg['source'], msg.get('line', 1)
+        if level >= self.report_level:
+            line = self.line_translator(source, line)
+            level = docutils.utils.Reporter.levels[level].lower()
+            js = JsErrorPrinter.json_of_message(level, message, source, line)
+            json.dump(js, self.stream)
+            self.stream.write('\n')
+
 class WrappedWarningStream(object):
     """A wrapper around error streams to fix line numbers in error messages."""
     RE = re.compile(r'^(?P<source>.*?):(?P<line>[0-9]+):', re.MULTILINE)
@@ -548,6 +574,16 @@ class LiterateFStarParser(docutils.parsers.Parser):
     def fst2rst(fst_string):
         linemap, rst_lines = zip(*fst2rst_linums(fst_string.splitlines(), None))
         return list(linemap), "\n".join(rst_lines)
+
+    def rstline2fstline(self, source, line):
+        """Translate an RST line number into an F* line number.
+
+        This method only produces correct results during calls to
+        ``LiterateFStarParser.parse``.
+        """
+        if source == self.source and self.linemap and line < len(self.linemap):
+            return self.linemap[line]
+        return line
 
     def parse(self, fst_string, document):
         """Parse `inputstring` and populate `document`, a document tree."""
