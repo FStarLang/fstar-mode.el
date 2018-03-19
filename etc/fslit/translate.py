@@ -5,6 +5,7 @@ import re
 import os
 import sys
 import argparse
+import codecs
 from collections import namedtuple
 
 try:
@@ -223,15 +224,17 @@ def parse_args():
     return args
 
 def writeout(lines):
+    stdout = codecs.getwriter('utf-8')(sys.stdout)
     for line in lines:
-        print(line)
+        stdout.write(line)
+        stdout.write("\n")
 
 def main():
     args = parse_args()
     if args.input == "-":
         writeout(args.fn(sys.stdin, args.marker))
     else:
-        with open(args.input, encoding="utf-8") as fstream:
+        with codecs.open(args.input, encoding="utf-8") as fstream:
             writeout(args.fn(fstream, args.marker))
 
 if __name__ == '__main__':
