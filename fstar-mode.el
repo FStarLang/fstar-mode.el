@@ -1853,6 +1853,7 @@ Current document must have a file name."
   "Mode for RST buffers backed by an F* file.
 Press \\<fstar-literate--rst-mode-map>\\[fstar-literate-rst2fst] to
 toggle between reStructuredText and F*."
+  (flycheck-mode)
   (add-hook 'write-contents-functions #'fstar-literate--rst-save t t))
 
 (defun fstar-literate-fst2rst ()
