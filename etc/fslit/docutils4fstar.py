@@ -15,6 +15,7 @@ from docutils import nodes, DataError
 from docutils.transforms import Transform
 from docutils.parsers.rst import Directive, directives, roles
 from docutils.parsers.rst.directives import admonitions
+from docutils.readers.standalone import Reader
 
 from .translate import fst2rst_linums
 
@@ -597,6 +598,10 @@ class LiterateFStarParser(docutils.parsers.Parser):
         document.reporter.stream = document.reporter.stream.raw_stream
         self.linemap, self.source = None, None
 
+class StandaloneLiterateFStarReader(Reader):
+    def get_transforms(self):
+        return Reader.get_transforms(self) + TRANSFORMS
+
 # FStar.js support
 # ================
 
@@ -620,6 +625,18 @@ def register():
         roles.register_local_role(role.role, role)
     for directive in DIRECTIVES:
         directives.register_directive(directive.directive, directive)
+
+    # See docutils.nodes._add_node_class_names
+    default_visit = lambda self, node: self.default_visit(node)
+    default_departure = lambda self, node: self.default_departure(node)
+    noop = lambda _self, _node: None
+
+    for node in NODES:
+        name = node.__name__
+        setattr(nodes.GenericNodeVisitor, "visit_" + name, default_visit)
+        setattr(nodes.GenericNodeVisitor, "depart_" + name, default_departure)
+        setattr(nodes.SparseNodeVisitor, 'visit_' + name, noop)
+        setattr(nodes.SparseNodeVisitor, 'depart_' + name, noop)
 
 def add_nodes(translator_class):
     for node in NODES:
