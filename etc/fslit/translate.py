@@ -202,6 +202,9 @@ def fst2rst_linums(rawlines, marker): # type: Iterable[str] -> Iterable[Tuple[in
             yield idx, indent + line.raw
             idx += 1
 
+        if not empty(lines[idx - 1]):
+            yield idx - 1, "" # Empty line after the code block
+
 def fst2rst(rawlines, markers): # type: Iterable[str] -> Iterable[str]
     for _, line in fst2rst_linums(rawlines, markers):
         yield line
