@@ -401,7 +401,8 @@ This doesn't work for strings in snippets inside of comments."
 (defun fstar--navigate-to-parse-display-action (display-action)
   "Convert DISPLAY-ACTION into an argument to `display-buffer'."
   (pcase display-action
-    (`nil '((display-buffer-same-window display-buffer-reuse-window)))
+    (`nil '((display-buffer-same-window)))
+    (`reuse '((display-buffer-reuse-window display-buffer-same-window)))
     (`window '((display-buffer-reuse-window display-buffer-pop-up-window)
                (reusable-frames . 0)
                (inhibit-same-window . t)))
@@ -421,10 +422,11 @@ If END is nil, pulse the entire line containing BEG."
 (defun fstar--navigate-to-1 (location display-action switch)
   "Navigate to LOCATION.
 DISPLAY-ACTION determines where the resulting buffer is
-shown (nil for the currently selected window, `window' for a
-separate window, and `frame' for a separate frame).  SWITCH
-determines whether the resulting buffer and window become current
-and selected."
+shown (nil for the currently selected window, `reuse' for the
+current window unless another one is already showing the buffer,
+`window' for a separate window, and `frame' for a separate
+frame).  SWITCH determines whether the resulting buffer and
+window become current and selected."
   (fstar--push-mark)
   (let ((fname (fstar-location-filename location))
         (line (fstar-location-line-from location))
@@ -3641,7 +3643,7 @@ asynchronously after the fact)."
     (save-excursion
       (insert title "\n")
       (when def-loc
-        (fstar--insert-link def-loc '(:height 0.9 :inherit link)))
+        (fstar--insert-link def-loc '(:height 0.9 :inherit link) nil 'reuse))
       (cl-etypecase info
         (fstar-symbol-info
          (-when-let* ((type (fstar-symbol-info-type info)))
@@ -3998,7 +4000,7 @@ DISP should be nil (display in same window) or
     (insert (fstar--propertize-title title) "\n\n"))
   (dolist (fname deps)
     (insert "  ")
-    (fstar--insert-link fname 'default)
+    (fstar--insert-link fname 'default nil 'window)
     (insert "\n")))
 
 (defun fstar-subp--visit-dependency-continuation (source-buf status response)
