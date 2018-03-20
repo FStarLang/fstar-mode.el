@@ -74,23 +74,8 @@ new Sphinx project::
    $ git clone --depth 1 https://github.com/FStarLang/fstar-mode.el
    … Checking connectivity... done.
 
-   $ sphinx-quickstart
-   …
-   > Root path for the documentation [.]: .
-   > Separate source and build directories (y/n) [n]: n
-   > Name prefix for templates and static dir [_]: _
-   > Project name: …
-   > Author name(s): …
-   > Project version []: …
-   > Project release […]: …
-   > Project language [en]: …
-   > Source file suffix [.rst]: .fst
-   > Name of your master document (without suffix) [index]: index
-   …
-   > mathjax: include math, rendered in the browser by MathJax (y/n) [n]: y
-   …
-   > Create Makefile? (y/n) [y]: y
-   … Finished: An initial directory structure has been created.
+   $ sphinx-quickstart --ext-mathjax --extensions fslit.sphinx4fstar \
+       --suffix .fst --quiet --author '<you>' --project '<proj-name>'
 
 Open the generated ``conf.py`` file, and make the following changes:
 
@@ -100,15 +85,7 @@ Open the generated ``conf.py`` file, and make the following changes:
      import sys
      sys.path.insert(0, os.path.abspath('fstar-mode.el/etc/'))
 
-- Add ``'fslit.sphinx4fstar',`` to the ``extensions`` line::
-
-     extensions = [
-         'sphinx.ext.todo',
-         'sphinx.ext.mathjax',
-         'fslit.sphinx4fstar',    ← here
-     ]
-
-- Adjust the source_suffix line as follows::
+- Adjust the ``source_suffix`` line as follows::
 
      source_suffix = ['.rst', '.fst']
 
