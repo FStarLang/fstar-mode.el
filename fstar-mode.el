@@ -401,7 +401,7 @@ This doesn't work for strings in snippets inside of comments."
 (defun fstar--navigate-to-parse-display-action (display-action)
   "Convert DISPLAY-ACTION into an argument to `display-buffer'."
   (pcase display-action
-    (`nil '((display-buffer-reuse-window)))
+    (`nil '((display-buffer-same-window display-buffer-reuse-window)))
     (`window '((display-buffer-reuse-window display-buffer-pop-up-window)
                (reusable-frames . 0)
                (inhibit-same-window . t)))
