@@ -28,3 +28,6 @@ sandbox:
 
 clean:
 	cask clean-elc
+
+fslit-readme:
+	./etc/fslit/regen_readme.py

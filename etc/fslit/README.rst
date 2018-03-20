@@ -36,7 +36,7 @@ to the following reST document::
 
 Consult the `reStructuredText quick start guide
 <https://www.sphinx-doc.org/en/stable/rest.html>`_ for general information about
-reST.
+reST, and the following sections for details on F\*-specific directives.
 
 Emacs support
 -------------
