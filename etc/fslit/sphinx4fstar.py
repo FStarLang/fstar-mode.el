@@ -28,9 +28,7 @@ class FStarDomain(Domain):
 
     directives = dict() # Directive → Object
 
-    roles = { # FIXME
-        'type': docutils4fstar.FStarTypeRole
-    }
+    roles = dict()
 
     indices = []
 
