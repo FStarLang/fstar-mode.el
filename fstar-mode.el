@@ -1796,6 +1796,8 @@ module in fstar-enabled-modules to use this checker.")
                       (flycheck-python-verify-module 'fstar-literate "docutils"))))
   :modes '(fstar-mode fstar-literate--rst-mode))
 
+(flycheck-def-executable-var fstar-literate "python")
+
 (add-to-list 'flycheck-checkers 'fstar-literate)
 (cl-pushnew 'fstar-literate--rst-mode (flycheck-checker-get 'rst-sphinx 'modes))
 
