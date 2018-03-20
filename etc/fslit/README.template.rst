@@ -34,11 +34,21 @@ to the following reST document::
       let avg nums =
         sum nums / List.length nums
 
-In ``fstar-mode``, pressing `C-c C-S-a` toggles between literate F\* sources and
-the corresponding reST document.  Consult the documentation of ``rst-mode``
-(`C-h f rst-mode`) to learn about editing reST files in Emacs, and the `quick
-start guide <http://www.sphinx-doc.org/en/stable/rest.html>`_ for general
-information about reST.
+Consult the `reStructuredText quick start guide
+<https://www.sphinx-doc.org/en/stable/rest.html>`_ for general information about
+reST.
+
+Emacs support
+-------------
+
+``fstar-mode`` displays literate comment markers as a solid line in the margin
+(┃), and highlights reST syntax errors in literate comments as you type (using
+``fslit``\ 's ``lint.py`` script).
+
+Additionally, pressing `C-c C-S-a` in ``fstar-mode`` toggles between literate
+F\* sources and a reST version of the same document, suitable for large reST
+edits (read the documentation of ``rst-mode`` with `C-h f rst-mode` to learn
+about editing reST files in Emacs).
 
 Compiling literate F\* files
 ============================
@@ -49,6 +59,8 @@ Docutils
 Use the ``fslit/fst2html.py`` script to render a literate F* file as a standalone HTML file.  This works well for quick experiments::
 
    $ fslit/fst2html.py example.fst > example.html
+
+From Emacs, simply run `M-x fstar-literate-preview`.
 
 Sphinx
 ------
@@ -109,7 +121,15 @@ Use ``make html`` to confirm that everything is working.  Your website is in
 Literate F\* roles and directives
 =================================
 
-FIXME
+Directives
+----------
+
+[DIRECTIVES]
+
+Roles
+-----
+
+[ROLES]
 
 Literate F\* syntax notes
 =========================
