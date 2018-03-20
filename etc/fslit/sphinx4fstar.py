@@ -43,15 +43,16 @@ class FStarDomain(Domain):
 # Event handlers
 # ==============
 
-def unfold_folded_fst_blocks(_app, doctree, _fromdocname):
-    for node in doctree.traverse(docutils4fstar.fst_node):
-        node.replace_self(node.original_node)
+def unfold_folded_fst_blocks(app, doctree, _fromdocname):
+    if app.builder.name == "html":
+        for node in doctree.traverse(docutils4fstar.fst_node):
+            node.replace_self(node.original_node)
 
 def process_external_editor_references(app, doctree, fromdocname):
     """Adjust links to the external editor.
 In HTML mode, set the refuri appropriately; in other modes, remove them."""
     for node in doctree.traverse(docutils4fstar.standalone_editor_reference_node):
-        if app.buildername == "html":
+        if app.builder.name == "html":
             node['refuri'] = relative_uri(app.builder.get_target_uri(fromdocname), node['docpath'])
         else:
             node.parent.remove(node)
@@ -60,19 +61,20 @@ In HTML mode, set the refuri appropriately; in other modes, remove them."""
 # =====
 
 def register_fst_parser(app):
-    app.config.source_parsers['.fst'] = 'fslit.sphinx4fstar.LiterateFStarParser'
+    app.add_source_parser('.fst', LiterateFStarParser)
 
 def add_html_assets(app):
-    app.config.html_static_path.append(docutils4fstar.ASSETS_PATH)
+    if app.builder.name == "html":
+        app.config.html_static_path.append(docutils4fstar.ASSETS_PATH)
 
-    app.add_javascript("https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.27.2/codemirror.min.js")
-    app.add_stylesheet("https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.27.2/codemirror.min.css")
+        app.add_javascript("https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.27.2/codemirror.min.js")
+        app.add_stylesheet("https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.27.2/codemirror.min.css")
 
-    app.add_javascript("fstar.cm.js")
-    app.add_stylesheet("cm.tango.css")
+        app.add_javascript("fstar.cm.js")
+        app.add_stylesheet("cm.tango.css")
 
-    app.add_javascript("fslit.js")
-    app.add_stylesheet("fslit.css")
+        app.add_javascript("fslit.js")
+        app.add_stylesheet("fslit.css")
 
 def setup(app):
     """Register the F* domain"""
@@ -95,10 +97,9 @@ def setup(app):
     for transform in docutils4fstar.TRANSFORMS:
         app.add_transform(transform)
 
-    if app.buildername == "html":
-        app.connect('builder-inited', add_html_assets)
-        app.connect('doctree-resolved', unfold_folded_fst_blocks)
+    app.connect('builder-inited', add_html_assets)
     app.connect('builder-inited', register_fst_parser)
+    app.connect('doctree-resolved', unfold_folded_fst_blocks)
     app.connect('doctree-resolved', process_external_editor_references)
 
     return {'version': '0.1', "parallel_read_safe": True}
