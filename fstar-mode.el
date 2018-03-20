@@ -1647,7 +1647,8 @@ Interactively, offer titles of F* wiki pages."
   "Clean up outline buffer and give it a proper TITLE."
   (let ((inhibit-read-only t))
     (goto-char (point-min))
-    (delete-region (point) (1+ (point-at-eol)))
+    (when (looking-at ".* matches for \\(?:\n\\|.\\)*? in buffer: .*?\n")
+      (delete-region (point) (match-end 0)))
     (insert (fstar--propertize-title title) "\n")
     (when (fboundp 'font-lock--remove-face-from-text-property)
       (font-lock--remove-face-from-text-property (point) (point-max) 'face 'match))))
