@@ -6,9 +6,10 @@ from __future__ import unicode_literals
 
 import re
 import os
-import codecs
 import itertools
 import fnmatch
+import sys
+import codecs
 
 import docutils
 from docutils import nodes, DataError
@@ -27,6 +28,9 @@ ASSETS_PATH = os.path.join(SCRIPT_PATH, "assets")
 
 # Utilities
 # =========
+
+def wrap_stream(stream, wrapper):
+    return wrapper("utf-8")(stream) if sys.version_info.major == 2 else stream
 
 INDENTATION_RE = re.compile("^ *")
 def measure_indentation(line):

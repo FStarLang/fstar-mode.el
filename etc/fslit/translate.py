@@ -4,8 +4,8 @@
 import re
 import os
 import sys
-import argparse
 import codecs
+import argparse
 from collections import namedtuple
 
 try:
@@ -16,6 +16,9 @@ except ImportError:
 
 # Utilities
 # ---------
+
+def wrap_stream(stream, wrapper):
+    return wrapper("utf-8")(stream) if sys.version_info.major == 2 else stream
 
 FST_DIRECTIVE_RE = re.compile("^ *.. fst::")
 INDENTATION_RE = re.compile("^ *")
@@ -239,14 +242,14 @@ def parse_args():
     return args
 
 def writeout(lines):
-    stdout = codecs.getwriter('utf-8')(sys.stdout)
+    stdout = wrap_stream(sys.stdout, codecs.getwriter)
     for line in lines:
         stdout.write(line)
         stdout.write("\n")
 
 def run(translator, fname, marker):
     if fname == "-":
-        writeout(translator(codecs.getreader('utf-8')(sys.stdin), marker))
+        writeout(translator(wrap_stream(sys.stdin, codecs.getreader), marker))
     else:
         with codecs.open(fname, encoding="utf-8") as fstream:
             writeout(translator(fstream, marker))

@@ -49,7 +49,7 @@ def init_settings(components):
 
 def read_input(filename):
     if filename == "-":
-        return codecs.getreader('utf-8')(sys.stdin).read()
+        return docutils4fstar.wrap_stream(sys.stdin, codecs.getreader).read()
     else:
         with codecs.open(filename, encoding='utf-8') as f:
             return f.read()
