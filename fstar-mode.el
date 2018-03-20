@@ -5044,7 +5044,7 @@ This is useful to spot discrepancies between the CLI and IDE frontends."
       fstar-outline]
      ["Hide/show lines annotated with (**)"
       fstar-selective-display-mode]
-     ["Close all temporary F* windows"
+     [#("Close all temporary F✪ windows" 21 22 (composition ((1 . "\t✪\t"))))
       fstar-quit-windows])
     (#("F✪ subprocess" 1 2 (composition ((1 . "\t✪\t"))))
      [#("Start F✪ subprocess" 7 8 (composition ((1 . "\t✪\t"))))
@@ -5068,7 +5068,7 @@ This is useful to spot discrepancies between the CLI and IDE frontends."
       fstar-subp-advance-to-point-max-lax]
      ["Reload dependencies and re-typecheck up to point"
       fstar-subp-reload-to-point]
-     ["Show current value of all F* options"
+     [#("Show current value of all F✪ options" 27 28 (composition ((1 . "\t✪\t"))))
       fstar-list-options (fstar-subp-available-p)])
     ("Interactive queries"
      ["Evaluate an expression"
@@ -5083,7 +5083,7 @@ This is useful to spot discrepancies between the CLI and IDE frontends."
       fstar-search (fstar-subp-available-p)]
      ["Quick peek"
       fstar-quick-peek (fstar-subp-available-p)])
-    ("Literate F*"
+    (#("Literate F✪" 10 11 (composition ((1 . "\t✪\t"))))
      ["Switch to reStructuredText mode"
       fstar-literate-fst2rst])
     ("Utilities"
