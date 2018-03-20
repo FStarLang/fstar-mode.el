@@ -14,6 +14,7 @@
 # find -path "./**/production/ic_bug_report_24px.svg" -exec cp {} ~/.emacs.d/lisp/fstar.el/icons/ \;
 # find -path "./**/production/ic_content_copy_24px.svg" -exec cp {} ~/.emacs.d/lisp/fstar.el/icons/ \;
 # find -path "./**/production/ic_done_24px.svg" -exec cp {} ~/.emacs.d/lisp/fstar.el/icons/ \;
+# find -path "./**/production/ic_web_24px.svg" -exec cp {} ~/.emacs.d/lisp/fstar.el/icons/ \;
 
 cp ic_close_24px.svg ../etc/icons/quit-windows.svg
 cp ic_code_24px.svg ../etc/icons/switch-to-implementation.svg
@@ -28,6 +29,7 @@ cp ic_stop_24px.svg ../etc/icons/stop.svg
 cp ic_toc_24px.svg ../etc/icons/outline.svg
 cp ic_tune_24px.svg ../etc/icons/list-options.svg
 cp ic_visibility_24px.svg ../etc/icons/quick-peek.svg
+cp ic_web_24px.svg ../etc/icons/preview-rst.svg
 
 cp ic_vertical_align_bottom_bold_24px.svg ../etc/icons/goto-end.svg
 cp ic_vertical_align_center_bold_24px.svg ../etc/icons/goto-point.svg

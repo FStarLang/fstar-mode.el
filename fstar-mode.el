@@ -1929,6 +1929,20 @@ it created a bunch of issues with point motion and deletion.")
       (comment-indent-new-line)
       t)))
 
+(defun fstar-literate-preview ()
+  "Display an HTML preview of the current buffer."
+  (interactive)
+  (let* ((prefix (concat "fslit_" (buffer-name)))
+         (html-fname (make-temp-file prefix nil ".html"))
+         (fst2html (expand-file-name "etc/fslit/fst2html.py" fstar--directory))
+         (contents (buffer-substring-no-properties (point-min) (point-max))))
+    (with-temp-buffer
+      (pcase (call-process-region contents nil "python"
+                                  nil t nil fst2html "-" html-fname)
+        (`0 (message "Compilation complete: %s" (fstar--string-trim (buffer-string)))
+            (browse-url html-fname))
+        (err (error "Compilation failed: %s\n%s" err (buffer-string)))))))
+
 (defun fstar-setup-literate ()
   "Set up literate comment highlighting."
   ;; (define-fringe-bitmap 'fstar-literate-gutter-bitmap [0])
@@ -5139,7 +5153,9 @@ This is useful to spot discrepancies between the CLI and IDE frontends."
       fstar-quick-peek (fstar-subp-available-p)])
     (#("Literate F✪" 10 11 (composition ((1 . "\t✪\t"))))
      ["Switch to reStructuredText mode"
-      fstar-literate-fst2rst])
+      fstar-literate-fst2rst]
+     ["Display an HTML preview of the current buffer."
+      fstar-literate-preview])
     ("Utilities"
      ["Verify current file on the command line"
       fstar-cli-verify]
@@ -5207,8 +5223,10 @@ its `find-image' forms."
       (add-item 'fstar-selective-display-mode "ghost")
       (add-item 'fstar--visit-interface "switch-to-interface")
       (add-item 'fstar--visit-implementation "switch-to-implementation")
-      (add-item 'fstar-literate-fst2rst "switch-to-rst")
       (define-key-after map [queries-sep] '(menu-item "--"))
+      (add-item 'fstar-literate-fst2rst "switch-to-rst")
+      (add-item 'fstar-literate-preview "preview-rst")
+      (define-key-after map [literate-sep] '(menu-item "--"))
       (add-item 'fstar-quit-windows "quit-windows")
       (add-item 'fstar-subp-kill-one-or-many "stop")
       (add-item 'fstar-cli-verify "cli-verify")
