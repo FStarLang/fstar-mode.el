@@ -511,7 +511,7 @@ class exercise_code_node(nodes.literal_block):
     def depart(visitor, node):
         return visitor.depart_literal_block(node)
 
-class ExerciseCode(FStarListingBaseDirective):
+class ExerciseCodeDirective(FStarListingBaseDirective):
     """An exercise-specific snippet of code.
 
     This directive must appear within the body of an ``.. exercise::`` node.  It
@@ -788,8 +788,8 @@ def add_nodes(translator_class):
 ROLES = [FStarTypeRole]
 NODES = [exercise_node, solution_node, fst_node, exercise_code_node,
          standalone_editor_reference_node]
-DIRECTIVES = [FixmeAuthorsDirective, FixmeDirective, FStarBlockDirective,
-              ExerciseDirective, SolutionDirective, ExerciseCode,
+DIRECTIVES = [FStarBlockDirective, ExerciseDirective, SolutionDirective,
+              ExerciseCodeDirective, FixmeAuthorsDirective, FixmeDirective,
               TagAllDirective]
 DOCUTILS_TRANSFORMS = [CheckExerciseSubNodesTransform, ApplyTagsTransform]
 SPHINX_TRANSFORMS = [BuildFStarArtifactsTransform]

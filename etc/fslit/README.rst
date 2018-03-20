@@ -124,28 +124,6 @@ Literate F\* roles and directives
 Directives
 ----------
 
-``.. fixme-authors::`` A list of author aliases used in ``.. fixme ::`` directives.
-    For example::
-
-       .. fixme-authors::
-
-          CN Chuck Norris
-          AH Alyssa P. Hacker
-
-       .. fixme:: CN
-
-          Clarify this part
-
-``.. fixme::`` A note indicating a problem with the surrounding code or text.
-    Takes one argument: the name of the note's author.  Name abbreviations can
-    be declared using the `.. fixme-authors::` annotation.
-
-    For example::
-
-       .. fixme:: CN
-
-          Clarify this part
-
 ``.. fst::`` A block of F* code.
     This directive is automatically inserted when translating a literate F*
     document to reStructuredText.  As such, it is not usually useful to include
@@ -231,6 +209,28 @@ Directives
           .. exercise-code::
 
              let rec eval x = _
+
+``.. fixme-authors::`` A list of author aliases used in ``.. fixme ::`` directives.
+    For example::
+
+       .. fixme-authors::
+
+          CN Chuck Norris
+          AH Alyssa P. Hacker
+
+       .. fixme:: CN
+
+          Clarify this part
+
+``.. fixme::`` A note indicating a problem with the surrounding code or text.
+    Takes one argument: the name of the note's author.  Name abbreviations can
+    be declared using the `.. fixme-authors::` annotation.
+
+    For example::
+
+       .. fixme:: CN
+
+          Clarify this part
 
 ``.. tag-all::`` A utility to tag subsequent ``fst`` blocks at the current indentation level.
     Accepts one argument: a space-separate list of tags.  These tags are applied
