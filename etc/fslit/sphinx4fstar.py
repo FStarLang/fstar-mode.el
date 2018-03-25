@@ -56,6 +56,9 @@ In HTML mode, set the refuri appropriately; in other modes, remove them."""
 
 def register_fst_parser(app):
     app.add_source_parser('.fst', LiterateFStarParser)
+    if '.fst' not in app.config.source_suffix:
+        app.config.source_suffix.append('.fst')
+
 
 def add_html_assets(app):
     if app.builder.name == "html":
