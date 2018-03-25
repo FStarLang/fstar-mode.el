@@ -88,8 +88,22 @@ window.FSLit = window.FSLit || {};
             });
     }
 
+    function resizeCodeMirrorInstances() {
+        // Also found in fstar.cli.html
+        if (document && document.fonts && document.fonts.ready) {
+            document.fonts.ready.then(function () {
+                var editors = document.getElementsByClassName("CodeMirror");
+                for (var idx = 0; idx < editors.length; idx++) {
+                    var editor = editors[idx].CodeMirror;
+                    editor && editor.refresh();
+                }
+            });
+        }
+    }
+
     $(function() {
         addStandaloneEditorLinks();
         activateSolutionBodies();
+        resizeCodeMirrorInstances();
     });
 }());
