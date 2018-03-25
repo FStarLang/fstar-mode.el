@@ -3,6 +3,9 @@
 // Forked off from CodeMirror, original copyright (c) by Marijn Haverbeke and others
 // Distributed under Apache 2.0
 
+/* This file is in fslit rather than fstar.js because we need it to highlight
+   code in the standalone editor that talks to a remote server */
+
 (function(mod) {
     if (typeof exports == "object" && typeof module == "object") // CommonJS
         mod(require("../../lib/codemirror"));

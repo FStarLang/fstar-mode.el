@@ -1,5 +1,8 @@
 /* Based on Sublime Text's Monokai theme */
 
+/* This file is in fslit rather than fstar.js because we need it to highlight
+   code in the standalone editor that talks to a remote server */
+
 .cm-s-tango.CodeMirror {
     background: white; color: black;
 }

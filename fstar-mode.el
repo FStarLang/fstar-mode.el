@@ -2453,8 +2453,8 @@ Table of continuations was %s" response id conts)))
     (remhash id fstar-subp--continuations)
     (unwind-protect
         (fstar--widened
-          (fstar--log 'info "Query %S completed in %.4fs" id
-                 (float-time (fstar-continuation--delay continuation)))
+          (fstar-log 'info "Query %S completed in %.4fs" id
+                (float-time (fstar-continuation--delay continuation)))
           (funcall (fstar-continuation-body continuation) status response))
       (with-current-buffer source-buffer
         (fstar-subp--set-queue-timer)))))
@@ -4335,7 +4335,6 @@ be empty and empty strings can't be annotated.")
 Candidates are provided by the F* subprocess.
 COMMAND, ARG, REST: see `company-backends'."
   (interactive '(interactive))
-  ;; (fstar-log 'info "fstar-subp-company-backend: %S %S" command arg)
   (when (fstar--has-feature 'autocomplete)
     (pcase command
       (`interactive
@@ -4481,6 +4480,9 @@ the original query's status."
 (defcustom fstar-spin-theme "✪⍟"
   "Which theme to use in indicating that F* is busy."
   :type '(choice (const "✪⍟")
+                 (const #("✪✪"
+                          0 1 (composition ((1 . "\t✪\t")))
+                          1 2 (face (:inverse-video t) composition ((1 . "\t✪\t")))))
                  (const "✪●")
                  (const "✪○")
                  (const "✪❂")

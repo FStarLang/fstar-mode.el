@@ -36,4 +36,4 @@ publish_cmdline(writer_name='html',
                                     'stylesheet_path': None,
                                     'math_output': "MathJax " + MATHJAX_URL,
                                     'stylesheet': ",".join(stylesheets)},
-                description='Build an HTML5 document from a literate F* file.' + default_description)
+                description='Build an HTML document from a literate F* file. ' + default_description)
