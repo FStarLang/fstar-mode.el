@@ -74,8 +74,9 @@ html p {
 }
 
 .fstar-remote-editor .run,
-.fstar-remote-editor .stdout {
-    font-family: "Ubuntu Mono", "Consolas", "Monaco", "Inconsolata", "Source Code Pro", monospace;
+.fstar-remote-editor .stdout,
+.fstar-remote-editor .editor .CodeMirror {
+    font-family: "Fira Code", "Ubuntu Mono", "Consolas", "Monaco", "Inconsolata", "Source Code Pro", monospace;
 }
 
 .fstar-remote-editor .run {
@@ -94,4 +95,49 @@ html p {
     padding: 0.5rem;
     white-space: pre-wrap;
     width: 100%;
+}
+
+/* Fira code definitions */
+@font-face{
+    font-family: 'Fira Code';
+    src: url('https://cdn.rawgit.com/tonsky/FiraCode/1.205/distr/eot/FiraCode-Light.eot');
+    src: url('https://cdn.rawgit.com/tonsky/FiraCode/1.205/distr/eot/FiraCode-Light.eot') format('embedded-opentype'),
+         url('https://cdn.rawgit.com/tonsky/FiraCode/1.205/distr/woff2/FiraCode-Light.woff2') format('woff2'),
+         url('https://cdn.rawgit.com/tonsky/FiraCode/1.205/distr/woff/FiraCode-Light.woff') format('woff'),
+         url('https://cdn.rawgit.com/tonsky/FiraCode/1.205/distr/ttf/FiraCode-Light.ttf') format('truetype');
+    font-weight: 300;
+    font-style: normal;
+}
+
+@font-face{
+    font-family: 'Fira Code';
+    src: url('https://cdn.rawgit.com/tonsky/FiraCode/1.205/distr/eot/FiraCode-Regular.eot');
+    src: url('https://cdn.rawgit.com/tonsky/FiraCode/1.205/distr/eot/FiraCode-Regular.eot') format('embedded-opentype'),
+         url('https://cdn.rawgit.com/tonsky/FiraCode/1.205/distr/woff2/FiraCode-Regular.woff2') format('woff2'),
+         url('https://cdn.rawgit.com/tonsky/FiraCode/1.205/distr/woff/FiraCode-Regular.woff') format('woff'),
+         url('https://cdn.rawgit.com/tonsky/FiraCode/1.205/distr/ttf/FiraCode-Regular.ttf') format('truetype');
+    font-weight: 400;
+    font-style: normal;
+}
+
+@font-face{
+    font-family: 'Fira Code';
+    src: url('https://cdn.rawgit.com/tonsky/FiraCode/1.205/distr/eot/FiraCode-Medium.eot');
+    src: url('https://cdn.rawgit.com/tonsky/FiraCode/1.205/distr/eot/FiraCode-Medium.eot') format('embedded-opentype'),
+         url('https://cdn.rawgit.com/tonsky/FiraCode/1.205/distr/woff2/FiraCode-Medium.woff2') format('woff2'),
+         url('https://cdn.rawgit.com/tonsky/FiraCode/1.205/distr/woff/FiraCode-Medium.woff') format('woff'),
+         url('https://cdn.rawgit.com/tonsky/FiraCode/1.205/distr/ttf/FiraCode-Medium.ttf') format('truetype');
+    font-weight: 700;
+    font-style: normal;
+}
+
+@font-face{
+    font-family: 'Fira Code';
+    src: url('https://cdn.rawgit.com/tonsky/FiraCode/1.205/distr/eot/FiraCode-Bold.eot');
+    src: url('https://cdn.rawgit.com/tonsky/FiraCode/1.205/distr/eot/FiraCode-Bold.eot') format('embedded-opentype'),
+         url('https://cdn.rawgit.com/tonsky/FiraCode/1.205/distr/woff2/FiraCode-Bold.woff2') format('woff2'),
+         url('https://cdn.rawgit.com/tonsky/FiraCode/1.205/distr/woff/FiraCode-Bold.woff') format('woff'),
+         url('https://cdn.rawgit.com/tonsky/FiraCode/1.205/distr/ttf/FiraCode-Bold.ttf') format('truetype');
+    font-weight: 900;
+    font-style: normal;
 }
