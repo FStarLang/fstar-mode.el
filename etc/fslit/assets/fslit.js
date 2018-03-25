@@ -4,6 +4,13 @@
 window.FSLit = window.FSLit || {};
 
 (function () {
+    function useCodeMirror(editor, text) {
+        return CodeMirror(editor, { lineNumbers: true,
+                                    theme: "tango",
+                                    value: text || "",
+                                    mode: "text/x-fstar" });
+    }
+
     var HTML = ['<div class="fstar-remote-editor">',
                 '  <div class="editor"></div>',
                 '  <div class="control-panel">',
@@ -21,9 +28,7 @@ window.FSLit = window.FSLit || {};
         this.$run = $root.find(".run").click($.proxy(this.verifyCurrentInput, this));
 
         this.toggleButton(false);
-        this.editor = new CodeMirror(this.$editor[0], { lineNumbers: true,
-                                                        theme: "tango",
-                                                        mode: "text/x-fstar" });
+        this.editor = useCodeMirror(this.$editor[0], fcontents || "");
     };
 
     StandaloneClient.prototype.toggleButton = function(disabled, message) {
