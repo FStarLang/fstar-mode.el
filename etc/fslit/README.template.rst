@@ -1,6 +1,6 @@
-====================================================================
- `fslit`: Utilities for writing and rendering literate F\* programs
-====================================================================
+======================================================================
+ ``fslit``: Utilities for writing and rendering literate F\* programs
+======================================================================
 
 Setting up
 ==========
@@ -75,25 +75,36 @@ new Sphinx project::
    … Checking connectivity... done.
 
    $ sphinx-quickstart --ext-mathjax --extensions fslit.sphinx4fstar \
-       --suffix .fst --quiet --author '<you>' --project '<proj-name>'
+       --quiet --author '<you>' --project '<proj-name>'
 
-Open the generated ``conf.py`` file, and make the following changes:
-
-- Insert the following after the comment saying *If extensions […] are in another directory, add these directories to sys.path here.*::
+Open the generated ``conf.py`` file, and insert the following after the comment saying *If extensions […] are in another directory, add these directories to sys.path here.*::
 
      import os
      import sys
      sys.path.insert(0, os.path.abspath('fstar-mode.el/etc/'))
 
-- Adjust the ``source_suffix`` line as follows::
+You can now create literate F\* documents and add them to the ``.. toctree::``
+directive in ``index.rst``.  Use ``make html`` to confirm that everything is
+working (generated files are in ``_build/html/index.html``) and ``make serve``
+to serve the website locally (at ``http://localhost:8000/``).
 
-     source_suffix = ['.rst', '.fst']
+F\*.js (making your literate F* documents interactive)
+------------------------------------------------------
 
-- Discard the generated ``index.fst``, and replace it with your own literate F\*
-  document.
+Documents built by ``fslit`` can be turned into interactive proofs using `F\*.js
+<https://github.com/cpitclaudel/fstar.js>`_, a JavaScript build of F\*.  Its
+README explains how to set things up manually, but ``fslit`` comes with a Sphinx
+plug-in to make it easier.
 
-Use ``make html`` to confirm that everything is working.  Your website is in
-``_build/html/index.html``.
+With a properly configured Sphinx project, the following steps should be enough:
+
+- Add ``"fslit.js"`` to ``extensions`` in ``conf.py``.
+- Download an F\*.js release, and copy or symlink the ``fstar.js`` folder to
+  your Sphinx project's ``_static`` directory.
+- Rebuild your Sphinx project.
+
+You'll need to run ``make serve` to browse the results: WebWorkers can't (as of
+2018-03) run from ``file://`` addresses.
 
 Literate F\* roles and directives
 =================================
