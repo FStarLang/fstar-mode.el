@@ -39,14 +39,8 @@ class FStarDomain(Domain):
         'objects' : {}
     }
 
-
 # Event handlers
 # ==============
-
-def unfold_folded_fst_blocks(app, doctree, _fromdocname):
-    if app.builder.name == "html":
-        for node in doctree.traverse(docutils4fstar.fst_node):
-            node.replace_self(node.original_node)
 
 def process_external_editor_references(app, doctree, fromdocname):
     """Adjust links to the external editor.
@@ -99,7 +93,6 @@ def setup(app):
 
     app.connect('builder-inited', add_html_assets)
     app.connect('builder-inited', register_fst_parser)
-    app.connect('doctree-resolved', unfold_folded_fst_blocks)
     app.connect('doctree-resolved', process_external_editor_references)
 
     return {'version': '0.1', "parallel_read_safe": True}

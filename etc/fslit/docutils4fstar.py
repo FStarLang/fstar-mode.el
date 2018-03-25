@@ -384,20 +384,11 @@ class SolutionDirective(TitledBlockBaseDirective):
 
 class FStarListingBaseDirective(Directive):
     EXPECTED_INDENTATION = 3
-    HIDDEN_BLOCK_RE = re.compile(re.escape("(* {{{")
-                                 + "(?P<annotation>.*?)"
-                                 + re.escape ("*)")
-                                 + ".*?"
-                                 + re.escape("(* }}} *)"), flags=re.DOTALL)
     option_spec = { "class": directives.class_option,
                     "name": directives.unchanged,
                     "tags": directives.unchanged }
     has_content = True
     node_class = nodes.literal_block
-
-    @staticmethod
-    def collapse_hidden_blocks(text):
-        return FStarListingBaseDirective.HIDDEN_BLOCK_RE.sub(r"(* …\g<annotation>*)", text)
 
     def run(self):
         self.assert_has_content()
@@ -406,25 +397,18 @@ class FStarListingBaseDirective(Directive):
         classes = ["code", "fstar"] + self.options.get("classes", [])
 
         lines = recompute_contents(self, FStarBlockDirective.EXPECTED_INDENTATION)
+        code = "\n".join(lines)
 
-        original_code = "\n".join(lines)
         # Sphinx highlights code when ``node.raw == node.astext()``. We don't
         # want highlighting here, so we use a dummy ``raw`` value
-        original_node = self.node_class("<no-highlighting>", original_code, classes=classes)
+        node = self.node_class("<no-highlighting>", code, classes=classes)
+        node["tags"] = self.options.get("tags", "").split()
+        node.lines = lines
 
-        collapsed_code = self.collapse_hidden_blocks(original_code)
-        collapsed_node = self.node_class(collapsed_code, collapsed_code, classes=classes)
-        collapsed_node.original_node = original_node
+        self.add_name(node)
+        set_source_info(self, node)
 
-        tags = self.options.get("tags", "").split()
-        for node in [original_node, collapsed_node]:
-            node["tags"] = tags
-            node.lines = lines
-
-            self.add_name(node)
-            set_source_info(self, node)
-
-        return [collapsed_node]
+        return [node]
 
 # .. tag-all
 # ~~~~~~~~~~
