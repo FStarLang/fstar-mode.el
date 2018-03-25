@@ -597,11 +597,15 @@ class BuildFStarArtifactsTransform(Transform):
                         [fst.lines for fst in visitor.code_blocks])
                     node.artifact.writeout(rootdir)
                     # Add a link
+                    link = node.artifact.make_link()
                     solution = next(iter(node.traverse(solution_node)), None)
                     if solution:
+                        # Insert the editor link right before the solution
                         parent = solution.parent
                         index = parent.index(solution)
-                        parent.insert(index, node.artifact.make_link())
+                        parent.insert(index, link)
+                    else:
+                        node.append(link)
             elif isinstance(node, solution_node):
                 exercise = find_parent(node, exercise_node)
                 if exercise.get("fname"):
