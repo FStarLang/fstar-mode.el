@@ -2,17 +2,16 @@
 # -*- coding: utf-8 -*-
 
 import os
-from sphinx.errors import ExtensionError
+import docutils
+from sphinx.config import Config
+from sphinx.errors import ExtensionError, ConfigError
+from sphinx.application import Sphinx
 
 from . import docutils4fstar
 
-# FIXME
-# def download_fstar_js():
-#     URL =
-#     with urllib.request.urlopen(url) as response:
-#         with gzip.GzipFile(fileobj=response) as uncompressed:
-#             file_header = uncompressed.read(64) # a `bytes` object
-#     urllib.urlretrieve()
+MISSING_FSTARJS_MESSAGE = "Directory '{}/fstar.js/' not found. Please \
+download an fstar.js build from GitHub and decompress it into your \
+'_static' folder."
 
 def ensure_fstar_js(static_path):
     """Ensure that fstar.js was downloaded."""
@@ -20,19 +19,22 @@ def ensure_fstar_js(static_path):
         candidate = os.path.join(pth, 'fstar.js')
         if os.path.isdir(candidate):
             return candidate
-    error_message = "Please download an fstar.js build from GitHub" \
-        "and decompress it into your '_static' folder."
-    raise ExtensionError(error_message)
+    raise ExtensionError(MISSING_FSTARJS_MESSAGE)
 
-def setup_js_assets(app):
+def setup_js_assets(app): # type: Sphinx -> ()
     if app.builder.name == "html":
-        ensure_fstar_js(app.html_static_path)
+        fstar_js_path = ensure_fstar_js(app.config.html_static_path)
 
-        app.config.html_static_path.append(app.config.fstar_js_path)
+        # Adding to extra_path ensures that the files are copied to the
+        # output but ignored when looking for sources.
+        app.config.html_extra_path.append(fstar_js_path)
+
+        # This configures FStar.{IDE,CLI}.WORKER_DIRECTORY, sets the file name,
+        # and loads the literate client.
         app.add_javascript("fslit.fstarjs-config.js")
 
         # Listed here are only the client scripts (not the worker ones), as
-        # these are the only ones that need to be directly included in the HTML
+        # these are the only ones that need to be directly included in the HTML.
         app.add_stylesheet("fstar.js/fstar.ide.css")
         app.add_stylesheet("fstar.js/fstar.cli.css")
         app.add_javascript("fstar.js/fstar.global-object.js")
@@ -43,6 +45,11 @@ def setup_js_assets(app):
         app.add_javascript("fstar.js/fstar.ide.literate.client.js")
         app.add_javascript("fstar.js/fstar.cli.protocol.js")
         app.add_javascript("fstar.js/fstar.cli.client.js")
+        # (Sphinx adds a static “_static/” prefix to all relative paths)
+
+        # These two are used for displaying goals
+        app.add_javascript("https://cdnjs.cloudflare.com/ajax/libs/mustache.js/2.3.0/mustache.js")
+        app.add_javascript("https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.36.0/addon/runmode/runmode.min.js")
 
 FSTAR_JS_CODA = """\
 <!-- F*.js configuration -->
@@ -57,7 +64,6 @@ def insert_fstarjs_script_tags(_app, doctree, fromdocname):
     doctree.append(docutils.nodes.raw("", js, format="html"))
 
 def setup(app):
-    # Sphinx adds a static “_static/” prefix to all relative paths
     app.connect('builder-inited', setup_js_assets)
     app.connect('doctree-resolved', insert_fstarjs_script_tags)
 
