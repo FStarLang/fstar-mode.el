@@ -12,8 +12,9 @@ window.FSLit = window.FSLit || {};
                 '  <pre class="stdout"></pre>',
                 '</div>'].join("\n");
 
-    var StandaloneClient = FSLit.StandaloneClient = function(root) {
-        var $root = this.$root = root ? $(root) : $(HTML);
+    var StandaloneClient = FSLit.StandaloneClient = function(host, _fname, fcontents, _cli) {
+        var $root = this.$root = $(HTML);
+        $(host).replaceWith($root);
 
         this.$editor = $root.find(".editor");
         this.$stdout = $root.find(".stdout").empty();
@@ -44,13 +45,6 @@ window.FSLit = window.FSLit || {};
         this.verify(fcontents);
     };
 
-    StandaloneClient.prototype.loadDocumentAsync = function(documentURL) {
-        var editor = this.editor;
-        $.get(documentURL, function(data) {
-            editor.setValue(data);
-        }, 'text');
-    };
-
     StandaloneClient.prototype.setValue = function(fcontents) {
         this.editor.setValue(fcontents, -1);
     };
@@ -58,10 +52,13 @@ window.FSLit = window.FSLit || {};
     StandaloneClient.prototype.setFilename = function() {};
 
     function openStandaloneEditor(documentURL, $linkNode) {
-        var client = new FSLit.StandaloneClient(); // This can be overwritten
-        client.setFilename(documentURL.replace(/^.*\//, ""));
+        var root = $('<div/>');
+        $linkNode.parent().after(root);
+        // fstarjs-config.js overwrites FSLit.StandaloneClient,
+        // making it point to FStar.CLI.Client.
+        var fname = documentURL.replace(/^.*\//, "");
+        var client = new FSLit.StandaloneClient(root, fname, null, null);
         $.get(documentURL, function(data) { client.setValue(data); }, 'text');
-        $linkNode.parent().after(client.$root);
         $linkNode.remove();
     }
 
