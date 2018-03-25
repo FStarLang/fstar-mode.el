@@ -44,8 +44,21 @@ def setup_js_assets(app):
         app.add_javascript("fstar.js/fstar.cli.protocol.js")
         app.add_javascript("fstar.js/fstar.cli.client.js")
 
+FSTAR_JS_CODA = """\
+<!-- F*.js configuration -->
+<script>
+__FSTAR_JS_CURRENT_FST_FILE_NAME__ = "{{{FILENAME}}}"
+</script>
+<!-- End of F*.js configuration -->
+"""
+
+def insert_fstarjs_script_tags(_app, doctree, fromdocname):
+    js = FSTAR_JS_CODA.replace("{{{FILENAME}}}", fromdocname + ".fst")
+    doctree.append(docutils.nodes.raw("", js, format="html"))
+
 def setup(app):
     # Sphinx adds a static “_static/” prefix to all relative paths
     app.connect('builder-inited', setup_js_assets)
-    app.connect('doctree-resolved', docutils4fstar.insert_fstarjs_script_tags)
+    app.connect('doctree-resolved', insert_fstarjs_script_tags)
+
     return {'version': '0.1', "parallel_read_safe": True}

@@ -726,23 +726,12 @@ class LiterateFStarParser(docutils.parsers.Parser):
         self.linemap, self.source = None, None
 
 class StandaloneLiterateFStarReader(Reader):
+    def __init__(self, parser=None, parser_name=None, extra_transforms=None):
+        Reader.__init__(self, parser, parser_name)
+        self.extra_transforms = extra_transforms or []
+
     def get_transforms(self):
-        return Reader.get_transforms(self) + DOCUTILS_TRANSFORMS
-
-# FStar.js support
-# ================
-
-FSTAR_JS_CODA = """
-<!-- F*.js configuration -->
-<script>
-__FSTAR_JS_CURRENT_FST_FILE_NAME__ = "{{{FILENAME}}}"
-</script>
-<!-- End of F*.js configuration -->
-"""
-
-def insert_fstarjs_script_tags(_app, doctree, fromdocname):
-    js = FSTAR_JS_CODA.replace("{{{FILENAME}}}", fromdocname + ".fst")
-    doctree.append(nodes.raw("", js, format="html"))
+        return Reader.get_transforms(self) + DOCUTILS_TRANSFORMS + self.extra_transforms
 
 # Main entry point
 # ================
