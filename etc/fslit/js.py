@@ -3,11 +3,8 @@
 
 import os
 import docutils
-from sphinx.config import Config
-from sphinx.errors import ExtensionError, ConfigError
-from sphinx.application import Sphinx
 
-from . import docutils4fstar
+from sphinx.errors import ExtensionError
 
 MISSING_FSTARJS_MESSAGE = "Directory '{}/fstar.js/' not found. Please \
 download an fstar.js build from GitHub and decompress it into your \
