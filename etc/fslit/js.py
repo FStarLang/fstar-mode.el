@@ -25,9 +25,11 @@ def setup_js_assets(app): # type: Sphinx -> ()
     if app.builder.name == "html":
         fstar_js_path = ensure_fstar_js(app.config.html_static_path)
 
-        # Adding to extra_path ensures that the files are copied to the
-        # output but ignored when looking for sources.
-        app.config.html_extra_path.append(fstar_js_path)
+        # The pattern below tells Sphinx to copy files in ``fstar.js/`` without
+        # processing them (converting them to HTML).  It works because the
+        # document finder checks absolute paths against `exclude_patterns`,
+        # whereas the assets-copying code checks paths relative to ``_static/``.
+        app.config.exclude_patterns.append(fstar_js_path)
 
         # This configures FStar.{IDE,CLI}.WORKER_DIRECTORY, sets the file name,
         # and loads the literate client.
