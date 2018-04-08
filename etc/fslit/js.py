@@ -32,18 +32,11 @@ def setup_js_assets(app): # type: Sphinx -> ()
         # and loads the literate client.
         app.add_javascript("fslit.fstarjs-config.js")
 
-        # Listed here are only the client scripts (not the worker ones), as
-        # these are the only ones that need to be directly included in the HTML.
+        # Listed here are the scripts that need to be directly included in the
+        # HTML (not the ones that run in web workers)
         app.add_stylesheet("fstar.js/fstar.ide.css")
         app.add_stylesheet("fstar.js/fstar.cli.css")
-        app.add_javascript("fstar.js/fstar.global-object.js")
-        app.add_javascript("fstar.js/fstar.ide.utils.js")
-        app.add_javascript("fstar.js/fstar.client.utils.js")
-        app.add_javascript("fstar.js/fstar.ide.protocol.js")
-        app.add_javascript("fstar.js/fstar.ide.client.js")
-        app.add_javascript("fstar.js/fstar.ide.literate.client.js")
-        app.add_javascript("fstar.js/fstar.cli.protocol.js")
-        app.add_javascript("fstar.js/fstar.cli.client.js")
+        app.add_javascript("fstar.js/fstar.client.js")
         # (Sphinx adds a static “_static/” prefix to all relative paths)
 
         # These two are used for displaying goals
