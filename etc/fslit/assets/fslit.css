@@ -34,13 +34,8 @@ html p {
     clear: both;
 }
 
-.solution-body {
-    transition: 0.2s all;
-    filter: blur(0.4rem);
-}
-
-.solution-body:hover, .solution-body.fstar-clear-solution {
-    filter: none;
+.solution-body:not(:hover):not(.fstar-clear-solution) * {
+    color: transparent !important;
 }
 
 .fstar-standalone-editor-link-box {
