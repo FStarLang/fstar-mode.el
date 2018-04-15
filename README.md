@@ -27,11 +27,11 @@ F*-mode requires Emacs 24.3 or newer, and is distributed through [MELPA](https:/
 
 `fstar-mode` is compatible with Tramp: if you open an F* file on a remote machine, `fstar-mode` run F* remotely [over SSH](#editing-remote-f*-files).
 
-4. `fstar-mode` is compatible with the jump to definition feature of Spacemacs. In your `~/.spacemacs` file, extend the `user-init` (*not* `user-config`) function with:
+**Spacemacs note**: @kyoDralliam has a draft of a [Spacemacs layer for F*](https://github.com/kyoDralliam/fstar-layer/).  You may need to add the following to your `user-init` (*not* `user-config`) function for jump-to-definition to work:
 
-    ```elisp
-    (spacemacs|define-jump-handlers fstar-mode (fstar-jump-to-definition :async t))
-    ```
+```elisp
+(spacemacs|define-jump-handlers fstar-mode (fstar-jump-to-definition :async t))
+```
 
 ## Keybindings
 
