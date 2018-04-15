@@ -1162,7 +1162,7 @@ leads to the binder's start."
 
 (defun fstar--cleanup-type (type)
   "Clean up TYPE."
-  (replace-regexp-in-string "\\(?:uu___:\\|[@#][0-9]+\\_>\\)" "" type t t))
+  (replace-regexp-in-string "\\(?:uu___[0-9]*:\\|[@#][0-9]+\\_>\\)" "" type t t))
 
 (defun fstar--unparens (str)
   "Remove parentheses surrounding STR, if any."
