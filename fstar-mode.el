@@ -4310,11 +4310,28 @@ CALLBACK is the company-mode asynchronous meta callback."
   (fstar-subp-company--async-lookup candidate '(defined-at)
     (apply-partially #'fstar-subp-company--location-continuation callback)))
 
+(defun fstar-subp-company-reserved-candidates (prefix)
+  "Find F* keywords matching PREFIX.
+Only exact matches are permitted, so this returns at most one
+element, annotated with `fstar--reserved'."
+  (let ((case-fold-search nil))
+    (when (string-match-p fstar-syntax-reserved-exact-re prefix)
+      (list (propertize prefix
+                        'fstar--reserved t
+                        'meta "Reserved keyword"
+                        'doc-buffer nil
+                        'quickhelp-string nil
+                        'location nil
+                        'annotation "kwd")))))
+
+(defvar fstar-subp-company--last-prefix nil)
+
 (defun fstar-subp-company-candidates (prefix context)
   "Compute candidates for PREFIX in CONTEXT.
 Briefly tries to get results synchronously to reduce flicker (see
 URL `https://github.com/company-mode/company-mode/issues/654'), and
 then returns an :async cons, as required by company-mode."
+  (setq fstar-subp-company--last-prefix prefix)
   (let ((retv (fstar-subp--query-and-wait
                (fstar-subp--completion-query prefix context) 0.03))
         (extras (fstar-subp-company-reserved-candidates prefix)))
@@ -4332,8 +4349,12 @@ then returns an :async cons, as required by company-mode."
 
 (defun fstar-subp-company--post-completion (candidate)
   "Expand snippet of CANDIDATE, if any."
-  (-when-let* ((snippet (get-text-property 0 'fstar--snippet candidate)))
-    (fstar--expand-snippet snippet (- (point) (length candidate)) (point))))
+  (-if-let* ((snippet (get-text-property 0 'fstar--snippet candidate)))
+      (fstar--expand-snippet snippet (- (point) (length candidate)) (point))
+    (if (and (equal fstar-subp-company--last-prefix candidate)
+             (memq 'company-defaults fstar-enabled-modules))
+        ;; Insert a newline when pressing RET on a complete candidate (GH-67)
+        (call-interactively #'newline))))
 
 (defvar-local fstar-subp-company--completion-context nil
   "Temporary variable to store current completion context.
