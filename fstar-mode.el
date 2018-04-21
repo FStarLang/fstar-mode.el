@@ -2916,10 +2916,19 @@ reported."
   (fstar-subp--local-loc-p (car (fstar-issue-locs issue))))
 
 (defcustom fstar-jump-to-errors t
-  "Whether to move to the first error after processing a fragment."
+  "Whether to move the point to the first issue after processing a fragment."
   :group 'fstar-interactive
-  :type 'boolean
-  :safe 'booleanp)
+  :type '(choice (const :tag "Move to first error" t)
+                 (const :tag "Move to first error or warning" errors-and-warnings)
+                 (const :tag "Do not move" nil))
+  :safe 'symbolp)
+
+(defun fstar-subp--target-issue (issues)
+  "Find an issue in ISSUES to jump to, based on `fstar-jump-to-errors'."
+  (pcase fstar-jump-to-errors
+    (`t (cl-find-if (lambda (i) (eq (fstar-issue-level i) 'error)) issues))
+    (`errors-and-warnings (car issues))
+    (`nil nil)))
 
 (defun fstar-subp-parse-and-highlight-issues (status response overlay)
   "Parse issues in RESPONSE (caused by processing OVERLAY) and display them.
@@ -2937,8 +2946,8 @@ Complain if STATUS is `failure' and RESPONSE doesn't contain issues."
       (fstar-log 'info "Highlighting issues: %s" issues))
     (when local-issues
       (fstar-subp-highlight-issues local-issues overlay)
-      (if fstar-jump-to-errors
-          (fstar-subp-jump-to-issue (car local-issues))
+      (-if-let* ((target-issue (fstar-subp--target-issue local-issues)))
+          (fstar-subp-jump-to-issue target-issue)
         (message (fstar-issue-message-with-level (car local-issues)))))))
 
 ;;; ;; Visiting related errors
