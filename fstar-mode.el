@@ -926,6 +926,19 @@ allows composition in code comments."
 (defconst fstar-syntax-constants-re
   (regexp-opt fstar-syntax-constants 'symbols))
 
+(defconst fstar-syntax-reserved-exact-re
+  (format "\\`%s\\'"
+          (regexp-opt
+           (append `("Type")
+                   fstar-syntax-headers
+                   fstar-syntax-fsdoc-keywords
+                   fstar-syntax-preprocessor
+                   fstar-syntax-qualifiers
+                   fstar-syntax-block-delims
+                   fstar-syntax-keywords
+                   fstar-syntax-builtins
+                   fstar-syntax-constants))))
+
 (defface fstar-structure-face
   '((((background light)) (:bold t))
     (t :bold t :foreground "salmon"))
@@ -4179,9 +4192,11 @@ change the length of a candidate."
      candidate 'fstar--match-end match-end 'fstar--annot annot 'fstar--context context)
     (fstar-subp-company--post-process-candidate candidate)))
 
-(defun fstar-subp-company--candidates-continuation (context callback status response)
+(defun fstar-subp-company--candidates-continuation
+    (context callback additional-completions status response)
   "Handle the results (STATUS, RESPONSE) of an `autocomplete' query.
-Return (CALLBACK CANDIDATES).  CONTEXT is propertized onto all candidates."
+Return (CALLBACK CANDIDATES).  CONTEXT is propertized onto all candidates.
+ADDITIONAL-COMPLETIONS are added to the front of the results list"
   (pcase status
     ((or `failure `interrupted)
      (funcall callback nil))
@@ -4189,14 +4204,16 @@ Return (CALLBACK CANDIDATES).  CONTEXT is propertized onto all candidates."
      (save-match-data
        (funcall
         callback
-        (if (fstar--has-feature 'json-subp)
-            (mapcar (apply-partially
-                     #'fstar-subp-company-json--make-candidate context)
-                    response)
-          (delq nil
-                (mapcar (apply-partially
-                         #'fstar-subp-company-legacy--make-candidate context)
-                        (split-string response "\n")))))))))
+        (append
+         additional-completions
+         (if (fstar--has-feature 'json-subp)
+             (mapcar (apply-partially
+                      #'fstar-subp-company-json--make-candidate context)
+                     response)
+           (delq nil
+                 (mapcar (apply-partially
+                          #'fstar-subp-company-legacy--make-candidate context)
+                         (split-string response "\n"))))))))))
 
 (defconst fstar-subp-company--ns-mod-annots
   '("mod" "ns" "+mod" "+ns" "(mod)" "(ns)" "-mod" "-ns"))
@@ -4213,7 +4230,8 @@ Return (CALLBACK CANDIDATES).  CONTEXT is propertized onto all candidates."
       ((or `set-options `reset-options)
        (replace-regexp-in-string " .*" "" snippet))
       ((or `open `include `module-alias `let-open)
-       snippet))))
+       snippet)
+      (_ (error "Unexpected context: %S" context)))))
 
 (defun fstar-subp-company--async-lookup (candidate fields continuation)
   "Pass info FIELDS about CANDIDATE to CONTINUATION.
@@ -4298,17 +4316,19 @@ Briefly tries to get results synchronously to reduce flicker (see
 URL `https://github.com/company-mode/company-mode/issues/654'), and
 then returns an :async cons, as required by company-mode."
   (let ((retv (fstar-subp--query-and-wait
-               (fstar-subp--completion-query prefix context) 0.03)))
+               (fstar-subp--completion-query prefix context) 0.03))
+        (extras (fstar-subp-company-reserved-candidates prefix)))
     (pcase retv
       (`(t . (,status ,results))
        (fstar-subp-company--candidates-continuation
-        context #'identity status results))
+        context #'identity extras status results))
       (`(needs-callback . ,_)
        `(:async
          . ,(lambda (cb)
               (setf (cdr retv)
                     (apply-partially
-                     #'fstar-subp-company--candidates-continuation context cb))))))))
+                     #'fstar-subp-company--candidates-continuation
+                     context cb extras))))))))
 
 (defun fstar-subp-company--post-completion (candidate)
   "Expand snippet of CANDIDATE, if any."
@@ -4348,6 +4368,8 @@ COMMAND, ARG, REST: see `company-backends'."
        (fstar-subp-company--prefix))
       (`candidates
        (fstar-subp-company-candidates arg fstar-subp-company--completion-context))
+      ((guard (and arg (plist-member (text-properties-at 0 arg) command)))
+       (get-text-property 0 command arg))
       (`meta
        `(:async . ,(apply-partially #'fstar-subp-company--async-meta arg)))
       (`doc-buffer
