@@ -863,7 +863,7 @@ allows composition in code comments."
 (defconst fstar-syntax-fsdoc-keywords-re
   (format "^[[:space:]]*\\(%s\\)\\_>" (regexp-opt fstar-syntax-fsdoc-keywords)))
 
-(defconst fstar-syntax-preprocessor-directives
+(defconst fstar-syntax-preprocessor
   '("#set-options" "#reset-options" "#light"))
 
 (defconst fstar-syntax-qualifiers
@@ -881,45 +881,50 @@ allows composition in code comments."
   (format "^\\(?:%s[ \n]\\)*%s "
           (regexp-opt fstar-syntax-qualifiers)
           (regexp-opt (append (remove "and" fstar-syntax-headers)
-                              fstar-syntax-preprocessor-directives)))
+                              fstar-syntax-preprocessor)))
   "Regexp matching starts of semantic blocks.")
 
-(defconst fstar-syntax-structure
-  (regexp-opt `("begin" "end" "in"
-                ,@fstar-syntax-headers
-                ,@fstar-syntax-qualifiers)
+(defconst fstar-syntax-block-delims
+  `("begin" "end" "in"))
+
+(defconst fstar-syntax-structure-re
+  (regexp-opt (append fstar-syntax-block-delims
+                      fstar-syntax-headers
+                      fstar-syntax-qualifiers)
               'symbols))
 
-(defconst fstar-syntax-preprocessor
-  (regexp-opt fstar-syntax-preprocessor-directives 'symbols))
+(defconst fstar-syntax-preprocessor-re
+  (regexp-opt fstar-syntax-preprocessor 'symbols))
 
 (defconst fstar-syntax-keywords
-  (regexp-opt '("of"
-                "forall" "exists"
-                "assert" "assert_norm" "assume"
-                "fun" "function"
-                "try" "match" "when" "with"
-                "if" "then" "else"
-                "ALL" "All" "DIV" "Div" "EXN" "Ex" "Exn" "GHOST" "GTot" "Ghost"
-                "Lemma" "PURE" "Pure" "Tot" "ST" "STATE" "St"
-                "Unsafe" "Stack" "Heap" "StackInline" "Inline")
-              'symbols))
+  '("of"
+    "forall" "exists"
+    "assert" "assert_norm" "assume"
+    "fun" "function"
+    "try" "match" "when" "with"
+    "if" "then" "else"
+    "ALL" "All" "DIV" "Div" "EXN" "Ex" "Exn" "GHOST" "GTot" "Ghost"
+    "Lemma" "PURE" "Pure" "Tot" "ST" "STATE" "St"
+    "Unsafe" "Stack" "Heap" "StackInline" "Inline"))
+
+(defconst fstar-syntax-keywords-re
+  (regexp-opt fstar-syntax-keywords 'symbols))
 
 (defconst fstar-syntax-builtins
-  (regexp-opt '("requires" "ensures" "modifies" "decreases" "attributes"
-                "effect_actions")
-              'symbols))
+  '("requires" "ensures" "modifies" "decreases" "attributes"
+    "effect_actions"))
 
-(defconst fstar-syntax-ambiguous
+(defconst fstar-syntax-builtins-re
+  (regexp-opt fstar-syntax-builtins 'symbols))
+
+(defconst fstar-syntax-ambiguous-re
   (regexp-opt `("\\/" "/\\")))
 
-;; (defconst fstar-syntax-types
-;;   (regexp-opt '("Type")
-;;               'symbols))
-
 (defconst fstar-syntax-constants
-  (regexp-opt '("False" "True")
-              'symbols))
+  '("False" "True"))
+
+(defconst fstar-syntax-constants-re
+  (regexp-opt fstar-syntax-constants 'symbols))
 
 (defface fstar-structure-face
   '((((background light)) (:bold t))
@@ -984,18 +989,18 @@ allows composition in code comments."
 
 (defconst fstar-comment-start-skip "\\(//+\\|(\\*+\\)[ \t]*")
 
-(defconst fstar-syntax-ws "\\(?:\\sw\\|\\s_\\)")
-(defconst fstar-syntax-id (concat "\\_<[#']?[a-z_]" fstar-syntax-ws "*\\_>"))
-(defconst fstar-syntax-cs (concat "\\_<[#']?[A-Z]" fstar-syntax-ws "*\\_>"))
+(defconst fstar-syntax-ws-re "\\(?:\\sw\\|\\s_\\)")
+(defconst fstar-syntax-id-re (concat "\\_<[#']?[a-z_]" fstar-syntax-ws-re "*\\_>"))
+(defconst fstar-syntax-cs-re (concat "\\_<[#']?[A-Z]" fstar-syntax-ws-re "*\\_>"))
 
-(defconst fstar-syntax-id-with-subscript
+(defconst fstar-syntax-id-with-subscript-re
   "\\_<[#']?_*[a-zA-Z]\\(?:[a-z0-9_']*[a-z]\\)?\\([0-9]+\\)['_]*\\_>")
 
-(defconst fstar-syntax-universe (concat "\\_<u#\\(?:([^()]+)\\|" fstar-syntax-ws "*\\_>\\)"))
+(defconst fstar-syntax-universe-re (concat "\\_<u#\\(?:([^()]+)\\|" fstar-syntax-ws-re "*\\_>\\)"))
 
-(defconst fstar-syntax-ids (concat "\\(" fstar-syntax-id "\\(?: +" fstar-syntax-id "\\)*\\)"))
+(defconst fstar-syntax-ids-re (concat "\\(" fstar-syntax-id-re "\\(?: +" fstar-syntax-id-re "\\)*\\)"))
 
-(defconst fstar-syntax-ids-and-type (concat fstar-syntax-ids " *:"))
+(defconst fstar-syntax-ids-and-type-re (concat fstar-syntax-ids-re " *:"))
 
 (defun fstar-find-id-maybe-type (bound must-find-type &optional extra-check)
   "Find var:type or var1..varN:type pair between point and BOUND.
@@ -1003,7 +1008,7 @@ allows composition in code comments."
 If MUST-FIND-TYPE is nil, the :type part is not necessary.
 If EXTRA-CHECK is non-nil, it is used as an extra filter on matches."
   (let ((found t) (rejected t)
-        (regexp (if must-find-type fstar-syntax-ids-and-type fstar-syntax-ids)))
+        (regexp (if must-find-type fstar-syntax-ids-and-type-re fstar-syntax-ids-re)))
     (while (and found rejected)
       (setq found (re-search-forward regexp bound t))
       (setq rejected (and found (or (memq (char-after) '(?: ?=)) ; h :: t, h := t
@@ -1101,12 +1106,12 @@ leads to the binder's start."
   `(apply-partially #'fstar--re-search-predicated-forward ,cond ,re))
 
 (defconst fstar-syntax-additional
-  (let ((id fstar-syntax-id))
-    `((,fstar-syntax-cs
+  (let ((id fstar-syntax-id-re))
+    `((,fstar-syntax-cs-re
        (0 'font-lock-type-face))
-      (,fstar-syntax-universe
+      (,fstar-syntax-universe-re
        (0 'fstar-universe-face))
-      (,(fstar--fl-conditional-matcher (concat "`" fstar-syntax-ws "+?`") #'fstar--in-code-p)
+      (,(fstar--fl-conditional-matcher (concat "`" fstar-syntax-ws-re "+?`") #'fstar--in-code-p)
        (0 'fstar-operator-face append))
       (,(fstar--fl-conditional-matcher "`" #'fstar--in-code-p)
        (0 'font-lock-negation-char-face))
@@ -1138,7 +1143,7 @@ leads to the binder's start."
       (fstar--find-fun-and-args
        (1 'font-lock-keyword-face)
        (fstar--find-formal (fstar-subexpr-pre-matcher 1) nil (1 'font-lock-variable-name-face append)))
-      (,(fstar--fl-conditional-matcher fstar-syntax-ambiguous #'fstar--in-code-p)
+      (,(fstar--fl-conditional-matcher fstar-syntax-ambiguous-re #'fstar--in-code-p)
        (0 'fstar-ambiguous-face append))
       ("!"
        (0 'fstar-dereference-face))
@@ -1214,11 +1219,11 @@ leads to the binder's start."
   (font-lock-mode -1)
   (setq-local
    font-lock-defaults
-   `(((,fstar-syntax-constants    . 'font-lock-constant-face)
-      (,fstar-syntax-keywords     . 'font-lock-keyword-face)
-      (,fstar-syntax-builtins     . 'font-lock-builtin-face)
-      (,fstar-syntax-preprocessor . 'font-lock-preprocessor-face)
-      (,fstar-syntax-structure    . 'fstar-structure-face)
+   `(((,fstar-syntax-constants-re    . 'font-lock-constant-face)
+      (,fstar-syntax-keywords-re     . 'font-lock-keyword-face)
+      (,fstar-syntax-builtins-re     . 'font-lock-builtin-face)
+      (,fstar-syntax-preprocessor-re . 'font-lock-preprocessor-face)
+      (,fstar-syntax-structure-re    . 'fstar-structure-face)
       ,@fstar-syntax-additional)
      nil nil))
   (font-lock-set-defaults)
@@ -1236,7 +1241,7 @@ leads to the binder's start."
 ;;; Subscripts
 
 (defconst fstar-subscripts--font-lock-spec
-  `(,(fstar--fl-conditional-matcher fstar-syntax-id-with-subscript #'fstar--in-code-p)
+  `(,(fstar--fl-conditional-matcher fstar-syntax-id-with-subscript-re #'fstar--in-code-p)
     (1 '(face fstar-subscript-face display (raise -0.3)) append)))
 
 (defun fstar-setup-subscripts ()
