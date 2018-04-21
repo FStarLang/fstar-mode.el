@@ -1317,6 +1317,22 @@ leads to the binder's start."
 
 ;;; Comment syntax
 
+(defcustom fstar-comment-style 'line
+  "Style applied to new comments: (* … *) or // ….
+Consider customizing `comment-style', too."
+  :type '(choice (const :tag "// Line comments" line)
+                 (const :tag "(* Block comments *)" block))
+  :set (lambda (symbol value)
+         (set-default symbol value)
+         (dolist (buf (buffer-list))
+           (with-current-buffer buf
+             (when (derived-mode-p 'fstar-mode)
+               (fstar--set-comment-style)))))
+  :group 'fstar)
+
+;;;###autoload
+(put 'fstar-comment-style 'safe-local-variable #'symbolp)
+
 (defun fstar-syntactic-face-function (args)
   "Choose face to display based on ARGS."
   (pcase-let ((`(_ _ _ ,in-string _ _ _ _ ,comment-start-pos _) args))
@@ -1349,13 +1365,23 @@ In non-fstar-mode buffers, call FCP unconditionally."
                (nth 7 (syntax-ppss)))
     (apply fcp args)))
 
+(defun fstar--set-comment-style ()
+  "Set comment delimiters based on `fstar-comment-style'."
+  (pcase fstar-comment-style
+    (`line
+     (setq-local comment-start "// ")
+     (setq-local comment-continue "// ")
+     (setq-local comment-end ""))
+    (_
+     (setq-local comment-start "(* ")
+     (setq-local comment-continue " * ")
+     (setq-local comment-end " *)"))))
+
 (defun fstar-setup-comments ()
   "Set comment-related variables for F*."
+  (fstar--set-comment-style)
   (setq-local comment-multi-line t)
   (setq-local comment-use-syntax t)
-  (setq-local comment-start "// ")
-  (setq-local comment-continue "// ")
-  (setq-local comment-end "")
   (setq-local fill-paragraph-handle-comment t)
   (setq-local comment-start-skip fstar-comment-start-skip)
   (setq-local font-lock-syntactic-face-function #'fstar-syntactic-face-function)
