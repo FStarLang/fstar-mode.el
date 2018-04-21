@@ -44,12 +44,17 @@ class FStarDomain(Domain):
 
 def process_external_editor_references(app, doctree, fromdocname):
     """Adjust links to the external editor.
-In HTML mode, set the refuri appropriately; in other modes, remove them."""
+    In HTML mode, set the refuri appropriately; in other modes, remove them."""
     for node in doctree.traverse(docutils4fstar.standalone_editor_reference_node):
         if app.builder.name == "html":
             node['refuri'] = relative_uri(app.builder.get_target_uri(fromdocname), node['docpath'])
         else:
             node.parent.remove(node)
+
+def process_fixmes(app, doctree, _fromdocname):
+    """Keep or remove FIXME nodes (depending on the ``fslit_include_fixme`` setting."""
+    if not app.config.fslit_include_fixme:
+        docutils4fstar.strip_fixmes(doctree)
 
 # Setup
 # =====
@@ -58,7 +63,6 @@ def register_fst_parser(app):
     app.add_source_parser('.fst', LiterateFStarParser)
     if '.fst' not in app.config.source_suffix:
         app.config.source_suffix.append('.fst')
-
 
 def add_html_assets(app):
     if app.builder.name == "html":
@@ -77,6 +81,7 @@ def setup(app):
     """Register the F* domain"""
 
     app.add_domain(FStarDomain)
+    app.add_config_value('fslit_include_fixme', False, 'html')
 
     for role in docutils4fstar.ROLES:
         app.add_role(role.role, role)
@@ -97,5 +102,6 @@ def setup(app):
     app.connect('builder-inited', add_html_assets)
     app.connect('builder-inited', register_fst_parser)
     app.connect('doctree-resolved', process_external_editor_references)
+    app.connect('doctree-resolved', process_fixmes)
 
     return {'version': '0.1', "parallel_read_safe": True}

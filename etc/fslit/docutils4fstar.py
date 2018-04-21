@@ -137,6 +137,7 @@ class FixmeDirective(admonitions.BaseAdmonition):
 
     directive = "fixme"
     node_class = nodes.admonition
+    node_css_class = "admonition-fixme"
 
     has_content = True
     required_arguments = 1
@@ -148,9 +149,16 @@ class FixmeDirective(admonitions.BaseAdmonition):
         env = getenv(self)
         nicknames = getattr(env, "fixme_authors", {})
         author = nicknames.get(self.arguments[0], self.arguments[0])
-        self.options["class"] = ["admonition-fixme"]
+        self.options["class"] = [FixmeDirective.node_css_class]
         self.arguments[0] = "FIXME ({})".format(author)
         return super(FixmeDirective, self).run()
+
+def strip_fixmes(doctree):
+    """Remove all FIXME nodes in `doctree`."""
+    cls = FixmeDirective.node_css_class
+    for node in doctree.traverse(docutils.nodes.admonition):
+        if cls in node.attributes.get("classes", ()):
+            node.parent.remove(node)
 
 # .. exercise, .. solution
 # ------------------------
