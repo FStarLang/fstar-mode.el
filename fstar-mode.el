@@ -926,6 +926,12 @@ allows composition in code comments."
 (defconst fstar-syntax-constants-re
   (regexp-opt fstar-syntax-constants 'symbols))
 
+(defconst fstar-syntax-risky
+  '("assume" "admit" "admitP" "magic" "unsafe_coerce"))
+
+(defconst fstar-syntax-risky-re
+  (regexp-opt fstar-syntax-risky 'symbols))
+
 (defconst fstar-syntax-reserved-exact-re
   (format "\\`%s\\'"
           (regexp-opt
@@ -1237,6 +1243,7 @@ leads to the binder's start."
       (,fstar-syntax-builtins-re     . 'font-lock-builtin-face)
       (,fstar-syntax-preprocessor-re . 'font-lock-preprocessor-face)
       (,fstar-syntax-structure-re    . 'fstar-structure-face)
+      (,fstar-syntax-risky-re        . 'font-lock-warning-face)
       ,@fstar-syntax-additional)
      nil nil))
   (font-lock-set-defaults)
