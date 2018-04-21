@@ -5041,7 +5041,7 @@ Non-nil NO-IDE means don't include `--ide' and `--in'."
 
 (defun fstar-subp-prover-args-for-compiler-hacking ()
   "Compute arguments suitable for hacking on the F* compiler."
-  `("--eager_inference" "--lax" "--MLish"
+  `("--eager_inference" "--lax" "--MLish" "--warn_error" "-272"
     ,@(-mapcat (lambda (dir) `("--include" ,dir))
                (fstar-subp--prover-includes-for-compiler-hacking))))
 
