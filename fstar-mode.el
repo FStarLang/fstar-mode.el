@@ -2480,7 +2480,9 @@ RESPONSE is used in warning messages printed upon failure."
   "Process CONTENTS of real-time feedback message at LEVEL."
   (pcase level
     ("proof-state" (fstar-tactics--display-proof-state contents))
-    (_ (let ((header (format "[F* %s] " level)))
+    (_ (let ((header (pcase level
+                       ("info" "[F*] ")
+                       (_ (format "[F* %s] " level)))))
          (unless (stringp contents)
            (setq contents (prin1-to-string contents)))
          (message "%s" (fstar--indent-str (fstar--string-trim contents) header))))))
@@ -2601,6 +2603,9 @@ With prefix argument ARG, kill all F* subprocesses."
 
 ;;; ;; Killing Z3
 
+;; FIXME get rid of the process enumeration code now that we can just simply
+;; send a sigint to F*
+
 (defconst fstar--ps-line-regexp
   "^ *\\([0-9]+\\) +\\([0-9]+\\) \\(.+\\) *$")
 
@@ -2653,6 +2658,22 @@ returns without doing anything."
                        (string-suffix-p "z3.exe" cmd)))
           (signal-process pid 'int)
           (message "Sent SIGINT to %S (%S)" pid cmd))))))
+
+(defun fstar-subp--interrupt-fstar ()
+  "Interrupt the current F* computation."
+  (when (or (not (fstar-subp-live-p)) (fstar-subp-available-p))
+    (user-error "No busy F* process to interrupt"))
+  (signal-process (process-id fstar-subp--process) 'int))
+
+(defun fstar-subp-interrupt ()
+  "Interrupt the current F* computation.
+On older versions of F*, try to interrupt the underlying Z3
+process — this is unreliable."
+  (interactive)
+  (if (fstar--has-feature 'interrupt)
+      (fstar-subp--interrupt-fstar)
+    (message "Consider upgrading to the latest F* to get reliable interrupts")
+    (fstar-subp-kill-z3 nil)))
 
 ;;; ;; Parsing and display issues
 
@@ -2939,7 +2960,7 @@ Complain if STATUS is `failure' and RESPONSE doesn't contain issues."
          (local-issues (cdr (assq t partitioned)))
          (other-issues (cdr (assq nil partitioned))))
     (when (and (eq status 'failure) (null issues))
-      (warn "No issues found in response despite prover failure: [%s]" response))
+      (fstar-log 'info "No issues in response despite failure: [%s]" response))
     (when other-issues
       (message "F* reported issues in other files: [%S]" other-issues))
     (when issues
@@ -5139,7 +5160,7 @@ This is useful to spot discrepancies between the CLI and IDE frontends."
     ("C-c C-b"        "C-S-b" fstar-subp-advance-to-point-max-lax)
     ("C-c C-r"        "C-S-r" fstar-subp-reload-to-point)
     ("C-c C-x"        "C-M-c" fstar-subp-kill-one-or-many)
-    ("C-c C-c"        "C-M-S-c" fstar-subp-kill-z3))
+    ("C-c C-c"        "C-M-S-c" fstar-subp-interrupt))
   "Proof-General and Atom bindings table.")
 
 (defun fstar-subp-refresh-keybinding (bind target unbind)
