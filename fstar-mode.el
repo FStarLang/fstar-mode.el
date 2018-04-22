@@ -4048,7 +4048,7 @@ a prefix argument, prompt for rules as well."
               (1- (point)) (save-excursion (backward-list) (1+ (point)))))
             (t (fstar--fqn-at-point))))))
   (setq term (fstar--string-trim term))
-
+  (message "Reducing `%s'…" term)
   (fstar-subp--query (fstar-subp--eval-query term rules)
                 (apply-partially #'fstar-subp--eval-continuation term rules)))
 
