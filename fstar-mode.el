@@ -3273,8 +3273,20 @@ buffer is in a comment that doesn't start in column 0."
   (fstar-subp--untracked-beginning)
   (fstar-subp-next-block-start))
 
+(defun fstar-subp--unprocessed-beginning-position ()
+  "Find the beginning of the untracked buffer area."
+  (or (cl-loop for overlay in (fstar-subp-tracking-overlays 'pending)
+               minimize (overlay-start overlay))
+      (point-max)))
+
+(defun fstar-subp-goto-beginning-of-unprocessed-region ()
+  "Go to start of first untracked block."
+  (interactive)
+  (goto-char (fstar-subp--unprocessed-beginning-position))
+  (fstar-subp-next-block-start))
+
 (defalias 'fstar-subp-goto-beginning-of-unprocessed
-  'fstar-subp-goto-beginning-of-untracked-region)
+  'fstar-subp-goto-beginning-of-unprocessed-region)
 
 ;;; ;; Advancing and retracting
 
@@ -5156,7 +5168,7 @@ This is useful to spot discrepancies between the CLI and IDE frontends."
     ("C-c RET"        "C-S-i" fstar-subp-advance-or-retract-to-point)
     ("C-c <C-return>" "C-S-i" fstar-subp-advance-or-retract-to-point)
     ("C-c C-l"        "C-S-l" fstar-subp-advance-or-retract-to-point-lax)
-    ("C-c C-."        "C-S-." fstar-subp-goto-beginning-of-untracked-region)
+    ("C-c C-."        "C-S-." fstar-subp-goto-beginning-of-unprocessed-region)
     ("C-c C-b"        "C-S-b" fstar-subp-advance-to-point-max-lax)
     ("C-c C-r"        "C-S-r" fstar-subp-reload-to-point)
     ("C-c C-x"        "C-M-c" fstar-subp-kill-one-or-many)

@@ -89,7 +89,7 @@ Proof-General            | :atom: Atom   | Action
 -------------------------|---------------|----------------------------------------------------------
 `C-c C-n` (**n**ext)     | `C-S-n`       | :zap: Send the next paragraph to F* (with `C-u`, send it in lax mode)
 `C-c C-p` (**p**revious) | `C-S-p`       | :zap: Retract the last paragraph
-`C-c C-.`                | `C-S-.`       | :zap: Jump to beginning of untracked section
+`C-c C-.`                | `C-S-.`       | :zap: Jump to beginning of unprocessed section
 `C-c RET` or `C-c C-RET` | `C-S-i`       | :zap: Send everything up to the current point to F*
 `C-c C-l` (**l**ax)      | `C-S-l`       | :zap: Send everything up to the current point to F*, in lax mode
 `C-c C-b` (**b**uffer)   | `C-S-b`       | :zap: Send entire buffer to F* in lax mode
