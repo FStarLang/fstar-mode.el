@@ -95,7 +95,7 @@ Proof-General            | :atom: Atom   | Action
 `C-c C-b` (**b**uffer)   | `C-S-b`       | :zap: Send entire buffer to F* in lax mode
 `C-c C-r` (**r**eload)   | `C-S-r`       | :zap: Reload dependencies of the current buffer and reprocess its contents (add `C-u` for lax mode)
 `C-c C-x` (e**x**it)     | `C-M-c`       | :zap: Kill the F* subprocess
-`C-c C-c`                | `C-M-S-c`     | :zap: Send an interrupt signal to Z3.  This (generally) interrupts the currently running verification task.
+`C-c C-c`                | `C-M-S-c`     | :unicorn: Interrupt the currently-running verification task.  On older F* builds, this sends an interrupt to Z3, which can be unreliable.
 
 Use <kbd>M-x customize-variable RET fstar-interactive-keybinding-style RET</kbd> to pick a keybinding style. The default is Proof-General; the other option is Atom. Please be aware of the [current restrictions](https://github.com/FStarLang/FStar/wiki/Dealing-with-F%E2%98%85-dependencies#when-invoking-f-in-interactive-mode) on the interactive-mode.
 
