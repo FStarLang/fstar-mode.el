@@ -103,7 +103,7 @@ With a properly configured Sphinx project, the following steps should be enough:
   your Sphinx project's ``_static`` directory.
 - Rebuild your Sphinx project.
 
-You'll need to run ``make serve` to browse the results: WebWorkers can't (as of
+You'll need to run ``make serve`` to browse the results: WebWorkers can't (as of
 2018-03) run from ``file://`` addresses.
 
 Literate F\* roles and directives
