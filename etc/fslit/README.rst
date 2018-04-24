@@ -85,8 +85,8 @@ Open the generated ``conf.py`` file, and insert the following after the comment 
 
 You can now create literate F\* documents and add them to the ``.. toctree::``
 directive in ``index.rst``.  Use ``make html`` to confirm that everything is
-working (generated files are in ``_build/html/index.html``) and ``make serve``
-to serve the website locally (at ``http://localhost:8000/``).
+working (generated files are in ``_build/html/index.html``) and ``python3 -m
+http.server`` to serve the website locally (at ``http://localhost:8000/``).
 
 F\*.js (making your literate F* documents interactive)
 ------------------------------------------------------
@@ -103,8 +103,8 @@ With a properly configured Sphinx project, the following steps should be enough:
   your Sphinx project's ``_static`` directory.
 - Rebuild your Sphinx project.
 
-You'll need to run ``make serve`` to browse the results: WebWorkers can't (as of
-2018-03) run from ``file://`` addresses.
+You'll need to run ``python3 -m http.server`` to browse the results: WebWorkers
+can't (as of 2018-03) run from ``file://`` addresses.
 
 Literate F\* roles and directives
 =================================
