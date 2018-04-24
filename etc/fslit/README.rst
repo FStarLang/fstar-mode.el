@@ -45,10 +45,12 @@ Emacs support
 (┃), and highlights reST syntax errors in literate comments as you type (using
 ``fslit``\ 's ``lint.py`` script).
 
-Additionally, pressing `C-c C-S-a` in ``fstar-mode`` toggles between literate
-F\* sources and a reST version of the same document, suitable for large reST
-edits (read the documentation of ``rst-mode`` with `C-h f rst-mode` to learn
-about editing reST files in Emacs).
+Additionally, pressing ``C-c C-S-a`` (:kbd:`Ctrl` :kbd:`c`, :kbd:`Ctrl`
+:kbd:`Shift` :kbd:`a`) in ``fstar-mode`` toggles between literate F\* sources
+and a reST version of the same document, suitable for large reST edits (read the
+documentation of ``rst-mode`` with `C-h f rst-mode` to learn about editing reST
+files in Emacs, or read the `online manual
+<http://docutils.sourceforge.net/docs/user/emacs.html>`_).
 
 Compiling literate F\* files
 ============================
@@ -79,14 +81,22 @@ new Sphinx project::
 
 Open the generated ``conf.py`` file, and insert the following after the comment saying *If extensions […] are in another directory, add these directories to sys.path here.*::
 
-     import os
-     import sys
-     sys.path.insert(0, os.path.abspath('fstar-mode.el/etc/'))
+   import os
+   import sys
+   sys.path.insert(0, os.path.abspath('fstar-mode.el/etc/'))
 
-You can now create literate F\* documents and add them to the ``.. toctree::``
-directive in ``index.rst``.  Use ``make html`` to confirm that everything is
-working (generated files are in ``_build/html/index.html``) and ``python3 -m
-http.server`` to serve the website locally (at ``http://localhost:8000/``).
+You can now create literate F\* documents (e.g. ``Induction.fst``,
+``RecTypes.fst``) and add them to the ``.. toctree::`` directive in
+``index.rst``::
+
+   .. toctree::
+
+      Induction
+      RecTypes
+
+Use ``make html`` to confirm that everything is working (generated files are in
+``_build/html/index.html``) and ``python3 -m http.server`` to serve the website
+locally (at ``http://localhost:8000/``).
 
 F\*.js (making your literate F* documents interactive)
 ------------------------------------------------------
