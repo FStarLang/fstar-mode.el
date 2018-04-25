@@ -2480,10 +2480,25 @@ RESPONSE is used in warning messages printed upon failure."
       (fstar-subp-json--find-response proc)
     (fstar-subp-legacy--find-response proc)))
 
+(defvar fstar-subp--modeline-label ""
+  "Label displayed next to F*'s logo in the modeline.")
+(put 'fstar-subp--modeline-label 'risky-local-variable t)
+
+(defun fstar-subp--display-progress (progress-info)
+  "Update `fstar-subp--modeline-label' based on a PROGRESS-INFO."
+  (setq fstar-subp--modeline-label
+        (let-alist progress-info
+          (pcase .stage
+            ("loading-dependency"
+             `(:propertize ,(format "{%s…}" .modname) face shadow))
+            (_ ""))))
+  (force-mode-line-update))
+
 (defun fstar-subp--process-message (level contents)
   "Process CONTENTS of real-time feedback message at LEVEL."
   (pcase level
     ("proof-state" (fstar-tactics--display-proof-state contents))
+    ("progress" (fstar-subp--display-progress contents))
     (_ (let ((header (pcase level
                        ("info" "[F*] ")
                        (_ (format "[F* %s] " level)))))
@@ -4630,6 +4645,10 @@ the original query's status."
     (cancel-timer fstar--spin-timer)
     (setq-local fstar--spin-timer nil)))
 
+(defvar fstar--spin-modename "F✪"
+  "String build by the snippet to replace the mode name.")
+(put 'fstar--spin-modename 'risky-local-variable t)
+
 (defun fstar--spin-tick (buffer timer)
   "Update fstar-mode's mode-line indicator in BUFFER.
 TIMER is the timer that caused this event to fire."
@@ -4640,7 +4659,7 @@ TIMER is the timer that caused this event to fire."
           (setq fstar--spin-counter 0))
         (let ((icon (substring fstar-spin-theme fstar--spin-counter (1+ fstar--spin-counter))))
           (setq icon (compose-string icon 0 1 (format "\t%c\t" (aref icon 0))))
-          (setq-local mode-name `("F" ,icon))
+          (setq-local fstar--spin-modename `("F" ,icon))
           (force-mode-line-update)))
     (cancel-timer timer)))
 
@@ -5402,7 +5421,7 @@ KIND is `setup', `teardown', or `unload'."
         (funcall fsymb)))))
 
 ;;;###autoload
-(define-derived-mode fstar-mode prog-mode "F✪"
+(define-derived-mode fstar-mode prog-mode '("" fstar--spin-modename fstar-subp--modeline-label)
   :syntax-table fstar-syntax-table
   (fstar-run-module-functions 'setup))
 
