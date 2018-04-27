@@ -2165,6 +2165,23 @@ Individual regions can be sent to F* in lax mode using
      (with-current-buffer buf
        ,@body)))
 
+(defvar gud-gdb-history)
+
+(defun fstar-gdb ()
+  "Attach GDB to this buffer's F* process.
+See URL `https://askubuntu.com/questions/41629/` if you run into
+ptrace-related issues."
+  (interactive)
+  (require 'gdb-mi)
+  (unless (fstar-subp-live-p)
+    (user-error "Start F* before attaching GDB"))
+  (unless (executable-find "gdb")
+    (user-error "Could not find a GDB binary in your exec-path"))
+  (let* ((pid (process-id fstar-subp--process))
+         (cmd (format "gdb -i=mi -p %d" pid))
+         (gud-gdb-history (cons cmd (bound-and-true-p gud-gdb-history))))
+    (call-interactively #'gdb)))
+
 ;;; ;; Overlay classification
 
 (defun fstar-subp-issue-overlay-p (overlay)

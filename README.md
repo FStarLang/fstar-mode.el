@@ -226,3 +226,8 @@ Setup MELPA as described above, then install the dependencies and clone the repo
 ### Complaints about version numbers
 
 When running an F#-compiled F* `fstar-mode` will complain about being unable to parse F*'s version number and assume you're running a relatively old F* (it needs to know F*'s version number to decide which features to enable).  You can override this check by customizing `fstar-assumed-vernum`.
+
+
+### Debugging F*
+
+The `fstar-gdb` command (`M-x`) attaches GDB to the current F* process and launches Emacs' GDB-mi interface.  See https://askubuntu.com/questions/41629/ if you run into ptrace-related issues.
