@@ -81,7 +81,7 @@ def setup(app):
     """Register the F* domain"""
 
     app.add_domain(FStarDomain)
-    app.add_config_value('fslit_include_fixme', False, 'html')
+    app.add_config_value('fslit_include_fixme', True, 'html')
 
     for role in docutils4fstar.ROLES:
         app.add_role(role.role, role)
