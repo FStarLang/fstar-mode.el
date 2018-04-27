@@ -293,3 +293,21 @@ You can avoid this using an explicit ``.. fst::`` marker::
    .. fst::
 
       let a = 1
+
+This problem can be particularly confusing with ``.. code::`` directives::
+
+   /// .. code:: c
+   ///
+   ///    int main() {}
+
+   let a = 1
+
+   ↓ This is probably not what you want
+
+   .. code:: c
+
+      int main() {}
+
+      .. fst::
+
+         let a = 1
