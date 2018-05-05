@@ -2037,14 +2037,11 @@ it created a bunch of issues with point motion and deletion.")
 
 (defun fstar-setup-auto-insert ()
   "Register F* support for `auto-insert'."
-  (eval-after-load 'autoinsert
-    '(add-to-list 'auto-insert-alist fstar-auto-insert--alist-form)))
+  (setq-local auto-insert-alist (list fstar-auto-insert--alist-form)))
 
 (defun fstar-teardown-auto-insert ()
   "Unregister F* support for `auto-insert'."
-  (eval-after-load 'autoinsert
-    '(setq auto-insert-alist
-           (delete fstar-auto-insert--alist-form auto-insert-alist))))
+  (kill-local-variable 'auto-insert-alist))
 
 ;;; Interactive proofs (fstar-subp)
 
