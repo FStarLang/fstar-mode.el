@@ -3313,7 +3313,7 @@ buffer is in a comment that doesn't start in column 0."
   "Find the beginning of the untracked buffer area."
   (or (cl-loop for overlay in (fstar-subp-tracking-overlays 'pending)
                minimize (overlay-start overlay))
-      (point-max)))
+      (fstar-subp--untracked-beginning-position)))
 
 (defun fstar-subp-goto-beginning-of-unprocessed-region ()
   "Go to start of first untracked block."
