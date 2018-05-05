@@ -3331,7 +3331,7 @@ Report an error if the region is empty and NO-ERROR is nil."
         (end (save-excursion (goto-char end) (skip-chars-backward fstar--spaces) (point))))
     (if (<= end beg)
         (unless no-error
-          (user-error "Nothing to process!"))
+          (user-error "Region up to point is empty: nothing to process!"))
       (when (eq (char-after end) ?\n)
         (cl-incf end))
       (fstar-assert (cl-loop for overlay in (overlays-in beg end)
