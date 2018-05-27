@@ -3135,8 +3135,8 @@ Handle results with CONTINUATION."
   (let* ((payload (fstar-subp--clean-buffer-substring beg end)))
     (fstar-subp--query (fstar-subp--peek-query beg kind payload) continuation)))
 
-(defun fstar-subp-overlay-attempt-modification (overlay _is-before _beg _end &optional _pre-length)
-  "Allow or prevent attempts to modify OVERLAY.
+(defun fstar-subp-overlay-attempt-modification (overlay _is-before beg end &optional _pre-length)
+  "Allow or prevent attempts to modify contents of OVERLAY in BEG..END.
 
 Modifications are only allowed if it is safe to retract up to the
 beginning of the current overlay."
@@ -3144,8 +3144,14 @@ beginning of the current overlay."
     (when (overlay-buffer overlay) ;; Hooks can be called multiple times
       (fstar--widened
         (cond
-         ;; Always allow modifications in comments
-         ((fstar-in-comment-p) t)
+         ;; Allow edits in comments.  This heuristic isn't enough (it allows RET
+         ;; in // comments, for example), but the consensus is that minor
+         ;; inconsistencies are better than disabling edits entirely.  See
+         ;; `https://github.com/FStarLang/fstar-mode.el/issues/89' for details.
+         ((and (fstar-in-comment-p beg)
+               (equal (fstar--comment-beginning beg)
+                      (fstar--comment-beginning end)))
+          t)
          ;; Allow modifications (after retracting) in all overlays if F* isn't
          ;; busy, and in pending overlays only otherwise
          ((or (not (fstar-subp--busy-with-overlays-p))
