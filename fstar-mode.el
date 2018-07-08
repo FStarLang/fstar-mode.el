@@ -1172,7 +1172,9 @@ leads to the binder's start."
       ("!"
        (0 'fstar-dereference-face))
       (,(fstar--fl-conditional-matcher "[{}]" #'fstar--in-code-p)
-       (0 'fstar-braces-face append)))))
+       (0 'fstar-braces-face append))
+      (,fstar-syntax-risky-re
+       (0 'fstar-risky-face prepend)))))
 
 (defconst fstar--scratchpad-name " *%s-scratchpad*")
 
@@ -1248,7 +1250,6 @@ leads to the binder's start."
       (,fstar-syntax-builtins-re     . 'font-lock-builtin-face)
       (,fstar-syntax-preprocessor-re . 'font-lock-preprocessor-face)
       (,fstar-syntax-structure-re    . 'fstar-structure-face)
-      (,fstar-syntax-risky-re        . 'fstar-risky-face)
       ,@fstar-syntax-additional)
      nil nil))
   (font-lock-set-defaults)
