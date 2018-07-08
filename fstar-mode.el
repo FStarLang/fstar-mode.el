@@ -951,6 +951,11 @@ allows composition in code comments."
   "Face used to highlight structural keywords."
   :group 'fstar)
 
+(defface fstar-risky-face
+  '((t :inherit font-lock-warning-face))
+  "Face used to highlight risky keywords (‘admit’ etc.)."
+  :group 'fstar)
+
 (defface fstar-subtype-face
   '((t :slant italic))
   "Face used to highlight subtyping clauses."
@@ -1243,7 +1248,7 @@ leads to the binder's start."
       (,fstar-syntax-builtins-re     . 'font-lock-builtin-face)
       (,fstar-syntax-preprocessor-re . 'font-lock-preprocessor-face)
       (,fstar-syntax-structure-re    . 'fstar-structure-face)
-      (,fstar-syntax-risky-re        . 'font-lock-warning-face)
+      (,fstar-syntax-risky-re        . 'fstar-risky-face)
       ,@fstar-syntax-additional)
      nil nil))
   (font-lock-set-defaults)
