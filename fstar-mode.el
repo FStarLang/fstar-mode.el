@@ -952,7 +952,7 @@ allows composition in code comments."
   :group 'fstar)
 
 (defface fstar-risky-face
-  '((t :inherit font-lock-warning-face))
+  '((t :underline t :inherit font-lock-warning-face))
   "Face used to highlight risky keywords (‘admit’ etc.)."
   :group 'fstar)
 
