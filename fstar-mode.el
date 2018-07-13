@@ -494,15 +494,8 @@ DISPLAY-ACTION: see `fstar--navigate-to-1'."
   (unless (eq x :json-false) x))
 
 (defun fstar--comment-beginning (pos)
-  "Exit comment at POS, putting point before its start."
-  (goto-char (nth 8 (syntax-ppss pos))))
-
-(defun fstar--comment-end (pos)
-  "Exit comment at POS, putting point after its end.
-Return nil if the comment is incomplete.  Needs a call to
-`fstar-setup-comments'."
-  (fstar--comment-beginning pos)
-  (forward-comment 1))
+  "Return point before start of comment at POS."
+  (nth 8 (fstar--syntax-ppss pos)))
 
 (defun fstar--search-predicated-1 (search-fn test-fn move-fn re bound)
   "Helper for `fstar--search-predicated'.
@@ -1375,7 +1368,7 @@ In non-fstar-mode buffers, call FCP unconditionally."
   ;; with `comment-start' and ends up incorrectly filling (* … *) comments.
   (unless (and (derived-mode-p 'fstar-mode)
                ;; (nth 7 …) is the comment style: 1 for ‘(*’ and nil for ‘//’
-               (nth 7 (syntax-ppss)))
+               (nth 7 (fstar--syntax-ppss)))
     (apply fcp args)))
 
 (defun fstar--set-comment-style ()
@@ -3225,29 +3218,47 @@ beginning of the current overlay."
   :type 'boolean
   :safe #'booleanp)
 
+(defconst fstar-subp--blanks-re "[ \n\r\t]*")
+
 (defconst fstar-subp-block-sep
-  (let ((any-blanks "[ \n\r\t]*")
-        (two-or-more-blank-lines "\n\\(?:[ \t\r]*\n\\)+"))
-    (format "\\(?:\\`%s\\(?1:\\)\\|%s\\(?1:\\)\\'\\|%s\\(?1:^\\)\\(%s\\|%s\\)\\)"
-            any-blanks any-blanks two-or-more-blank-lines
+  (let ((two-or-more-blank-lines "\n\\(?:[ \t\r]*\n\\)+"))
+    ;; `fstar-comment-start-skip' handles cases like ‘// blah\nlet a = 1’
+    ;; False positives are handled in `fstar-subp--likely-block-start-p'.
+    (format "\\`%s\\(?1:\\)\\|%s\\(?1:\\)\\'\\|%s\\(?1:^\\)\\(%s\\|%s\\)"
+            fstar-subp--blanks-re fstar-subp--blanks-re two-or-more-blank-lines
             fstar-comment-start-skip fstar-syntax-block-start-re)))
 
+(defconst fstar-subp-block-start-re
+  (format "\\`\\|%s\\(?:\\'\\|^\\(?:%s\\)\\)" fstar-subp--blanks-re fstar-syntax-block-start-re))
+
+(defun fstar-subp--likely-block-start-p ()
+  "Check whether the current match looks like a block start."
+  (and
+   ;; Skip block starters in comments
+   (not (fstar-in-comment-p (match-beginning 1)))
+   ;; Skip false positives introduced by considering ‘^//’ a block starter
+   (save-excursion
+     (goto-char (match-beginning 0))
+     (while (forward-comment 1))
+     (skip-chars-backward fstar--spaces)
+     (looking-at-p fstar-subp-block-start-re))))
+
 (defun fstar-subp--block-start-p ()
-  "Check whether current match is a valid block start."
-  (and (not (fstar-in-comment-p (match-beginning 1)))
-       (not (= (match-beginning 1) (point-max)))))
+  "Check whether the current match is a valid block start."
+  (and (not (= (match-beginning 1) (point-max)))
+       (fstar-subp--likely-block-start-p)))
 
 (defun fstar-subp--block-end-p ()
-  "Check whether POS is on a block end."
-  (and (not (fstar-in-comment-p (match-beginning 1)))
-       (not (= (match-beginning 0) (point-min)))))
+  "Check whether the current match is a valid block end."
+  (and (not (= (match-beginning 0) (point-min)))
+       (fstar-subp--likely-block-start-p)))
 
 (defun fstar-subp-previous-block-start ()
   "Go to and return beginning of current block.
 When point is at beginning of block, go to previous block."
   (interactive)
   (when (save-excursion
-          ;; Find an appropiate starting point
+          ;; Find an appropriate starting point
           (unless (eq (point) (point-at-bol))
             (goto-char (point-at-eol)))
           ;; Jump to previous block separator
@@ -3316,7 +3327,7 @@ buffer is in a comment that doesn't start in column 0."
   "Go to start of first untracked block."
   (interactive)
   (fstar-subp--untracked-beginning)
-  (fstar-subp-next-block-start))
+  (unless (bobp) (fstar-subp-next-block-start)))
 
 (defun fstar-subp--unprocessed-beginning-position ()
   "Find the beginning of the untracked buffer area."
@@ -3328,7 +3339,7 @@ buffer is in a comment that doesn't start in column 0."
   "Go to start of first untracked block."
   (interactive)
   (goto-char (fstar-subp--unprocessed-beginning-position))
-  (fstar-subp-next-block-start))
+  (unless (bobp) (fstar-subp-next-block-start)))
 
 (defalias 'fstar-subp-goto-beginning-of-unprocessed
   'fstar-subp-goto-beginning-of-unprocessed-region)
