@@ -5147,6 +5147,30 @@ Non-nil NO-IDE means don't include `--ide' and `--in'."
     ,@(-mapcat (lambda (dir) `("--include" ,dir))
                (fstar-subp--prover-includes-for-compiler-hacking))))
 
+;;;###autoload
+(defun fstar-debug-invocation ()
+  "Compute F*'s arguments from `argv' and visit the corresponding file.
+
+This is useful to quickly debug a failing invocation: just prefix
+the whole command line with `emacs -f fstar-debug-invocation'."
+  (pcase-let ((fname (car (last argv)))
+              (`(,executable . ,args) (butlast argv))
+              (fstar-exec-re "fstar\\.\\(exe\\|byte\\|native\\)?\\'")
+              (err-header (format "Unsupported invocation: %S." argv)))
+    (unless fname
+      (user-error "%s
+Last argument must be a file name, not %S" err-header fname))
+    (unless (and executable (string-match executable fstar-exec-re))
+      (user-error "%s
+First argument must be an F* executable, not %S" err-header fname))
+    (with-current-buffer (find-file-existing fname)
+      (setq-local fstar-subp-prover-args args)
+      (message "\
+F* binary: %S
+F* arguments: %S
+Current file: %S" fstar-executable fstar-subp-prover-args buffer-file-name)
+      (setq argv nil))))
+
 (defun fstar-subp--buffer-file-name ()
   "Find name of current buffer, as sent to F*."
   (if (fstar--remote-p)

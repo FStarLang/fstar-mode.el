@@ -169,6 +169,10 @@ F*-mode's completion uses `company-mode` under the hood.  Try `M-x customize-gro
 
 Customize the variable `fstar-flycheck-checker` to pick your favorite style of real-time verification (full-buffer verification or lightweight typechecking).  F*-mode's real-time checking uses `flycheck-mode` under the hood: try `M-x customize-group flycheck` to tweak Flycheck further.
 
+### Starting F*-mode from the command line
+
+Use `emacs -f fstar-debug-invocation path/to/fstar.exe …arguments file-name.fst` to edit `file-name.fst` in F*-mode, with `fstar-subp-prover-args` set to `…arguments` and `fstar-executable` set to `path/to/fstar.exe`.  This is particularly convenient when you want to diagnose an issue happening on the command line in Emacs: just prepend `emacs -f fstar-debug-invocation` to it.
+
 ## Troubleshooting
 
 ### Performance issues
