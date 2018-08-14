@@ -5160,9 +5160,9 @@ the whole command line with `emacs -f fstar-debug-invocation'."
     (unless fname
       (user-error "%s
 Last argument must be a file name, not %S" err-header fname))
-    (unless (and executable (string-match executable fstar-exec-re))
+    (unless (and executable (string-match-p fstar-exec-re executable))
       (user-error "%s
-First argument must be an F* executable, not %S" err-header fname))
+First argument must be an F* executable, not %S" err-header executable))
     (with-current-buffer (find-file-existing fname)
       (setq-local fstar-subp-prover-args args)
       (message "\
