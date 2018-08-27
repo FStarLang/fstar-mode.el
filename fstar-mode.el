@@ -4865,10 +4865,13 @@ cell."
     (dolist (goal goals)
       (cl-incf goal-id)
       (fstar--insert-with-face 'fstar-goal-header-face
-          (propertize "%s %d/%d%s"
+          (propertize "%s %d/%d%s%s"
                       'line-prefix fstar-tactics--half-line-prefix
                       'wrap-prefix fstar-tactics--half-line-prefix)
-        kind goal-id ngoals (propertize "\n" 'line-spacing 0.2))
+        kind goal-id ngoals
+        (let ((label (let-alist goal .goal.label)))
+          (if (member label '(nil "")) "" (format " (%s)" label)))
+        (propertize "\n" 'line-spacing 0.2))
       (fstar-tactics--insert-goal goal)
       (insert "\n"))))
 
