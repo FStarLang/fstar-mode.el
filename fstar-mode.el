@@ -4819,11 +4819,6 @@ Notifications are only displayed if it doesn't.")
   "Face applied to the goal's witness in proof states."
   :group 'fstar-tactics)
 
-(defface fstar-goal-label-face
-  '((t :height 0.75 :inherit font-lock-comment-face))
-  "Face applied to the goal's label in proof states."
-  :group 'fstar-tactics)
-
 (defun fstar-tactics--insert-hyp-group (names type)
   "Insert NAMES: TYPE into current buffer."
   (while names
@@ -4859,8 +4854,7 @@ cell."
       (fstar-tactics--insert-hyp-group names type))
     (fstar--insert-with-face 'fstar-goal-line-face "%s\n" fstar-tactics--goal-separator)
     (fstar--insert-ln-with-face 'fstar-goal-type-face (fstar-highlight-string .goal.type))
-    (fstar--insert-ln-with-face 'fstar-goal-witness-face (fstar-highlight-string .goal.witness))
-    (fstar--insert-ln-with-face 'fstar-goal-label-face (concat "Label:" (fstar-highlight-string .goal.label)))))
+    (fstar--insert-ln-with-face 'fstar-goal-witness-face (fstar-highlight-string .goal.witness))))
 
 (defun fstar-tactics--insert-goals (goals kind)
   "Insert GOALS of type KIND (“Goal” or “SMT goal”) into current buffer."
@@ -4869,10 +4863,15 @@ cell."
     (dolist (goal goals)
       (cl-incf goal-id)
       (fstar--insert-with-face 'fstar-goal-header-face
-          (propertize "%s %d/%d%s"
+          (propertize "%s %d/%d%s%s"
                       'line-prefix fstar-tactics--half-line-prefix
                       'wrap-prefix fstar-tactics--half-line-prefix)
-        kind goal-id ngoals (propertize "\n" 'line-spacing 0.2))
+        kind goal-id ngoals
+        (let ((lab (let-alist goal .goal.label)))
+             (if (equal lab "")
+                 ""
+                 (concat " (" (concat lab ")"))))
+        (propertize "\n" 'line-spacing 0.2))
       (fstar-tactics--insert-goal goal)
       (insert "\n"))))
 
