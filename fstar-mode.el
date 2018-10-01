@@ -845,7 +845,7 @@ allows composition in code comments."
 ;;; Font-Lock
 
 (defconst fstar-syntax-headers
-  '("open" "module" "include"
+  '("open" "module" "include" "friend"
     "let" "let rec" "val" "and"
     "exception" "effect" "new_effect" "sub_effect" "new_effect_for_free"
     "kind" "type"))
