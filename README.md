@@ -150,7 +150,7 @@ Use `C-h v fstar-subp-prover-args` for more details.  If your project requires a
 
 F*-mode is compatible with Emacs' Tramp.  To use F*-mode over tramp:
 
-* Set `fstar-executable` and `z3-executable` appropriately (if F* and Z3 are in your path on the remote machine it's enough to use `fstar.exe` and `z3`; otherwise, use their full paths on the remote machine — e.g. `~/FStar/bin/fstar.exe`),
+* Set `fstar-executable` and `z3-executable` appropriately: either to `"fstar"` and `"z3"` with appropriate [Tramp path adjustments](https://www.gnu.org/software/tramp/#Remote-programs), or using full paths on the remote machine (e.g. `/home/remote-you/FStar/bin/fstar.exe`).
 * Open a remote file (`C-x C-f /sshx:username@remote-server: RET test.fst RET`).  Processing this file should invoke a remote F* through SSH.
 
 ### Hiding parts of a buffer
