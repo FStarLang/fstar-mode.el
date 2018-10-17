@@ -5005,14 +5005,16 @@ PROG-NAME and VAR-NAME are used in error messages."
   "Compute the absolute path to PROG.
 Check that the binary exists and is executable; if not, raise an
 error referring to PROG as PROG-NAME and VAR-NAME.  This function
-finds a remote binary when the current buffer is a Tramp file,
-unless LOCAL-ONLY is set."
+looks for a remote binary when the current buffer is a Tramp
+file, unless LOCAL-ONLY is set (but the return value never
+includes a Tramp prefix)."
   (if (or local-only (fstar--local-p))
       (fstar--check-executable (or (executable-find prog) prog) prog-name var-name)
     (let ((prog-name (concat "Remote " prog-name))
           (tramp-vect (tramp-dissect-file-name buffer-file-name)))
       (if (file-name-absolute-p prog)
-          (fstar--check-executable (concat (fstar--remote-p) prog) prog-name var-name)
+          (let ((remote-prog (concat (fstar--remote-p) prog)))
+            (and (fstar--check-executable remote-prog prog-name var-name) prog))
         (unless (tramp-find-executable tramp-vect prog nil)
           (fstar--raise-file-not-found prog prog-name var-name))
         ;; Return PROG directly, because `tramp-find-executable' prepends
