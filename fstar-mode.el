@@ -429,7 +429,7 @@ current window unless another one is already showing the buffer,
 frame).  SWITCH determines whether the resulting buffer and
 window become current and selected."
   (fstar--push-mark)
-  (let ((fname (fstar-location-filename location))
+  (let ((fname (fstar-location-remote-filename location))
         (line (fstar-location-line-from location))
         (col (fstar-location-col-from location))
         (line-to (fstar-location-line-to location))
