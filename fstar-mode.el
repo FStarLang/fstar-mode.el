@@ -1563,7 +1563,7 @@ In non-fstar-mode buffers, call FCP unconditionally."
 
 (defun fstar-teardown-indentation ()
   "Remove indentation support for F*."
-  (kill-local-variable 'indent-tabs-mode nil)
+  (kill-local-variable 'indent-tabs-mode)
   (kill-local-variable 'electric-indent-inhibit)
   (kill-local-variable 'indent-line-function))
 
