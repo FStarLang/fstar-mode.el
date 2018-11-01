@@ -1556,12 +1556,14 @@ In non-fstar-mode buffers, call FCP unconditionally."
 
 (defun fstar-setup-indentation ()
   "Setup indentation for F*."
+  (setq-local indent-tabs-mode nil)
   (setq-local indent-line-function #'fstar-indent)
   (when (boundp 'electric-indent-inhibit) ; Emacs ≥ 24.4
     (setq-local electric-indent-inhibit t)))
 
 (defun fstar-teardown-indentation ()
   "Remove indentation support for F*."
+  (kill-local-variable 'indent-tabs-mode nil)
   (kill-local-variable 'electric-indent-inhibit)
   (kill-local-variable 'indent-line-function))
 
