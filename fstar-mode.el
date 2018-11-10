@@ -890,9 +890,9 @@ allows composition in code comments."
   (regexp-opt fstar-syntax-preprocessor 'symbols))
 
 (defconst fstar-syntax-keywords
-  '("of"
+  '("of" "by" "normalize_term"
     "forall" "exists"
-    "assert" "assert_norm" "assume"
+    "assert" "assert_norm" "assert_spinoff" "assume"
     "fun" "function"
     "try" "match" "when" "with"
     "if" "then" "else"
