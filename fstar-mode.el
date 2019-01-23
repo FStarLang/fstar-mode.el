@@ -848,7 +848,7 @@ allows composition in code comments."
   '("open" "module" "include" "friend"
     "let" "let rec" "val" "and"
     "exception" "effect" "new_effect" "sub_effect" "new_effect_for_free"
-    "kind" "type"))
+    "kind" "type" "class" "instance"))
 
 (defconst fstar-syntax-fsdoc-keywords
   '("@author" "@summary"))
@@ -1140,7 +1140,7 @@ leads to the binder's start."
       (,(concat "\\_<\\(let\\(?: +rec\\)?\\|and\\)\\_>\\(\\(?: +" id "\\( *, *" id "\\)*\\)?\\)")
        (1 'fstar-structure-face)
        (2 'font-lock-function-name-face))
-      (,(concat "\\_<\\(type\\|kind\\)\\( +" id "\\)")
+      (,(concat "\\_<\\(type\\|kind\\|class\\|instance\\)\\( +" id "\\)")
        (1 'fstar-structure-face)
        (2 'font-lock-function-name-face))
       (,(concat "\\_<\\(val\\) +\\(" id "\\) *:")
