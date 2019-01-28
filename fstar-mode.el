@@ -4052,8 +4052,7 @@ that variable."
 (defun fstar-subp--eval-all-rules ()
   "Compute rules available to normalize terms."
   `("beta" "delta" "iota" "zeta"
-    ,@(when (fstar--has-feature 'compute/reify) '("reify"))
-    ,@(when (fstar--has-feature 'compute/pure-subterms) '("pure-subterms"))))
+    ,@(when (fstar--has-feature 'compute/reify) '("reify"))))
 
 (defun fstar-subp--eval-rule-to-marker (rule)
   "Convert reduction RULE to a short string."
