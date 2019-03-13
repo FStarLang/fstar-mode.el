@@ -2350,7 +2350,7 @@ Raise an error with ERROR-FN if a free F* process isn't available anywhere."
 	(progn
 	  (setq result (current-buffer))
 	  (throw 'here t)))
-      (let ((buflist (buffer-list)))
+      (let ((buflist (cons (or fstar--parent-buffer (current-buffer)) (buffer-list))))
 	(dolist (buf (buffer-list))
 	  (if (and
 	       (eq (buffer-local-value 'major-mode buf)
