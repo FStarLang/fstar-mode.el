@@ -2343,6 +2343,8 @@ FEATURE, if specified."
 Raise an error with ERROR-FN if a free F* process isn't available anywhere."
   (let ((result nil))
     (catch 'here
+      (if (fstar-subp-live-p)
+	  (throw 'here (current-buffer)))
       (let ((buflist (buffer-list)))
 	(dolist (buf (buffer-list))
 	  (if (and
