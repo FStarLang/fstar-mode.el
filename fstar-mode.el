@@ -706,6 +706,9 @@ enable all experimental features."
 (defvar-local fstar--features nil
   "List of available F* features.")
 
+(defvar-local fstar--parent-buffer nil
+  "The buffer that opened the current buffer, if it exists.")
+
 (defun fstar--query-vernum (executable)
   "Ask F* EXECUTABLE for its version number."
   (let ((fname buffer-file-name))
