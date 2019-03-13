@@ -2338,6 +2338,22 @@ FEATURE, if specified."
   (when feature
     (fstar--has-feature feature error-fn)))
 
+(defun fstar-subp--ensure-available-free-anywhere (error-fn)
+  "Return a free fstar process if available in some buffer.
+Raise an error with ERROR-FN if a free F* process isn't available anywhere."
+  (let ((result nil))
+    (catch 'here
+      (let ((buflist (buffer-list)))
+	(dolist (buf (buffer-list))
+	  (if (and
+	       (eq (buffer-local-value 'major-mode buf)
+		   'fstar-mode)
+	       (fstar-subp-live-p (buffer-local-value 'fstar-subp--process buf)))
+	      (throw 'here buf)))))
+    (if result result
+      (funcall error-fn "Unable to find a free F* process. Either
+      F* is not started, or all buffers are processing."))))
+
 (defun fstar-subp--serialize-query (query id)
   "Serialize QUERY with ID to JSON."
   (let ((json-encoding-pretty-print nil)
