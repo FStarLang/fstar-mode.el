@@ -3689,7 +3689,7 @@ Must be called with syntax table `fstar--fqn-at-point-syntax-table'"
                ("symbol" . ,(or (fstar--fqn-at-point pos) ""))
                ("requested-info" . ,fields)
                ("location" .
-                (("filename" . "<input>")
+                (("filename" . ,(buffer-file-name))
                  ("line" . ,(line-number-at-pos pos))
                  ("column" . ,(fstar-subp--column-number-at-pos pos))))))
     (if (fstar--has-feature 'info-includes-symbol)
