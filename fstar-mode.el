@@ -2343,18 +2343,22 @@ FEATURE, if specified."
 Raise an error with ERROR-FN if a free F* process isn't available anywhere."
   (let ((result nil))
     (catch 'here
-      (if (fstar-subp-live-p)
-	  (throw 'here (current-buffer)))
+      (if (fstar-subp-live-p fstar-subp--process)
+	(progn
+	  (setq result (current-buffer))
+	  (throw 'here t)))
       (let ((buflist (buffer-list)))
 	(dolist (buf (buffer-list))
 	  (if (and
 	       (eq (buffer-local-value 'major-mode buf)
 		   'fstar-mode)
 	       (fstar-subp-live-p (buffer-local-value 'fstar-subp--process buf)))
-	      (throw 'here buf)))))
+	      (progn
+		(setq result buf)
+		(throw 'here t))))))
     (if result result
-      (funcall error-fn "Unable to find a free F* process. Either
-      F* is not started, or all buffers are processing."))))
+      (funcall error-fn "Unable to find a free F* process. Either \
+F* is not started, or all buffers are processing."))))
 
 (defun fstar-subp--serialize-query (query id)
   "Serialize QUERY with ID to JSON."
