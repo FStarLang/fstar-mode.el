@@ -4213,9 +4213,9 @@ DISP should be nil (display in same window) or
   (let ((buf (fstar-subp--ensure-available-free-anywhere #'user-error)))
     (with-current-buffer buf
       (fstar-subp--query (fstar-subp--positional-lookup-query pos '(defined-at))
-			 (fstar-subp--lookup-wrapper pos (apply-partially
-							  #'fstar--jump-to-definition-continuation
-							  disp))))))
+    			 (fstar-subp--lookup-wrapper pos (apply-partially
+    							  #'fstar--jump-to-definition-continuation
+    							  disp))))))
 
 (defun fstar-jump-to-definition ()
   "Jump to definition of identifier at point, if any."
