@@ -4197,13 +4197,14 @@ the search buffer."
 
 ;;; ;; ;; Jump to definition
 
-(defun fstar--jump-to-definition-continuation (display-action info)
+(defun fstar--jump-to-definition-continuation (display-action buf info)
   "Jump to position in INFO.
 DISPLAY-ACTION indicates how: nil means in the current window;
 `window' means in a side window."
   (-if-let* ((def-loc (and (fstar-lookup-result-p info)
-                           (fstar-lookup-result-def-loc info))))
-      (fstar--navigate-to def-loc display-action)
+			   (fstar-lookup-result-def-loc info))))
+      (with-current-buffer buf
+	(fstar--navigate-to def-loc display-action))
     (message "No definition found")))
 
 (defun fstar-jump-to-definition-1 (pos disp)
@@ -4211,12 +4212,13 @@ DISPLAY-ACTION indicates how: nil means in the current window;
 DISP should be nil (display in same window) or
 `window' (display in a side window)."
   (let ((buf (fstar-subp--ensure-available-free-anywhere #'user-error))
-	(query (fstar-subp--positional-lookup-query pos '(defined-at)))
-	(continuation (fstar-subp--lookup-wrapper pos (apply-partially
-						       #'fstar--jump-to-definition-continuation
-						       disp))))
+	(cur-buf (current-buffer))
+	(query (fstar-subp--positional-lookup-query pos '(defined-at))))
     (with-current-buffer buf
-      (fstar-subp--query query continuation))))
+      (fstar-subp--query query
+			 (fstar-subp--lookup-wrapper (point) (apply-partially
+							      #'fstar--jump-to-definition-continuation
+							      disp cur-buf))))))
 
 (defun fstar-jump-to-definition ()
   "Jump to definition of identifier at point, if any."
