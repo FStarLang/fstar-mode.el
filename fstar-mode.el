@@ -420,6 +420,9 @@ If END is nil, pulse the entire line containing BEG."
     (when (fboundp 'pulse-momentary-highlight-one-line)
       (pulse-momentary-highlight-one-line beg))))
 
+(defvar-local fstar--parent-buffer nil
+  "The buffer that opened the current buffer, if it exists.")
+
 (defun fstar--navigate-to-1 (location display-action switch)
   "Navigate to LOCATION.
 DISPLAY-ACTION determines where the resulting buffer is
@@ -707,9 +710,6 @@ enable all experimental features."
 
 (defvar-local fstar--features nil
   "List of available F* features.")
-
-(defvar-local fstar--parent-buffer nil
-  "The buffer that opened the current buffer, if it exists.")
 
 (defun fstar--query-vernum (executable)
   "Ask F* EXECUTABLE for its version number."
