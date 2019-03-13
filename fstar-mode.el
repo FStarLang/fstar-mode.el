@@ -4210,12 +4210,13 @@ DISPLAY-ACTION indicates how: nil means in the current window;
   "Jump to definition of identifier at POS, if any.
 DISP should be nil (display in same window) or
 `window' (display in a side window)."
-  (let ((buf (fstar-subp--ensure-available-free-anywhere #'user-error)))
+  (let ((buf (fstar-subp--ensure-available-free-anywhere #'user-error))
+	(query (fstar-subp--positional-lookup-query pos '(defined-at)))
+	(continuation (fstar-subp--lookup-wrapper pos (apply-partially
+						       #'fstar--jump-to-definition-continuation
+						       disp))))
     (with-current-buffer buf
-      (fstar-subp--query (fstar-subp--positional-lookup-query pos '(defined-at))
-    			 (fstar-subp--lookup-wrapper pos (apply-partially
-    							  #'fstar--jump-to-definition-continuation
-    							  disp))))))
+      (fstar-subp--query query continuation))))
 
 (defun fstar-jump-to-definition ()
   "Jump to definition of identifier at point, if any."
