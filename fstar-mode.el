@@ -2357,8 +2357,7 @@ Raise an error with ERROR-FN if a free F* process isn't available anywhere."
 		(setq result buf)
 		(throw 'here t))))))
     (if result result
-      (funcall error-fn "Unable to find a free F* process. Either \
-F* is not started, or all buffers are processing."))))
+      (fstar-subp--ensure-available error-fn))))
 
 (defun fstar-subp--serialize-query (query id)
   "Serialize QUERY with ID to JSON."
