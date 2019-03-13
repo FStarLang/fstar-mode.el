@@ -438,6 +438,7 @@ window become current and selected."
     (if (not (file-exists-p fname))
         (message "File not found: %S" fname)
       (-when-let* ((buf (find-file-noselect fname))
+		   (cur-buf (current-buffer))
                    (win (if (not switch)
                             (display-buffer buf action)
                           (when (eq (pop-to-buffer buf action)
@@ -446,6 +447,7 @@ window become current and selected."
         (with-selected-window win
           (with-current-buffer buf ;; FIXME check this
             (push-mark (point) t) ;; Save default position in mark ring
+	    (setq fstar--parent-buffer cur-buf)
             (fstar--goto-line-col (or line 1) col)
             (recenter)
             (when line
