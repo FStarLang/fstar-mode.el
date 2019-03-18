@@ -5256,6 +5256,7 @@ Could it be a typo in `fstar-subp-prover-args' or \
         (set-process-coding-system proc 'utf-8 'utf-8)
         (process-put proc 'fstar-subp-source-buffer (current-buffer))
         (setq fstar-subp--process proc)
+	(setq fstar--parent-buffer nil) ; No longer depend on parent
         (setq fstar-subp--prover-args args)
         (setq fstar-subp--continuations (make-hash-table :test 'equal))
         (when (fstar--has-feature 'json-subp)
