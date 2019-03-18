@@ -2350,23 +2350,12 @@ FEATURE, if specified."
 (defun fstar-subp--find-any-free-process (error-fn)
   "Return a free fstar process if available in some buffer.
 Raise an error with ERROR-FN if a free F* process isn't available anywhere."
-  (let ((result nil))
-    (catch 'here
-      (if (fstar-subp-live-p fstar-subp--process)
-	(progn
-	  (setq result (current-buffer))
-	  (throw 'here t)))
-      (let ((buflist (cons (or fstar--parent-buffer (current-buffer)) (buffer-list))))
-	(dolist (buf buflist)
-	  (if (and
-	       (eq (buffer-local-value 'major-mode buf)
-		   'fstar-mode)
-	       (fstar-subp-live-p (buffer-local-value 'fstar-subp--process buf)))
-	      (progn
-		(setq result buf)
-		(throw 'here t))))))
-    (if result result
-      (fstar-subp--ensure-available error-fn))))
+  (cl-loop for buf in `(,(current-buffer) ,fstar--parent-buffer ,@(buffer-list))
+	   for proc = (and buf
+			   (eq (buffer-local-value 'major-mode buf) 'fstar-mode)
+			   (buffer-local-value 'fstar-subp--process buf))
+	   when (and proc (fstar-subp-live-p proc))
+	   return buf))
 
 (defun fstar-subp--serialize-query (query id)
   "Serialize QUERY with ID to JSON."
