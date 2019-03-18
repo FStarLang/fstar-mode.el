@@ -445,7 +445,7 @@ window become current and selected."
     (if (not (file-exists-p fname))
         (message "File not found: %S" fname)
       (-when-let* ((buf (find-file-noselect fname))
-		   (cur-buf (current-buffer))
+		   (cur-buf (or fstar--parent-buffer (current-buffer)))
                    (win (if (not switch)
                             (display-buffer buf action)
                           (when (eq (pop-to-buffer buf action)
