@@ -2347,7 +2347,7 @@ FEATURE, if specified."
   (when feature
     (fstar--has-feature feature error-fn)))
 
-(defun fstar-subp--ensure-available-free-anywhere (error-fn)
+(defun fstar-subp--find-any-free-process (error-fn)
   "Return a free fstar process if available in some buffer.
 Raise an error with ERROR-FN if a free F* process isn't available anywhere."
   (let ((result nil))
@@ -4218,7 +4218,7 @@ DISPLAY-ACTION indicates how: nil means in the current window;
   "Jump to definition of identifier at POS, if any.
 DISP should be nil (display in same window) or
 `window' (display in a side window)."
-  (let ((buf (fstar-subp--ensure-available-free-anywhere #'user-error))
+  (let ((buf (fstar-subp--find-any-free-process #'user-error))
 	(query (fstar-subp--positional-lookup-query pos '(defined-at))))
     (with-current-buffer buf
       (fstar-subp--query query
