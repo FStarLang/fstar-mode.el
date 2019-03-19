@@ -420,6 +420,13 @@ If END is nil, pulse the entire line containing BEG."
     (when (fboundp 'pulse-momentary-highlight-one-line)
       (pulse-momentary-highlight-one-line beg))))
 
+(defvar-local fstar--parent-buffer nil
+  "The buffer that opened the current buffer, if it exists.
+This is relevant when (for example) a user jumps to the current
+buffer using a 'jump to definition' command.  If it is set, then
+this buffer may be used to run F* queries if an F* process isn't
+started in the current buffer.")
+
 (defun fstar--navigate-to-1 (location display-action switch)
   "Navigate to LOCATION.
 DISPLAY-ACTION determines where the resulting buffer is
@@ -438,6 +445,7 @@ window become current and selected."
     (if (not (file-exists-p fname))
         (message "File not found: %S" fname)
       (-when-let* ((buf (find-file-noselect fname))
+		   (parent-buf (or fstar--parent-buffer (current-buffer)))
                    (win (if (not switch)
                             (display-buffer buf action)
                           (when (eq (pop-to-buffer buf action)
@@ -446,6 +454,7 @@ window become current and selected."
         (with-selected-window win
           (with-current-buffer buf ;; FIXME check this
             (push-mark (point) t) ;; Save default position in mark ring
+	    (setq fstar--parent-buffer parent-buf)
             (fstar--goto-line-col (or line 1) col)
             (recenter)
             (when line
@@ -2338,6 +2347,16 @@ FEATURE, if specified."
   (when feature
     (fstar--has-feature feature error-fn)))
 
+(defun fstar-subp--find-any-live-process (error-fn)
+  "Return a live fstar process if available in some buffer.
+Raise an error with ERROR-FN if a live F* process isn't available anywhere."
+  (cl-loop for buf in `(,(current-buffer) ,fstar--parent-buffer ,@(buffer-list))
+	   for proc = (and buf
+			   (eq (buffer-local-value 'major-mode buf) 'fstar-mode)
+			   (buffer-local-value 'fstar-subp--process buf))
+	   when (and proc (fstar-subp-live-p proc))
+	   return buf))
+
 (defun fstar-subp--serialize-query (query id)
   "Serialize QUERY with ID to JSON."
   (let ((json-encoding-pretty-print nil)
@@ -3667,7 +3686,7 @@ Must be called with syntax table `fstar--fqn-at-point-syntax-table'"
                ("symbol" . ,(or (fstar--fqn-at-point pos) ""))
                ("requested-info" . ,fields)
                ("location" .
-                (("filename" . "<input>")
+                (("filename" . ,(buffer-file-name))
                  ("line" . ,(line-number-at-pos pos))
                  ("column" . ,(fstar-subp--column-number-at-pos pos))))))
     (if (fstar--has-feature 'info-includes-symbol)
@@ -4175,24 +4194,28 @@ the search buffer."
 
 ;;; ;; ;; Jump to definition
 
-(defun fstar--jump-to-definition-continuation (display-action info)
+(defun fstar--jump-to-definition-continuation (cur-buf display-action info)
   "Jump to position in INFO.
 DISPLAY-ACTION indicates how: nil means in the current window;
 `window' means in a side window."
   (-if-let* ((def-loc (and (fstar-lookup-result-p info)
-                           (fstar-lookup-result-def-loc info))))
-      (fstar--navigate-to def-loc display-action)
+			   (fstar-lookup-result-def-loc info))))
+      (with-current-buffer cur-buf
+	(fstar--navigate-to def-loc display-action))
     (message "No definition found")))
 
 (defun fstar-jump-to-definition-1 (pos disp)
   "Jump to definition of identifier at POS, if any.
 DISP should be nil (display in same window) or
 `window' (display in a side window)."
-  (fstar-subp--ensure-available #'user-error 'lookup)
-  (fstar-subp--query (fstar-subp--positional-lookup-query pos
-                  '(defined-at))
-                (fstar-subp--lookup-wrapper pos
-                  (apply-partially #'fstar--jump-to-definition-continuation disp))))
+  (let ((cur-buf (current-buffer))
+	(buf (fstar-subp--find-any-live-process #'user-error))
+	(query (fstar-subp--positional-lookup-query pos '(defined-at))))
+    (with-current-buffer buf
+      (fstar-subp--query query
+			 (fstar-subp--lookup-wrapper (point) (apply-partially
+							      #'fstar--jump-to-definition-continuation
+							      cur-buf disp))))))
 
 (defun fstar-jump-to-definition ()
   "Jump to definition of identifier at point, if any."
