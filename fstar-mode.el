@@ -2347,9 +2347,9 @@ FEATURE, if specified."
   (when feature
     (fstar--has-feature feature error-fn)))
 
-(defun fstar-subp--find-any-free-process (error-fn)
-  "Return a free fstar process if available in some buffer.
-Raise an error with ERROR-FN if a free F* process isn't available anywhere."
+(defun fstar-subp--find-any-live-process (error-fn)
+  "Return a live fstar process if available in some buffer.
+Raise an error with ERROR-FN if a live F* process isn't available anywhere."
   (cl-loop for buf in `(,(current-buffer) ,fstar--parent-buffer ,@(buffer-list))
 	   for proc = (and buf
 			   (eq (buffer-local-value 'major-mode buf) 'fstar-mode)
@@ -4209,7 +4209,7 @@ DISPLAY-ACTION indicates how: nil means in the current window;
 DISP should be nil (display in same window) or
 `window' (display in a side window)."
   (let ((cur-buf (current-buffer))
-	(buf (fstar-subp--find-any-free-process #'user-error))
+	(buf (fstar-subp--find-any-live-process #'user-error))
 	(query (fstar-subp--positional-lookup-query pos '(defined-at))))
     (with-current-buffer buf
       (fstar-subp--query query
