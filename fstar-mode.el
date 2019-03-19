@@ -1243,6 +1243,8 @@ leads to the binder's start."
     (fstar--highlight-docstring-region (point-min) (point-max))
     (buffer-string)))
 
+(make-variable-buffer-local 'font-lock-extra-managed-props)
+
 (defun fstar-setup-font-lock ()
   "Setup font-lock for use with F*."
   (font-lock-mode -1)
