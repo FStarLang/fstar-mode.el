@@ -122,6 +122,9 @@
   "Tactics and tactic-based proofs."
   :group 'fstar-interactive)
 
+(defvaralias 'flycheck-fstar-executable 'fstar-executable)
+(make-obsolete-variable 'flycheck-fstar-executable 'fstar-executable "0.2" 'set)
+
 (defcustom fstar-executable "fstar.exe"
   "Where to find F*.
 May be either “fstar.exe” (search in $PATH) or an absolute path."
@@ -605,8 +608,12 @@ With no ARGS, just insert FMT and a newline."
 
 ;;; Debugging
 
+(define-obsolete-variable-alias 'fstar-subp-debug 'fstar-debug "0.4")
+
 (defvar fstar-debug nil
   "If non-nil, print debuging information in interactive mode.")
+
+(define-obsolete-function-alias 'fstar-subp-toggle-debug 'fstar-toggle-debug "0.4")
 
 (defun fstar-toggle-debug ()
   "Toggle `fstar-debug'."
@@ -615,9 +622,6 @@ With no ARGS, just insert FMT and a newline."
            (if (setq-default fstar-debug (not fstar-debug)) "enabled" "disabled"))
   (when fstar-debug
     (display-buffer (fstar--log-buffer))))
-
-(define-obsolete-variable-alias 'fstar-subp-debug 'fstar-debug "0.4")
-(define-obsolete-function-alias 'fstar-subp-toggle-debug 'fstar-toggle-debug "0.4")
 
 (defconst fstar--log-buffer-keywords
   '(("!!!" . font-lock-warning-face)
@@ -766,9 +770,6 @@ in your version of F*.  You're running version %s" fstar--vernum)))))
          (line-col `("(" line "," column "-" ,digits "," ,digits ")")))
     `((error (file-name) ,@line-col ": (Error) " (message))
       (warning (file-name) ,@line-col ": (Warning) " (message)))))
-
-(defvaralias 'flycheck-fstar-executable 'fstar-executable)
-(make-obsolete-variable 'flycheck-fstar-executable 'fstar-executable "0.2" 'set)
 
 (defun fstar--flycheck-verify-enabled (checker)
   "Create a verification result announcing whether CHECKER is enabled."
