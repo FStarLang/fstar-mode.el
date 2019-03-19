@@ -2351,12 +2351,13 @@ FEATURE, if specified."
 (defun fstar-subp--find-any-live-process (error-fn)
   "Return a live fstar process if available in some buffer.
 Raise an error with ERROR-FN if a live F* process isn't available anywhere."
-  (cl-loop for buf in `(,(current-buffer) ,fstar--parent-buffer ,@(buffer-list))
-           for proc = (and buf
-                           (eq (buffer-local-value 'major-mode buf) 'fstar-mode)
-                           (buffer-local-value 'fstar-subp--process buf))
-           when (and proc (fstar-subp-live-p proc))
-           return buf))
+  (or (cl-loop for buf in `(,(current-buffer) ,fstar--parent-buffer ,@(buffer-list))
+               for proc = (and buf
+                               (eq (buffer-local-value 'major-mode buf) 'fstar-mode)
+                               (buffer-local-value 'fstar-subp--process buf))
+               when (and proc (fstar-subp-live-p proc))
+               return buf)
+      (funcall error-fn "No F* process found.")))
 
 (defun fstar-subp--serialize-query (query id)
   "Serialize QUERY with ID to JSON."
