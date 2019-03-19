@@ -4216,6 +4216,18 @@ DISP should be nil (display in same window) or
         (buf (fstar-subp--find-any-live-process #'user-error))
         (query (fstar-subp--positional-lookup-query pos '(defined-at))))
     (with-current-buffer buf
+      ;; FIXME: `fstar-subp--lookup-wrapper' records the value of the point in the
+      ;; current buffer when constructing the callback, and ensures that it
+      ;; hasn't changed when the callback is invoked.  This is to ensure that we
+      ;; ignore late responses (if F* takes 30 seconds to respond, there's a
+      ;; good chance that the user we'll have moved and won't expect a sudden
+      ;; jump to a different location).  Unfortunately, here, we call
+      ;; fstar-subp--lookup-wrapper in the wrong buffer (instead of calling it in the
+      ;; buffer that the user is currently editing, we call it in the parent of
+      ;; that buffer, `buf').  Similarly, when the callback is run and the point
+      ;; is checked, the check also happens in the parent buffer.  A good fix
+      ;; would be to annotate each query with a source buffer, and run its
+      ;; callbacks in that buffer.
       (fstar-subp--query query
                     (fstar-subp--lookup-wrapper (point) (apply-partially
                                                     #'fstar--jump-to-definition-continuation
