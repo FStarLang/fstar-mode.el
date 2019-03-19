@@ -1,4 +1,4 @@
-;;; fstar-mode.el --- Support for F* programming -*- lexical-binding: t -*-
+;;; fstar-mode.el --- Support for F* programming -*- lexical-binding: t; indent-tabs-mode: nil -*-
 
 ;; Copyright (C) 2015-2017 Clément Pit-Claudel
 ;; Author: Clément Pit-Claudel <clement.pitclaudel@live.com>
