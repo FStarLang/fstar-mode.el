@@ -423,7 +423,7 @@ If END is nil, pulse the entire line containing BEG."
 (defvar-local fstar--parent-buffer nil
   "The buffer that opened the current buffer, if it exists.
 This is relevant when (for example) a user jumps to the current
-buffer using a 'jump to definition' command. If it is set, then
+buffer using a 'jump to definition' command.  If it is set, then
 this buffer may be used to run F* queries if an F* process isn't
 started in the current buffer.")
 
