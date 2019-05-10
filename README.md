@@ -18,11 +18,17 @@ F*-mode requires Emacs 24.3 or newer, and is distributed through [MELPA](https:/
 
 2.  Restart Emacs, then run <kbd>M-x package-refresh-contents</kbd> and <kbd>M-x package-install RET fstar-mode RET</kbd>. Future updates can be downloaded using <kbd>M-x list-packages U x y</kbd>.
 
-3.  If `fstar.exe` and `z3` are not already in your path, set the `fstar-executable` and `z3-executable` variables:
+3.  If `fstar.exe` and `z3` are not already in your path, set the `fstar-executable` and `fstar-smt-executable` variables:
 
     ```elisp
     (setq-default fstar-executable "PATH-TO-FSTAR.EXE")
     (setq-default fstar-smt-executable "PATH-TO-Z3(.EXE)")
+    ```
+
+    If you want to use a library, you can set the `fstar-subp-prover-args`:
+    
+    ```elisp
+    (setq-default fstar-subp-prover-args '("--include" "PATH-TO-THE-LIBRARY"))
     ```
 
 `fstar-mode` is compatible with Tramp: if you open an F* file on a remote machine, `fstar-mode` run F* remotely [over SSH](#editing-remote-f*-files).
@@ -35,7 +41,7 @@ F*-mode requires Emacs 24.3 or newer, and is distributed through [MELPA](https:/
 
 ## Keybindings
 
-:zap: indicates keybindings available once F* is running.<br/>
+:zap: indicates keybindings available once F* is running. Some of these commands start a F* process, like e.g. `C-c C-RET`. <br/>
 :sparkles: indicates features added since the latest F* release.<br/>
 :unicorn: indicates features that require yet-unmerged patches to F*.<br/>
 
@@ -150,7 +156,7 @@ Use `C-h v fstar-subp-prover-args` for more details.  If your project requires a
 
 F*-mode is compatible with Emacs' Tramp.  To use F*-mode over tramp:
 
-* Set `fstar-executable` and `z3-executable` appropriately: either to `"fstar.exe"` and `"z3"` with proper [Tramp path adjustments](https://www.gnu.org/software/tramp/#Remote-programs), or using full paths on the remote machine (e.g. `/home/remote-you/FStar/bin/fstar.exe`).
+* Set `fstar-executable` and `fstar-smt-executable` appropriately: either to `"fstar.exe"` and `"z3"` with proper [Tramp path adjustments](https://www.gnu.org/software/tramp/#Remote-programs), or using full paths on the remote machine (e.g. `/home/remote-you/FStar/bin/fstar.exe`).
 * Open a remote file (`C-x C-f /sshx:username@remote-server: RET test.fst RET`).  Processing this file should invoke a remote F* through SSH.
 
 ### Hiding parts of a buffer
