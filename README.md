@@ -25,8 +25,8 @@ F*-mode requires Emacs 24.3 or newer, and is distributed through [MELPA](https:/
     (setq-default fstar-smt-executable "PATH-TO-Z3(.EXE)")
     ```
 
-    If you want to use a library, you can set the `fstar-subp-prover-args`:
-    
+    If you want to use a library, you can set customize `fstar-subp-prover-args`:
+
     ```elisp
     (setq-default fstar-subp-prover-args '("--include" "PATH-TO-THE-LIBRARY"))
     ```
@@ -41,7 +41,7 @@ F*-mode requires Emacs 24.3 or newer, and is distributed through [MELPA](https:/
 
 ## Keybindings
 
-:zap: indicates keybindings available once F* is running. Some of these commands start a F* process, like e.g. `C-c C-RET`. <br/>
+:zap: indicates keybindings available once F* is running (use any keybinding listed in the *Interactive* section below to start it). <br/>
 :sparkles: indicates features added since the latest F* release.<br/>
 :unicorn: indicates features that require yet-unmerged patches to F*.<br/>
 
@@ -91,15 +91,17 @@ Key                       | Action
 
 ### Interactive mode
 
+The following keybindings start F* if needed:
+
 Proof-General            | :atom: Atom   | Action
 -------------------------|---------------|----------------------------------------------------------
-`C-c C-n` (**n**ext)     | `C-S-n`       | :zap: Send the next paragraph to F* (with `C-u`, send it in lax mode)
-`C-c C-p` (**p**revious) | `C-S-p`       | :zap: Retract the last paragraph
-`C-c C-.`                | `C-S-.`       | :zap: Jump to beginning of unprocessed section
-`C-c RET` or `C-c C-RET` | `C-S-i`       | :zap: Send everything up to the current point to F*
-`C-c C-l` (**l**ax)      | `C-S-l`       | :zap: Send everything up to the current point to F*, in lax mode
-`C-c C-b` (**b**uffer)   | `C-S-b`       | :zap: Send entire buffer to F* in lax mode
-`C-c C-r` (**r**eload)   | `C-S-r`       | :zap: Reload dependencies of the current buffer and reprocess its contents (add `C-u` for lax mode)
+`C-c C-n` (**n**ext)     | `C-S-n`       | Send the next paragraph to F* (with `C-u`, send it in lax mode)
+`C-c C-p` (**p**revious) | `C-S-p`       | Retract the last paragraph
+`C-c C-.`                | `C-S-.`       | Jump to beginning of unprocessed section
+`C-c RET` or `C-c C-RET` | `C-S-i`       | Send everything up to the current point to F*
+`C-c C-l` (**l**ax)      | `C-S-l`       | Send everything up to the current point to F*, in lax mode
+`C-c C-b` (**b**uffer)   | `C-S-b`       | Send entire buffer to F* in lax mode
+`C-c C-r` (**r**eload)   | `C-S-r`       | Reload dependencies of the current buffer and reprocess its contents (add `C-u` for lax mode)
 `C-c C-x` (e**x**it)     | `C-M-c`       | :zap: Kill the F* subprocess
 `C-c C-c`                | `C-M-S-c`     | :unicorn: Interrupt the currently-running verification task.  On older F* builds, this sends an interrupt to Z3, which can be unreliable.
 
