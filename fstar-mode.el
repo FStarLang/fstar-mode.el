@@ -3766,7 +3766,9 @@ CONTEXT indicates where SYMBOL comes from."
   "Chose module path based upon user preference"
   (if fstar-prefer-fsti-when-jumping-to-modules
       (let ((testpath (concat path "i")))
-        (if (file-readable-p testpath)
+        (if (and
+             (string-suffix-p ".fst" path)
+             (file-readable-p testpath))
             testpath
           path))
     path))
