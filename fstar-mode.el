@@ -5192,6 +5192,13 @@ Non-nil NO-IDE means don't include `--ide' and `--in'."
     ,@(-mapcat (lambda (dir) `("--include" ,dir))
                (fstar-subp--prover-includes-for-compiler-hacking))))
 
+(defvar fstar-subp--default-directory nil
+  "Directory in which to start F*.
+
+If nil, use `default-directory'.  This is useful to properly
+interpret the paths on the command line when Emacs is started
+with `-f fstar-debug-invocation'.")
+
 ;;;###autoload
 (defun fstar-debug-invocation ()
   "Compute F*'s arguments from `argv' and visit the corresponding file.
@@ -5210,6 +5217,7 @@ Last argument must be a file name, not %S" err-header fname))
 First argument must be an F* executable, not %S" err-header executable))
     (with-current-buffer (find-file-existing fname)
       (setq-local fstar-subp-prover-args args)
+      (setq-local fstar-subp--default-directory command-line-default-directory)
       (message "\
 F* binary: %S
 F* arguments: %S
@@ -5227,7 +5235,8 @@ Current file: %S" fstar-executable fstar-subp-prover-args buffer-file-name)
 
 (defun fstar-subp--start-process (buf prog args)
   "Start an F* subprocess PROG in BUF with ARGS."
-  (apply #'start-file-process fstar-subp--process-name buf prog args))
+  (let ((default-directory (or fstar-subp--default-directory default-directory)))
+    (apply #'start-file-process fstar-subp--process-name buf prog args)))
 
 (defun fstar-subp--wait-for-features-list (proc)
   "Busy-wait until the first protocol-info message from PROC."
