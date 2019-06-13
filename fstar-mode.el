@@ -3026,7 +3026,7 @@ Complain if STATUS is `failure' and RESPONSE doesn't contain issues."
       (fstar-subp-highlight-issues local-issues overlay)
       (-if-let* ((target-issue (fstar-subp--target-issue local-issues)))
           (fstar-subp-jump-to-issue target-issue)
-        (message (fstar-issue-message-with-level (car local-issues)))))))
+        (message "%s" (fstar-issue-message-with-level (car local-issues)))))))
 
 ;;; ;; Visiting related errors
 
