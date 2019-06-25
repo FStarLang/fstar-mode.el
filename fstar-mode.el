@@ -5511,7 +5511,8 @@ its `find-image' forms."
 
 (defun fstar-teardown ()
   "Run all teardown functions."
-  (fstar-run-module-functions 'teardown))
+  (unless (buffer-base-buffer)
+    (fstar-run-module-functions 'teardown)))
 
 (defun fstar-setup-hooks ()
   "Setup hooks required by F*-mode."
