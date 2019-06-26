@@ -867,7 +867,7 @@ allows composition in code comments."
   (format "^[[:space:]]*\\(%s\\)\\_>" (regexp-opt fstar-syntax-fsdoc-keywords)))
 
 (defconst fstar-syntax-preprocessor
-  '("#set-options" "#reset-options" "#push-options" "#pop-options" "#light"))
+  '("#set-options" "#reset-options" "#push-options" "#pop-options" "#restart-solver" "#light"))
 
 (defconst fstar-syntax-qualifiers
   '("new" "abstract" "logic" "assume" "visible"
