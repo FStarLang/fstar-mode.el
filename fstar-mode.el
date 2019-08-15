@@ -141,6 +141,15 @@ returning a string (the full path to the SMT solver)."
   :type 'file
   :risky t)
 
+(defvaralias 'flycheck-fstar-literate-executable 'fstar-python-executable)
+
+(defcustom fstar-python-executable "python"
+  "Where to find Python (preferably 3).
+Can be \"python\" or \"python3\", or an absolute path."
+  :group 'fstar
+  :type 'file
+  :risky t)
+
 (defconst fstar-known-modules
   '((font-lock         . "Syntax highlighting")
     (prettify          . "Unicode math (e.g. display forall as ∀; requires emacs 24.4 or later)")
@@ -1844,7 +1853,7 @@ module in fstar-enabled-modules to use this checker.")
       :face (if enabled 'success '(bold error))))))
 
 (flycheck-define-command-checker 'fstar-literate
-  "Flycheck checker for F*."
+  "Flycheck checker for literate F*."
   :command '("python"
              (eval (expand-file-name "etc/fslit/lint.py" fstar--directory))
              "--stdin-filename" source-original
@@ -1864,8 +1873,6 @@ module in fstar-enabled-modules to use this checker.")
                       (flycheck-python-verify-module 'fstar-literate "docutils"))))
   :modes '(fstar-mode fstar-literate--rst-mode))
 
-(flycheck-def-executable-var fstar-literate "python")
-
 (add-to-list 'flycheck-checkers 'fstar-literate)
 (cl-pushnew 'fstar-literate--rst-mode (flycheck-checker-get 'rst-sphinx 'modes))
 
@@ -1875,7 +1882,8 @@ module in fstar-enabled-modules to use this checker.")
 (defun fstar-literate--run-converter (&rest args)
   "Run converter with ARGS on current buffer.
 Return converted contents and adjusted value of point."
-  (let* ((python (fstar-find-executable "python" "Python" nil 'local-only))
+  (let* ((python (fstar-find-executable fstar-python-executable "Python"
+                                   'fstar-python-executable 'local-only))
          (converter (expand-file-name "etc/fslit/translate.py" fstar--directory))
          (input (concat (buffer-substring-no-properties (point-min) (point))
                         fstar-literate--point-marker
@@ -2005,9 +2013,11 @@ it created a bunch of issues with point motion and deletion.")
   (let* ((prefix (concat "fslit_" (buffer-name)))
          (html-fname (make-temp-file prefix nil ".html"))
          (fst2html (expand-file-name "etc/fslit/fst2html.py" fstar--directory))
-         (contents (buffer-substring-no-properties (point-min) (point-max))))
+         (contents (buffer-substring-no-properties (point-min) (point-max)))
+         (python (fstar-find-executable fstar-python-executable "Python"
+                                   'fstar-python-executable 'local-only)))
     (with-temp-buffer
-      (pcase (call-process-region contents nil "python"
+      (pcase (call-process-region contents nil python
                                   nil t nil fst2html "-" html-fname)
         (`0 (message "Compilation complete: %s" (fstar--string-trim (buffer-string)))
             (browse-url html-fname))
