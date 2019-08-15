@@ -4209,7 +4209,7 @@ the search buffer."
 ;;; ;; ;; Jump to definition
 
 (defun fstar--jump-to-definition-continuation (cur-buf display-action info)
-  "Jump to position in INFO.
+  "Jump to position in INFO relative to CUR-BUF.
 DISPLAY-ACTION indicates how: nil means in the current window;
 `window' means in a side window."
   (-if-let* ((def-loc (and (fstar-lookup-result-p info)
