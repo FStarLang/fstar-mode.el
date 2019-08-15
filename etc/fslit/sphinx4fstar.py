@@ -60,9 +60,9 @@ def process_fixmes(app, doctree, _fromdocname):
 # =====
 
 def register_fst_parser(app):
-    app.add_source_parser('.fst', LiterateFStarParser)
-    if '.fst' not in app.config.source_suffix:
-        app.config.source_suffix.append('.fst')
+    app.add_source_parser(LiterateFStarParser)
+    app.add_source_suffix('.fst', 'fst')
+    app.add_source_suffix('.fsti', 'fsti')
 
 def add_html_assets(app):
     if app.builder.name == "html":
