@@ -1203,10 +1203,6 @@ leads to the binder's start."
       (flycheck-mode -1)
       (fstar-mode))))
 
-(defun fstar--cleanup-type (type)
-  "Clean up TYPE."
-  (replace-regexp-in-string "\\(?:uu___[0-9]*:\\|[@#][0-9]+\\_>\\)" "" type t t))
-
 (defun fstar--unparens (str)
   "Remove parentheses surrounding STR, if any."
   (if (and str
@@ -1227,7 +1223,7 @@ leads to the binder's start."
   (fstar--init-scratchpad)
   (with-current-buffer fstar--scratchpad
     (erase-buffer)
-    (insert (fstar--cleanup-type str))
+    (insert str)
     (fstar--font-lock-ensure)
     (buffer-string)))
 
