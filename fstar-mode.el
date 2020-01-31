@@ -2110,13 +2110,13 @@ Individual regions can be sent to F* in lax mode using
 (make-local-variable 'fstar-subp-sloppy)
 
 (defface fstar-subp-overlay-lax-face
-  '((t :slant italic))
+  '((t :slant italic :extend t))
   "Face used to highlight lax-checked sections of the buffer."
   :group 'fstar-interactive)
 
 (defface fstar-subp-overlay-pending-face
-  '((((background light)) :background "#AD7FA8")
-    (((background dark))  :background "#5C3566"))
+  '((((background light)) :background "#AD7FA8" :extend t)
+    (((background dark))  :background "#5C3566" :extend t))
   "Face used to highlight pending sections of the buffer."
   :group 'fstar-interactive)
 
@@ -2126,8 +2126,8 @@ Individual regions can be sent to F* in lax mode using
   :group 'fstar-interactive)
 
 (defface fstar-subp-overlay-busy-face
-  '((((background light)) :background "mistyrose")
-    (((background dark))  :background "mediumorchid"))
+  '((((background light)) :background "mistyrose" :extend t)
+    (((background dark))  :background "mediumorchid" :extend t))
   "Face used to highlight busy sections of the buffer."
   :group 'fstar-interactive)
 
@@ -2137,8 +2137,8 @@ Individual regions can be sent to F* in lax mode using
   :group 'fstar-interactive)
 
 (defface fstar-subp-overlay-processed-face
-  '((((background light)) :background "#EAF8FF")
-    (((background dark))  :background "darkslateblue"))
+  '((((background light)) :background "#EAF8FF" :extend t)
+    (((background dark))  :background "darkslateblue" :extend t))
   "Face used to highlight processed sections of the buffer."
   :group 'fstar-interactive)
 
