@@ -397,9 +397,9 @@ This doesn't work for strings in snippets inside of comments."
   (with-syntax-table fstar--fqn-at-point-syntax-table
     (save-excursion
       (goto-char pos)
-      (-when-let* ((s (symbol-at-point)))
+      (-when-let* ((s (thing-at-point 'symbol t)))
         (replace-regexp-in-string ;; Drop final "." from e.g. A.B.(xy)
-         "\\.\\'" "" (substring-no-properties (symbol-name s)))))))
+         "\\.\\'" "" s)))))
 
 (defun fstar--propertize-title (title)
   "Format TITLE as a title."
