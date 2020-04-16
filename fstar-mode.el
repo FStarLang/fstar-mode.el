@@ -890,7 +890,7 @@ allows composition in code comments."
   "Regexp matching block headers.")
 
 (defconst fstar-syntax-block-start-re
-  (format "^\\(?:%s[ \n]\\)*%s "
+  (format "^\\(?:%s[ \n]\\)*\\(\\[@\\|%s \\)"
           (regexp-opt fstar-syntax-qualifiers)
           (regexp-opt (append (remove "and" fstar-syntax-headers)
                               fstar-syntax-preprocessor)))
