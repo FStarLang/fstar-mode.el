@@ -865,7 +865,7 @@ allows composition in code comments."
 
 (defconst fstar-syntax-headers
   '("open" "module" "include" "friend"
-    "let" "let rec" "val" "and"
+    "let" "let rec" "val" "and" "assume"
     "exception" "effect" "new_effect" "sub_effect" "new_effect_for_free" "layered_effect"
     "kind" "type" "class" "instance"))
 
