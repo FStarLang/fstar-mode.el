@@ -1822,7 +1822,7 @@ Interactively, offer titles of F* wiki pages."
     ("info" . info)
     ("warning" . warning)
     ("error" . error)
-    ("severe" . eror)))
+    ("severe" . error)))
 
 (defun fstar-literate--parse-errors (output checker buffer)
   "Parse literate F* errors in OUTPUT.
