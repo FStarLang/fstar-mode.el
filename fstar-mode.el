@@ -5455,7 +5455,7 @@ This is useful to spot discrepancies between the CLI and IDE frontends."
          (dolist (type '(xpm png svg))
            (let* ((fname (format "%s.%S" img type))
                   (fpath (expand-file-name fname fstar-tool-bar--icons-directory)))
-             (push `(:type ,type :file ,fpath) specs)))
+             (push `(:type ,type :file ,fpath :scale 1.0) specs)))
          (setq props (plist-put props :image `(find-image '(,@specs))))))
      `(,key menu-item ,doc ,cmd . ,props))
     (_ binding)))
