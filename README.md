@@ -12,7 +12,7 @@ F*-mode requires Emacs 24.3 or newer, and is distributed through [MELPA](https:/
 
     ```elisp
     (require 'package)
-    (add-to-list 'package-archives '("melpa" . "http://melpa.org/packages/") t)
+    (add-to-list 'package-archives '("melpa" . "https://melpa.org/packages/") t)
     (package-initialize)
     ```
 
