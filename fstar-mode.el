@@ -4813,7 +4813,7 @@ Notifications are only displayed if it doesn't.")
 ;;; ;; ;; Tactics
 
 (cl-defstruct fstar-proof-state
-  label location goals smt-goals)
+  label location urgency goals smt-goals)
 
 (defconst fstar--goals-buffer-name "*fstar: goals*")
 (push fstar--goals-buffer-name fstar--all-temp-buffer-names)
@@ -5007,17 +5007,12 @@ This function exists to work around the fact that
         (current-buffer))))
 
 (defmacro fstar-tactics--with-goals-buffer (&rest body)
-  "Run BODY in F*'s goals buffer, then display that buffer."
+  "Run BODY in F*'s goals buffer"
   (declare (debug t)
            (indent 0))
   `(with-current-buffer (fstar-tactics--goals-buffer)
      (let ((inhibit-read-only t))
-       ,@body)
-     (set-marker help-window-point-marker (point))
-     (let ((window (temp-buffer-window-show (current-buffer))))
-       (help-window-setup window)
-       (with-selected-window window
-         (recenter 0)))))
+       ,@body)))
 
 (defun fstar-subp-json--parse-proof-state (json)
   "Convert JSON proof-state an fstar-mode proof state."
@@ -5025,6 +5020,7 @@ This function exists to work around the fact that
     (make-fstar-proof-state
      :label (if (equal .label "") nil .label)
      :location (and .location (fstar-subp-json--parse-location .location))
+     :urgency (or .urgency 1)
      :goals .goals
      :smt-goals .smt-goals)))
 
@@ -5036,7 +5032,13 @@ This function exists to work around the fact that
       (goto-char (point-max))
       (save-excursion
         (fstar-tactics--insert-proof-state ps))
-      (unless (bobp) (forward-line 2)))))
+      (unless (bobp) (forward-line 2))
+      (set-marker help-window-point-marker (point))
+      (if (> (fstar-proof-state-urgency ps) 0)
+          (let ((window (temp-buffer-window-show (current-buffer))))
+                (help-window-setup window)
+                (with-selected-window window
+                  (recenter 0)))))))
 
 ;;; ;; Starting the F* subprocess
 
