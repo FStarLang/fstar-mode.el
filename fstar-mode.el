@@ -2767,7 +2767,7 @@ potential errors.")
   (run-hook-with-args 'fstar-subp-overlay-processed-hook overlay status response))
 
 (cl-defstruct fstar-issue
-  level locs message)
+  level locs message number)
 
 (defun fstar-issue-alt-locs (issue)
   "Extract locations attached to ISSUE, except the first one."
@@ -2775,8 +2775,12 @@ potential errors.")
 
 (defun fstar-issue-message-with-level (issue)
   "Concatenate ISSUE's level and message."
-  (format "(%s) %s"
+  (format "(%s%s) %s"
           (capitalize (symbol-name (fstar-issue-level issue)))
+          (let ((numopt (fstar-issue-number issue)))
+            (if numopt
+                (concat " " (number-to-string numopt))
+                ""))
           (fstar-issue-message issue)))
 
 (defconst fstar-subp-issue-location-regexp
@@ -2810,7 +2814,8 @@ potential errors.")
                                 :col-from (string-to-number col-from)
                                 :line-to (string-to-number line-to)
                                 :col-to (string-to-number col-to)))
-                      :message message)))
+                      :message message
+                      :number nil)))
 
 (defun fstar-subp-json--extract-alt-locs (message)
   "Extract secondary locations (see also, Also see) from MESSAGE.
@@ -2846,7 +2851,8 @@ Returns a pair of (CLEAN-MESSAGE . LOCATIONS)."
       (make-fstar-issue
        :level (intern .level)
        :locs (append (mapcar #'fstar-subp-json--parse-location .ranges) alt-locs)
-       :message (fstar--string-trim msg)))))
+       :message (fstar--string-trim msg)
+       :number .number))))
 
 (defun fstar-subp-parse-issues (response)
   "Parse RESPONSE into a list of issues."
