@@ -2777,10 +2777,9 @@ potential errors.")
   "Concatenate ISSUE's level and message."
   (format "(%s%s) %s"
           (capitalize (symbol-name (fstar-issue-level issue)))
-          (let ((numopt (fstar-issue-number issue)))
-            (if numopt
-                (concat " " (number-to-string numopt))
-                ""))
+          (-if-let* ((num (fstar-issue-number issue)))
+             (concat " " (number-to-string num))
+             "")
           (fstar-issue-message issue)))
 
 (defconst fstar-subp-issue-location-regexp
