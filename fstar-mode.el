@@ -563,6 +563,12 @@ function does not move the point."
   "Move point backward and return a boolean indicating success."
   (unless (bobp) (backward-char) t))
 
+(defun fem-fstar--search-predicated-backward (test-fn needle &optional bound)
+  "Search backward for matches of NEEDLE before BOUND satisfying TEST-FN."
+  (when (fstar--search-predicated #'search-backward test-fn
+                             #'fstar--adjust-point-backward needle bound)
+    (goto-char (match-beginning 0))))
+
 (defun fstar--re-search-predicated-backward (test-fn re &optional bound)
   "Search backwards for matches of RE before BOUND satisfying TEST-FN."
   (when (fstar--search-predicated #'re-search-backward test-fn
