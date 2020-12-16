@@ -7953,7 +7953,7 @@ If WITH_GPRE/WITH_GPOST is t, try to insert the goal precondition/postcondition.
       ;; Failure
       (error "The meta-helpers are not loaded. Please add:
 [> module InteractiveHelpers = FStar.InteractiveHelpers
-in your code and reload the dependencies."))))
+in your file and reload the dependencies."))))
 
 (defun fstar-check-meta-helpers-loaded (CONTINUATION)
   "Check that the meta-helpers have been loaded before calling CONTINUATION"
