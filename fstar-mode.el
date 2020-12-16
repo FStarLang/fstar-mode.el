@@ -6728,7 +6728,7 @@ after the focused term, nil otherwise. comment is an optional comment"
     (when (not AFTER-TERM) (insert "\n") (insert INDENT-STR))))
 
 (defun fstar-insert-assert-pre-post--continuation (INDENT_STR TERM_BEG TERM_END
-                                                 OVERLAY STATUS RESPONSE)
+                                                   OVERLAY STATUS RESPONSE)
   "Process the information output by F* to add it to the user code.
 If F* succeeded, extract the information and add it to the proof."
   (unless (eq STATUS 'interrupted)
@@ -7942,6 +7942,27 @@ If WITH_GPRE/WITH_GPOST is t, try to insert the goal precondition/postcondition.
                                    (apply-partially #'fstar-insert-assert-pre-post--continuation
                                                     $indent-str $insert-beg $insert-end))))
 
+(defun fstar-check-meta-helpers-loaded--continue (CONTINUATION STATUS RESPONSE)
+  "Continuation for fstar-check-meta-helpers-loaded"
+  ;; If the query succeeded, it means the meta-helpers are loaded: we can continue
+  (message "continue")
+  (unless (eq STATUS 'interrupted)
+    (if (eq STATUS 'success)
+        ;; Success
+        (funcall CONTINUATION)
+      ;; Failure
+      (error "The meta-helpers are not loaded. Please add:
+[> module InteractiveHelpers = FStar.InteractiveHelpers
+in your code and reload the dependencies."))))
+
+(defun fstar-check-meta-helpers-loaded (CONTINUATION)
+  "Check that the meta-helpers have been loaded before calling CONTINUATION"
+  (message "fstar-check-meta-helpers-loaded")
+  (fstar-subp--query
+   (fstar-subp--push-query (point) `full
+                           "let _ = FStar.InteractiveHelpers.focus_on_term")
+   (apply-partially #'fstar-check-meta-helpers-loaded--continue CONTINUATION)))
+
 (defun fstar-switch-assert-assume ()
   "Switch between assertion and assumption under the pointer or in the current selection."
   (interactive)
@@ -7950,17 +7971,17 @@ If WITH_GPRE/WITH_GPOST is t, try to insert the goal precondition/postcondition.
 (defun fstar-analyze-effectful-term-no-goal ()
   "Insert assertions with proof obligations and postconditions around a term."
   (interactive)
-  (fstar-analyze-effectful-term nil nil))
+  (fstar-check-meta-helpers-loaded (apply-partially #'fstar-analyze-effectful-term nil nil)))
 
 (defun fstar-analyze-effectful-term-with-goal ()
  "Do the same as fstar-analyze-effectful-term but also include global pre/postcondition."
   (interactive)
-  (fstar-analyze-effectful-term t t))
+  (fstar-check-meta-helpers-loaded (apply-partially #'fstar-analyze-effectful-term t t)))
 
 (defun fstar-analyze-effectful-term-no-pre ()
   "Insert assertions with proof obligations and postconditions around a term."
   (interactive)
-  (fstar-analyze-effectful-term nil t))
+  (fstar-check-meta-helpers-loaded (apply-partially #'fstar-analyze-effectful-term nil t)))
 
 
 ;;; ;; Keybindings
