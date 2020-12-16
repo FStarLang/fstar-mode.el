@@ -5322,8 +5322,8 @@ This is useful to spot discrepancies between the CLI and IDE frontends."
 
 (defconst fstar-message-prefix "[F*] ")
 (defconst fstar-tactic-message-prefix "[F*] TAC>> ")
-(defconst fstar-start-fstar-msg "\n%FEM:FSTAR_META:START%")
-(defconst fstar-end-fstar-msg "\n[F*] %FEM:FSTAR_META:END%")
+(defconst fstar-start-fstar-msg "\n%FIH:FSTAR_META:START%")
+(defconst fstar-end-fstar-msg "\n[F*] %FIH:FSTAR_META:END%")
 
 (defconst fstar-messages-buffer "*Messages*")
 
