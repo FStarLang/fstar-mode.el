@@ -5896,9 +5896,11 @@ We start by looking for an admit after the cursor position, then before."
 ;;; Parsing commands
 
 (defun fstar-in-general-comment-p (&optional POS)
-  "Return t is POS is in an F* comment."
+  "Return t if POS is in an F* comment."
   (save-restriction
-    (or (fstar-in-comment-p POS) (fstar-in-literate-comment-p))))
+    (or POS (setq POS (point)))
+    (or (fstar-in-comment-p POS)
+        (fstar-in-literate-comment-p POS))))
 
 (defun fstar-search-forward-not-comment (STR &optional FULL_SEXP LIMIT)
     "Look for the first occurrence of STR not inside a comment.
@@ -5940,29 +5942,7 @@ If FULL_SEXP, look for the first occurrence which is a sexpression."
        STR LIMIT)
       (not (= $p (point)))))
 
-;; TODO: use forward-comment
-(defun fstar-skip-comment (FORWARD &optional LIMIT)
-  "Move the cursor forward or backward until out of a comment.
-Stop and don't fail if we reach the end of the buffer."
-  (let ($stop)
-    ;; Set the limit to the move
-    (if FORWARD (setq $stop (or LIMIT (point-max)))
-                (setq $stop (or LIMIT (point-min))))
-    (cond
-     ;; Inside a comment
-     ((fstar-in-comment-p)
-      (if FORWARD
-          ;; Forward: go forward until we are out of the comment
-          (while (and (fstar-in-comment-p) (< (point) $stop)) (forward-char))
-        ;; Backward: we can use the parsing state to jump
-        (goto-char (nth 8 (fstar--syntax-ppss (point))))))
-     ;; Inside a literate comment
-     ((fstar-in-literate-comment-p)
-      (if FORWARD (if (search-forward "\n" $stop t) (point) (goto-char $stop))
-        (if (search-backward "\n" $stop t) (point) (goto-char $stop))))
-     (t (point)))))
-
-(defun fstar-is-at-comment-limit (FORWARD &optional LIMIT)
+(defun fstar-is-at-comment-limit-p (FORWARD &optional LIMIT)
   "Check if the pointer is just before/after a comment symbol."
   (if FORWARD
       ;; If forward: the comments delimiters are always made of two characters
@@ -5975,6 +5955,40 @@ Stop and don't fail if we reach the end of the buffer."
       (progn
         (if (< (- (point) 1) (or LIMIT (point-min))) nil
           (fstar-in-comment-p (- (point) 1))))))
+
+(defun fstar-is-inside-comment-beg-p (&optional POS)
+  "Check if the pointer is between a '(' and a '*'."
+  (or POS (setq POS (point)))
+  (if (< (point) (point-max))
+    (and (not (fstar-in-comment-p (point))) (fstar-in-comment-p (1+ (point))))
+    nil))
+
+(defun fstar-skip-comment (FORWARD &optional LIMIT)
+  "Move the cursor forward or backward until out of a comment.
+Stop and don't fail if we reach the end of the buffer."
+  (let ($min $max)
+    ;; Set the limit to the move
+    (if FORWARD (setq $min (point) $max (or LIMIT (point-max)))
+                (setq $min (or LIMIT (point-min)) $max (point)))
+    (cond
+     ;; Inside a comment
+     ((fstar-in-comment-p)
+      (if FORWARD
+          ;; Forward: use the parsing state to jump to the beginning of the comment,
+          ;; then go forward one comment
+          (progn (goto-char (nth 8 (fstar--syntax-ppss (point))))
+                 (forward-comment 1))
+        ;; Backward: use the parsing state to jump to the beginning of the comment
+        (goto-char (nth 8 (fstar--syntax-ppss (point))))))
+     ;; We need to check if we are exactly between a '(' and a '*'
+     ((fstar-is-inside-comment-beg-p)
+      (backward-char 1)
+      (if FORWARD (forward-comment 1)))
+     ;; Inside a literate comment
+     ((fstar-in-literate-comment-p)
+      (if FORWARD (if (search-forward "\n" $max t) (point) (goto-char $max))
+        (if (search-backward "\n" $min t) (point) (goto-char $min))))
+     (t (point)))))
 
 (defun fstar-skip-chars (FORWARD CHARS &optional LIMIT)
   "Move until the current character is not in CHARS.
@@ -6010,7 +6024,7 @@ FORWARD controls the direction, LIMIT delimits the region."
         (fstar-skip-chars FORWARD fstar--spaces)
         (setq $reached-limit (= (point) $limit))
         (if $reached-limit (setq $continue nil)
-          (if (fstar-is-at-comment-limit FORWARD)
+          (if (fstar-is-at-comment-limit-p FORWARD)
             (if FORWARD (forward-char 2) (backward-char 1))
             (setq $continue nil)))))
     (point)))
