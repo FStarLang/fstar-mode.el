@@ -7945,19 +7945,28 @@ If WITH_GPRE/WITH_GPOST is t, try to insert the goal precondition/postcondition.
 (defun fstar-check-meta-helpers-loaded--continue (CONTINUATION STATUS RESPONSE)
   "Continuation for fstar-check-meta-helpers-loaded"
   ;; If the query succeeded, it means the meta-helpers are loaded: we can continue
-  (message "continue")
   (unless (eq STATUS 'interrupted)
     (if (eq STATUS 'success)
         ;; Success
-        (funcall CONTINUATION)
+        (progn
+          ;; The sent query "counts for nothing" so we need to pop it to reset
+          ;; F* to its previous state
+          (fstar-subp--pop)
+          ;; Wait a bit for the F* process to become idle
+          (let ((start (current-time)))
+            (while (and (fstar-subp--busy-p)
+                        (< (float-time (time-since start)) 0.1))
+              (accept-process-output fstar-subp--process 0.005 nil 0)))
+          ;; Call the continuation
+          (funcall CONTINUATION))
       ;; Failure
-      (error "The meta-helpers are not loaded. Please add:
+      (error "The meta-helpers are not loaded in the current F* session. Please add:
 [> module InteractiveHelpers = FStar.InteractiveHelpers
-in your file and reload the dependencies."))))
+in your file and reload the dependencies to make sure FStar.InteractiveHelpers are loaded."))))
 
 (defun fstar-check-meta-helpers-loaded (CONTINUATION)
   "Check that the meta-helpers have been loaded before calling CONTINUATION"
-  (message "fstar-check-meta-helpers-loaded")
+  (when (fstar-subp--busy-p) (user-error "The F* process must be live and idle"))
   (fstar-subp--query
    (fstar-subp--push-query (point) `full
                            "let _ = FStar.InteractiveHelpers.focus_on_term")
@@ -8224,7 +8233,7 @@ its `find-image' forms."
 
 (defun fstar-run-module-functions (kind)
   "Enable or disable F* mode components.
-KIND is `setup', `teardown', or `unload'."
+KIND is `setup', `teardown', or `unload' ."
   (dolist (module (cons 'hooks fstar-enabled-modules))
     (let* ((fsymb (intern (format "fstar-%S-%S" kind module))))
       (when (fboundp fsymb)
