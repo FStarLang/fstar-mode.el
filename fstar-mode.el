@@ -5974,21 +5974,24 @@ Stop and don't fail if we reach the end of the buffer."
      ;; Inside a comment
      ((fstar-in-comment-p)
       (if FORWARD
-          ;; Forward: use the parsing state to jump to the beginning of the comment,
-          ;; then go forward one comment
-          (progn (goto-char (nth 8 (fstar--syntax-ppss (point))))
-                 (forward-comment 1))
+          ;; Forward: go forward until we are out of the comment
+          (while (and (fstar-in-comment-p) (< (point) $max)) (forward-char))
         ;; Backward: use the parsing state to jump to the beginning of the comment
-        (goto-char (nth 8 (fstar--syntax-ppss (point))))))
+        (goto-char (max (nth 8 (fstar--syntax-ppss (point))) $min))))
      ;; We need to check if we are exactly between a '(' and a '*'
      ((fstar-is-inside-comment-beg-p)
-      (backward-char 1)
-      (if FORWARD (forward-comment 1)))
+      (if FORWARD
+          (progn (forward-char 1)
+                 (while (and (fstar-in-comment-p) (< (point) $max)) (forward-char)))
+        (goto-char (max (nth 8 (fstar--syntax-ppss (1+ (point)))) $min))))
      ;; Inside a literate comment
      ((fstar-in-literate-comment-p)
       (if FORWARD (if (search-forward "\n" $max t) (point) (goto-char $max))
         (if (search-backward "\n" $min t) (point) (goto-char $min))))
-     (t (point)))))
+     (t (point)))
+    ;; Check that we are still inside the boundaries
+    (if (< (point) $min) (goto-char $min))
+    (if (> (point) $max) (goto-char $max))))
 
 (defun fstar-skip-chars (FORWARD CHARS &optional LIMIT)
   "Move until the current character is not in CHARS.
@@ -6013,14 +6016,14 @@ FORWARD controls the direction, LIMIT delimits where to stop."
   "Move the cursor until we are out of a comment and there are no spaces.
 FORWARD controls the direction, LIMIT delimits the region."
   (let ($continue $p1 $p2 $limit $reached-limit)
-    (if FORWARD (setq $p1 (point) $p2 (or LIMIT (point-max)))
-                (setq $p2 (point) $p1 (or LIMIT (point-min))))
+    (if FORWARD (setq $p1 (point-min) $p2 (or LIMIT (point-max)))
+                (setq $p2 (point-max) $p1 (or LIMIT (point-min))))
     (if FORWARD (setq $limit $p2) (setq $limit $p1))
     (save-restriction
       (narrow-to-region $p1 $p2)
       (setq $continue t)
       (while $continue
-        (fstar-skip-comment FORWARD LIMIT)
+        (fstar-skip-comment FORWARD $limit)
         (fstar-skip-chars FORWARD fstar--spaces)
         (setq $reached-limit (= (point) $limit))
         (if $reached-limit (setq $continue nil)
