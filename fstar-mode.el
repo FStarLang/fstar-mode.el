@@ -5613,16 +5613,16 @@ Return the number of deleted characters."
   "Remove all the characters on the line if not empty, delete the line otherwise."
   (interactive)
   (if (equal (line-beginning-position) (line-end-position))
-      (progn (move-backward) (delete-char 1) 1) (fstar-empty-line)))
+      (progn (backward-char 1) (delete-char 1) 1) (fstar-empty-line)))
 
 (defun fstar-delete-always-line ()
   "Delete the current line."
   (interactive)
   (let ($c)
     (if (equal (line-beginning-position) (line-end-position))
-	(progn (move-backward) (delete-char 1) 1)
+	(progn (backward-char 1) (delete-char 1) 1)
 	(progn (setq $c (fstar-empty-line))
-	       (move-backward) (delete-char 1) (+ $c 1)))))
+	       (backward-char) (delete-char 1) (+ $c 1)))))
 
 (defun fstar-find-region-delimiters (ALLOW_SELECTION INCLUDE_CURRENT_LINE
                                    ABOVE_PARAGRAPH BELOW_PARAGRAPH &optional POS)
