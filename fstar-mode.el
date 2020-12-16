@@ -5362,17 +5362,22 @@ This is useful to spot discrepancies between the CLI and IDE frontends."
 
 (define-error 'fstar-meta-parsing "Error while parsing F*")
 
-(defun fstar-log-msg (FORMAT-STRING &rest FORMAT-PARAMS)
-  "Log a message in the log buffer.
-Format FORMAT-PARAMS according to FORMAT-STRING."
-;;  (fstar-log 'info FORMAT-STRING FORMAT-PARAMS))
-  (apply #'message FORMAT-STRING FORMAT-PARAMS))
+(defvar fstar-debug-meta nil
+  "If non-nil, print debuging information for the meta helpers in interactive mode.
+We don't merge `fstar-debug' and `fstar-debug-meta' because the meta helpers generate
+a lot of debugging output, which is necessary when we need to debug them, but
+otherwise clutters the other debugging output.")
+
+(defun fstar-toggle-debug-meta ()
+  "Toggle `fstar-debug-meta'."
+  (interactive)
+  (message "F*: Debugging meta helpers %s."
+           (if (setq-default fstar-debug-meta (not fstar-debug-meta)) "enabled" "disabled")))
 
 (defun fstar-log-dbg (FORMAT-STRING &rest FORMAT-PARAMS)
-  "Log a message in the log buffer if fstar-debug is t.
+  "Log a message in the log buffer if fstar-debug-meta is t.
 Format FORMAT-PARAMS according to FORMAT-STRING."
-;;  (fstar-log 'info FORMAT-STRING FORMAT-PARAMS))
-  (when fstar-debug (apply #'message FORMAT-STRING FORMAT-PARAMS)))
+  (when fstar-debug-meta (apply #'message FORMAT-STRING FORMAT-PARAMS)))
 
 ;;; Utilities
 
