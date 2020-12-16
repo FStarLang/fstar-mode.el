@@ -5956,12 +5956,15 @@ If FULL_SEXP, look for the first occurrence which is a sexpression."
         (if (< (- (point) 1) (or LIMIT (point-min))) nil
           (fstar-in-comment-p (- (point) 1))))))
 
+;; Using the parsing state below doesn't work (used to check if the current
+;; position is not in the comment while the next is)
 (defun fstar-is-inside-comment-beg-p (&optional POS)
   "Check if the pointer is between a '(' and a '*'."
-  (or POS (setq POS (point)))
-  (if (< (point) (point-max))
-    (and (not (fstar-in-comment-p (point))) (fstar-in-comment-p (1+ (point))))
-    nil))
+  (let (($p (or POS (point))))
+    (if (and (< $p (point-max)) (> $p (point-min)))
+        (and (char-equal (char-before) ?\()
+             (char-equal (char-after) ?\*))
+      nil)))
 
 (defun fstar-skip-comment (FORWARD &optional LIMIT)
   "Move the cursor forward or backward until out of a comment.
@@ -5983,12 +5986,13 @@ Stop and don't fail if we reach the end of the buffer."
       (if FORWARD
           (progn (forward-char 1)
                  (while (and (fstar-in-comment-p) (< (point) $max)) (forward-char)))
-        (goto-char (max (nth 8 (fstar--syntax-ppss (1+ (point)))) $min))))
+        (backward-char)))
      ;; Inside a literate comment
      ((fstar-in-literate-comment-p)
       (if FORWARD (if (search-forward "\n" $max t) (point) (goto-char $max))
         (if (search-backward "\n" $min t) (point) (goto-char $min))))
-     (t (point)))
+     (t
+      (point)))
     ;; Check that we are still inside the boundaries
     (if (< (point) $min) (goto-char $min))
     (if (> (point) $max) (goto-char $max))))
@@ -6016,6 +6020,8 @@ FORWARD controls the direction, LIMIT delimits where to stop."
   "Move the cursor until we are out of a comment and there are no spaces.
 FORWARD controls the direction, LIMIT delimits the region."
   (let ($continue $p1 $p2 $limit $reached-limit)
+    ;; Note that it doesn't work if we set the low limit to (point)
+    ;; when going forward
     (if FORWARD (setq $p1 (point-min) $p2 (or LIMIT (point-max)))
                 (setq $p2 (point-max) $p1 (or LIMIT (point-min))))
     (if FORWARD (setq $limit $p2) (setq $limit $p1))
