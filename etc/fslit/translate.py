@@ -4,12 +4,11 @@
 import re
 import os
 import sys
-import codecs
 import argparse
 from collections import namedtuple
 
 try:
-    from typing import Iterable, Tuple, Match, Any, TypeVar
+    from typing import Iterable, List, Match, Optional, Tuple, TypeVar
     T = TypeVar("T")
 except ImportError:
     pass
@@ -17,44 +16,40 @@ except ImportError:
 # Utilities
 # ---------
 
-def wrap_stream(stream, wrapper):
-    return wrapper("utf-8")(stream) if sys.version_info.major == 2 else stream
-
 FST_DIRECTIVE_RE = re.compile("^ *.. fst::")
 INDENTATION_RE = re.compile("^ *")
 
-def measure_indent(line): # type: (str,) -> int
-    return INDENTATION_RE.match(line).end()
+def measure_indent(line: str) -> int:
+    return INDENTATION_RE.match(line).end() # type: ignore
 
 Line = namedtuple('Line', 'raw marker_pos clean')
 
 def empty(line):
     return line.clean == ""
 
-def mkLine(raw, marker): # type: (str, str) -> Line
+def mkLine(raw: str, marker: str) -> Line:
     if marker:
         return Line(raw, raw.find(marker), raw.replace(marker, "", 1))
-    else:
-        return Line(raw, -1, raw)
+    return Line(raw, -1, raw)
 
-def strip_prefix(line, marker, prefix_len): # type: (Line, str, int) -> str
+def strip_prefix(line: Line, marker: str, prefix_len: int) -> str:
     if line.marker_pos >= 0 and line.marker_pos < prefix_len:
         return marker + line.raw[prefix_len + len(marker):]
-    else:
-        return line.raw[prefix_len:]
+    return line.raw[prefix_len:]
 
 # reStructuredText → F*
 # ---------------------
 
-def rst2fst(rawlines, marker): # type: (Iterable[str], str) -> Iterable[str]
+def rst2fst(rawlines: Iterable[str], marker: str) -> Iterable[str]:
     idx, lines = 0, [mkLine(raw.rstrip(), marker) for raw in rawlines]
 
     # Each iteration processes a sequence of text + optional header + code
     first_round = True
     while idx < len(lines):
-        output = [] # type: List[Tuple[Line, str]]
-        fst_directive = None # type: Match[str]
-        prev_indentation, indentation = None, None # type: Tuple[int, int]
+        output: List[Tuple[Line, str]] = []
+        fst_directive: Optional[Match[str]] = None
+        prev_indentation: Optional[int] = None
+        indentation: Optional[int] = None
 
         # Skip until start of code block
         while idx < len(lines):
@@ -75,6 +70,7 @@ def rst2fst(rawlines, marker): # type: (Iterable[str], str) -> Iterable[str]
 
         # Skip until actual code
         dropped_lines = []
+        assert fst_directive
         has_direct_opts = fst_directive.end() < len(lines[idx].clean)
         has_further_opts = idx + 1 < len(lines) and not empty(lines[idx + 1])
         is_top_of_file = first_round and prev_indentation is None
@@ -111,6 +107,7 @@ def rst2fst(rawlines, marker): # type: (Iterable[str], str) -> Iterable[str]
             dropped_markers = ""
 
         # Dump actual code, dedented
+        assert indentation
         code_block_offset = indentation + 3
         while idx < len(lines):
             line = lines[idx]
@@ -131,14 +128,14 @@ def rst2fst(rawlines, marker): # type: (Iterable[str], str) -> Iterable[str]
 RST_LINE_MARKER_RE = re.compile("^///( |$)")
 F2R_LITERATE_COMMENT, F2R_FST_DIRECTIVE, F2R_CODE = range(3)
 
-def fst2rst_classify(line, is_rst): # type: (Line, bool) -> int
+def fst2rst_classify(line: Line, is_rst: bool) -> int:
     if is_rst:
         if FST_DIRECTIVE_RE.match(line.clean):
             return F2R_FST_DIRECTIVE
         return F2R_LITERATE_COMMENT
     return F2R_CODE
 
-def fst2rst_annotate(raw, marker): # type: (str, str) -> Tuple[int, Line]
+def fst2rst_annotate(raw: str, marker: str) -> Tuple[int, Line]:
     line = mkLine(raw.rstrip(), marker)
     rst_prefix = RST_LINE_MARKER_RE.match(line.clean)
     if rst_prefix:
@@ -148,7 +145,7 @@ def fst2rst_annotate(raw, marker): # type: (str, str) -> Tuple[int, Line]
     kind = fst2rst_classify(line, bool(rst_prefix))
     return kind, line
 
-def fst2rst_linums(rawlines, marker): # type: Iterable[str] -> Iterable[Tuple[int, str]]
+def fst2rst_linums(rawlines: Iterable[str], marker: str) -> Iterable[Tuple[int, str]]:
     if not rawlines:
         return
 
@@ -158,7 +155,7 @@ def fst2rst_linums(rawlines, marker): # type: Iterable[str] -> Iterable[Tuple[in
     # Each iteration processes a sequence of text + optional header + code
     while idx < len(lines):
         rst_indentation = 0
-        existing_header_indentation = None # type: int
+        existing_header_indentation: Optional[int] = None
 
         # Uncomment literate comments
         while idx < len(lines):
@@ -208,8 +205,8 @@ def fst2rst_linums(rawlines, marker): # type: Iterable[str] -> Iterable[Tuple[in
         if not empty(lines[idx - 1]):
             yield idx - 1, "" # Empty line after the code block
 
-def fst2rst(rawlines, markers): # type: Iterable[str] -> Iterable[str]
-    for _, line in fst2rst_linums(rawlines, markers):
+def fst2rst(rawlines: Iterable[str], marker: str) -> Iterable[str]:
+    for _, line in fst2rst_linums(rawlines, marker):
         yield line
 
 # Command-line interface
@@ -242,16 +239,15 @@ def parse_args():
     return args
 
 def writeout(lines):
-    stdout = wrap_stream(sys.stdout, codecs.getwriter)
     for line in lines:
-        stdout.write(line)
-        stdout.write("\n")
+        sys.stdout.write(line)
+        sys.stdout.write("\n")
 
 def run(translator, fname, marker):
     if fname == "-":
-        writeout(translator(wrap_stream(sys.stdin, codecs.getreader), marker))
+        writeout(translator(sys.stdin, marker))
     else:
-        with codecs.open(fname, encoding="utf-8") as fstream:
+        with open(fname, encoding="utf-8") as fstream:
             writeout(translator(fstream, marker))
 
 def main():
