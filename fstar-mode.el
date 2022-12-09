@@ -941,7 +941,7 @@ allows composition in code comments."
   (regexp-opt fstar-syntax-constants 'symbols))
 
 (defconst fstar-syntax-risky
-  '("assume" "admit" "admitP" "magic" "unsafe_coerce" "sladmit"))
+  '("assume" "admit" "admitP" "magic" "unsafe_coerce" "sladmit" "tadmit"))
 
 (defconst fstar-syntax-risky-re
   (regexp-opt fstar-syntax-risky 'symbols))
