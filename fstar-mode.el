@@ -867,7 +867,7 @@ allows composition in code comments."
   '("open" "module" "include" "friend"
     "let" "let rec" "val" "and" "assume"
     "exception" "effect" "new_effect" "sub_effect" "new_effect_for_free" "layered_effect"
-    "kind" "type" "class" "instance"))
+    "kind" "type" "class" "instance" "%splice"))
 
 (defconst fstar-syntax-fsdoc-keywords
   '("@author" "@summary"))
@@ -890,7 +890,7 @@ allows composition in code comments."
   "Regexp matching block headers.")
 
 (defconst fstar-syntax-block-start-re
-  (format "^\\(?:%s[ \n]\\)*\\(\\[@\\|%s \\)"
+  (format "^\\(?:%s[ \n]\\)*\\(\\[@\\|%s\\_>\\)"
           (regexp-opt fstar-syntax-qualifiers)
           (regexp-opt (append (remove "and" fstar-syntax-headers)
                               fstar-syntax-preprocessor)))
@@ -1167,6 +1167,8 @@ leads to the binder's start."
       (,(concat "\\_<\\(val\\) +\\(" id "\\) *:")
        (1 'fstar-structure-face)
        (2 'font-lock-function-name-face))
+      (, "%splice"
+       (0 'fstar-structure-face))
       (,(fstar--fl-conditional-matcher fstar-syntax-block-header-re #'fstar--in-code-p)
        (0 'fstar-structure-face prepend))
       (fstar-find-id-with-type
