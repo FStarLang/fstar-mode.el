@@ -1123,7 +1123,7 @@ leads to the binder's start."
 (defun fstar-find-subtype-annotation (bound)
   "Find {...} group between point and BOUND."
   (let ((found) (end))
-    (while (and (not found) (re-search-forward "{[^:].*}" bound t))
+    (while (and (not found) (re-search-forward "{[^:|].*}" bound t))
       (setq end (save-excursion
                   (goto-char (match-beginning 0))
                   (ignore-errors (forward-sexp))
