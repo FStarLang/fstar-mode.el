@@ -1682,7 +1682,7 @@ With FORCE, make a fresh clone."
   "Read an F* wiki topic interactively."
   (let* ((titles (fstar--wiki-titles))
          (topic (completing-read "Topic (TAB to show all): " titles nil t)))
-    (or (assq topic titles)
+    (or (assoc topic titles)
         (user-error "Unknown topic “%s”" topic))))
 
 (defun fstar-browse-wiki (fname)
