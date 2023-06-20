@@ -154,6 +154,22 @@ Add the following line to your `.emacs`:
 
 Use `C-h v fstar-subp-prover-args` for more details.  If your project requires a set of flags to be passed to `fstar`, it's OK to use a `.dir-locals.el` to set `fstar-subp-prover-args`.  In that case, users can add further arguments using `fstar-subp-prover-additional-args`.
 
+Many F* projects pass options to fstar-mode.el using a Makefile. When editing a file names `A.fst`, fstar-mode.el runs `make A.fst-in` in the current directory and uses whatever options that make target echoes back. You can configure your `.emacs` with the following snippet:
+
+```elisp
+(defun my-fstar-compute-prover-args-using-make ()
+  "Construct arguments to pass to F* by calling make."
+  (with-demoted-errors "Error when constructing arg string: %S"
+    (let* ((fname (file-name-nondirectory buffer-file-name))
+           (target (concat fname "-in"))
+           (argstr (condition-case nil
+                       (car (process-lines "make" "--quiet" target))
+                     (error "--cache_checked_modules"))))
+      (split-string argstr))))
+
+(setq fstar-subp-prover-args #'my-fstar-compute-prover-args-using-make)
+```
+
 ### Editing remote F* files
 
 F*-mode is compatible with Emacs' Tramp.  To use F*-mode over tramp:
