@@ -5241,6 +5241,7 @@ Last argument must be a file name, not %S" err-header fname))
       (user-error "%s
 First argument must be an F* executable, not %S" err-header executable))
     (with-current-buffer (find-file-existing fname)
+      (setq-local fstar-executable executable)
       (setq-local fstar-subp-prover-args args)
       (setq-local fstar-subp--default-directory command-line-default-directory)
       (message "\
