@@ -867,7 +867,7 @@ allows composition in code comments."
   '("open" "module" "include" "friend"
     "let" "let rec" "val" "and" "assume"
     "exception" "effect" "new_effect" "sub_effect" "new_effect_for_free" "layered_effect"
-    "kind" "type" "class" "instance"))
+    "kind" "type" "class" "instance" "%splice"))
 
 (defconst fstar-syntax-fsdoc-keywords
   '("@author" "@summary"))
@@ -890,7 +890,7 @@ allows composition in code comments."
   "Regexp matching block headers.")
 
 (defconst fstar-syntax-block-start-re
-  (format "^\\(?:%s[ \n]\\)*\\(\\[@\\|%s \\)"
+  (format "^\\(?:%s[ \n]\\)*\\(\\[@\\|%s\\_>\\)"
           (regexp-opt fstar-syntax-qualifiers)
           (regexp-opt (append (remove "and" fstar-syntax-headers)
                               fstar-syntax-preprocessor)))
@@ -1123,7 +1123,7 @@ leads to the binder's start."
 (defun fstar-find-subtype-annotation (bound)
   "Find {...} group between point and BOUND."
   (let ((found) (end))
-    (while (and (not found) (re-search-forward "{[^:].*}" bound t))
+    (while (and (not found) (re-search-forward "{[^:|].*}" bound t))
       (setq end (save-excursion
                   (goto-char (match-beginning 0))
                   (ignore-errors (forward-sexp))
@@ -1167,6 +1167,8 @@ leads to the binder's start."
       (,(concat "\\_<\\(val\\) +\\(" id "\\) *:")
        (1 'fstar-structure-face)
        (2 'font-lock-function-name-face))
+      (, "%splice"
+       (0 'fstar-structure-face))
       (,(fstar--fl-conditional-matcher fstar-syntax-block-header-re #'fstar--in-code-p)
        (0 'fstar-structure-face prepend))
       (fstar-find-id-with-type
@@ -3495,6 +3497,14 @@ into blocks; process it as one large block instead."
   (let ((fstar-subp--lax t))
     (fstar-subp-advance-or-retract-to-point arg)))
 
+(defun fstar-subp-advance-to-point-max (&optional arg)
+  "Like `fstar-subp-advance-or-retract-to-point' on `point-max'.
+Pass ARG to `fstar-subp-advance-or-retract-to-point'."
+  (interactive "P")
+  (fstar--widened-excursion
+    (goto-char (point-max))
+    (fstar-subp-advance-or-retract-to-point arg)))
+
 (defun fstar-subp-advance-to-point-max-lax (&optional arg)
   "Like `fstar-subp-advance-or-retract-to-point' on `point-max', in lax mode.
 Pass ARG to `fstar-subp-advance-or-retract-to-point'."
@@ -5231,6 +5241,7 @@ Last argument must be a file name, not %S" err-header fname))
       (user-error "%s
 First argument must be an F* executable, not %S" err-header executable))
     (with-current-buffer (find-file-existing fname)
+      (setq-local fstar-executable executable)
       (setq-local fstar-subp-prover-args args)
       (setq-local fstar-subp--default-directory command-line-default-directory)
       (message "\
@@ -5323,6 +5334,7 @@ This is useful to spot discrepancies between the CLI and IDE frontends."
     ("C-c C-l"        "C-S-l" fstar-subp-advance-or-retract-to-point-lax)
     ("C-c C-."        "C-S-." fstar-subp-goto-beginning-of-unprocessed-region)
     ("C-c C-b"        "C-S-b" fstar-subp-advance-to-point-max-lax)
+    ("C-c C-g"        "C-S-g" fstar-subp-advance-to-point-max)
     ("C-c C-r"        "C-S-r" fstar-subp-reload-to-point)
     ("C-c C-x"        "C-M-c" fstar-subp-kill-one-or-many)
     ("C-c C-c"        "C-M-S-c" fstar-subp-interrupt))
@@ -5412,6 +5424,8 @@ This is useful to spot discrepancies between the CLI and IDE frontends."
       fstar-subp-advance-or-retract-to-point]
      ["Typecheck everything up to point (lax)"
       fstar-subp-advance-or-retract-to-point-lax]
+     ["Typecheck whole buffer"
+      fstar-subp-advance-to-point-max]
      ["Typecheck whole buffer (lax)"
       fstar-subp-advance-to-point-max-lax]
      ["Reload dependencies and re-typecheck up to point"
@@ -5488,6 +5502,7 @@ its `find-image' forms."
       (define-key-after map [basic-actions-sep] '(menu-item "--"))
       (add-item 'fstar-subp-advance-next "next")
       (add-item 'fstar-subp-advance-next-lax "next-lax")
+      (add-item 'fstar-subp-advance-to-point-max "goto-end")
       (add-item 'fstar-subp-advance-to-point-max-lax "goto-end-lax")
       (add-item 'fstar-subp-reload-to-point "reload")
       (define-key-after map [views-sep] '(menu-item "--"))
