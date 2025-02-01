@@ -132,15 +132,6 @@ May be either “fstar.exe” (search in $PATH) or an absolute path."
   :type 'file
   :risky t)
 
-(defcustom fstar-smt-executable "z3"
-  "Where to find the SML solver.
-May be one of “z3” (search in $PATH), an absolute path, or a
-function taking a string (the full path to the F* executable) and
-returning a string (the full path to the SMT solver)."
-  :group 'fstar
-  :type 'file
-  :risky t)
-
 (defvaralias 'flycheck-fstar-literate-executable 'fstar-python-executable)
 
 (defcustom fstar-python-executable "python"
@@ -5119,11 +5110,10 @@ F* being called as ‘fstar.exe … --ab --cd …’.
 - (setq fstar-subp-prover-args (lambda () \\='(\"--ab\" \"--cd\")))
 results in F* being called as ‘fstar.exe … --ab --cd …’.
 
-In addition to these flags, `fstar-mode' always includes (as
-indicated above by the first `…') both \\='--smt <path-to-z3>\\='
-and one of \\='--ide\\=' and \\='--in\\=', and any flags computed
-from `fstar-subp-prover-additional-args' (as indicated above by
-the second `…').
+In addition to these flags, `fstar-mode' always includes (as indicated
+above by the first `…') one of \\='--ide\\=' and \\='--in\\=', and any
+flags computed from `fstar-subp-prover-additional-args' (as indicated
+above by the second `…').
 
 To debug unexpected behaviors with this variable, try
 evaluating (fstar-subp-get-prover-args).  Note that passing
@@ -5149,10 +5139,6 @@ specific value of `fstar-subp-prover-args' (typically a function)."
   "Find path to F* executable."
   (fstar-find-executable fstar-executable "F*" 'fstar-executable))
 
-(defun fstar-subp-find-smt-solver ()
-  "Find path to SMT solver executable."
-  (fstar-find-executable fstar-smt-executable "SMT solver" 'fstar-smt-executable))
-
 (defun fstar-subp--parse-prover-args-1 (args var-name)
   "Parse value of ARGS into a list of strings.
 Complain about VAR-NAME if the final value isn't a string or a
@@ -5175,13 +5161,12 @@ Function is public to make it easier to debug
 `fstar-subp-prover-args' and
 `fstar-subp-prover-additional-args'.
 Non-nil NO-IDE means don't include `--ide' and `--in'."
-  (let ((smt-path (fstar--maybe-cygpath (fstar-subp-find-smt-solver)))
-        (ide-flag (if no-ide nil
+  (let ((ide-flag (if no-ide nil
                     (if (fstar--has-feature 'json-subp) '("--ide") '("--in"))))
         (usr-args (append
                    (fstar-subp--parse-prover-args fstar-subp-prover-args)
                    (fstar-subp--parse-prover-args fstar-subp-prover-additional-args))))
-    `(,(fstar-subp--buffer-file-name) ,@ide-flag "--smt" ,smt-path ,@usr-args)))
+    `(,(fstar-subp--buffer-file-name) ,@ide-flag  ,@usr-args)))
 
 (defun fstar-subp--prover-includes-for-compiler-hacking ()
   "Compute a list of folders to include for hacking on the F* compiler."
