@@ -738,10 +738,11 @@ enable all experimental features."
         (message "F*: Can't parse version number from %S; assuming %s (\
 don't worry about this if you're running an F#-based F* build)."
                  version-string fstar-assumed-vernum))
-      (setq fstar--vernum fstar-assumed-vernum)))
+      (setq fstar--vernum "unknown")))
+  (let ((vernum (if (equal fstar--vernum "unknown") fstar-assumed-vernum fstar--vernum)))
     (pcase-dolist (`(,feature . ,min-version) fstar--features-min-version-alist)
-      (when (version<= min-version fstar--vernum)
-        (push feature fstar--features))))
+      (when (version<= min-version vernum)
+        (push feature fstar--features)))))
 
 (defun fstar--has-feature (feature &optional error-fn)
   "Check if FEATURE is available in the current F*.
