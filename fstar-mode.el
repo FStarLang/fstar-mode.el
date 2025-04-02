@@ -732,7 +732,7 @@ enable all experimental features."
 (defun fstar--init-compatibility-layer (executable)
   "Adjust compatibility settings based on EXECUTABLE's version number."
   (let* ((version-string (fstar--query-vernum executable)))
-    (if (string-match "^F\\* \\([- .[:alnum:]]+\\)" version-string)
+    (if (string-match "^F\\* \\([0-9][- .[:alnum:]]*\\)" version-string)
         (setq fstar--vernum (match-string 1 version-string))
       (let ((print-escape-newlines t))
         (message "F*: Can't parse version number from %S; assuming %s (\
